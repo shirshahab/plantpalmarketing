@@ -64,7 +64,7 @@ Minimum repair set for current HQ features:
 - `043_phase25_content_calendar.sql` — Content Calendar (`/calendar`)
 - `044_phase26_automation.sql` — Automation rules, runs, publishing packages, batch approvals (`/automation`)
 - `045_phase26_discovery_items.sql` — fixes "Could not find the table public.discovery_items" (run after 042)
-- `046_phase27_executive_daily_report.sql` — adds structured executive sections (content/growth reports, action plan, founder review) to `daily_reports`
+- `046_phase27_executive_daily_report.sql` — creates `daily_reports`/`workflow_runs`/`growth_action_items` if missing (replaces needing 036 first) and adds structured executive sections (content/growth reports, action plan, founder review)
 
 ## After running
 
