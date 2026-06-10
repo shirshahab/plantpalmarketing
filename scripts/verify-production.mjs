@@ -8,16 +8,13 @@
 const baseUrl = process.argv[2]?.replace(/\/$/, "");
 
 const required = [
-  ["NEXT_PUBLIC_SUPABASE_URL", "Supabase project URL"],
+  ["NEXT_PUBLIC_SUPABASE_URL", "Supabase project URL (auth + data)"],
   ["NEXT_PUBLIC_SUPABASE_ANON_KEY", "Supabase anon key"],
-  ["APP_PASSWORD", "Founder login password"],
   ["CRON_SECRET", "Vercel Cron auth"],
   ["OPENAI_API_KEY", "AI agents & daily report"],
 ];
 
 const optional = [
-  "AUTH_SECRET",
-  "REQUIRE_APP_PASSWORD",
   "OPENWEATHER_API_KEY",
   "SERPAPI_KEY",
   "X_BEARER_TOKEN",

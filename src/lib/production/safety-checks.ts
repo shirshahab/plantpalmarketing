@@ -15,8 +15,6 @@ const SERVER_ONLY_KEYS = [
   "X_ACCESS_TOKEN",
   "X_ACCESS_TOKEN_SECRET",
   "CRON_SECRET",
-  "APP_PASSWORD",
-  "AUTH_SECRET",
 ] as const;
 
 /** Keys that must never be exposed via NEXT_PUBLIC_ prefix */
@@ -64,15 +62,15 @@ export function runProductionSafetyChecks(): ProductionSafetyReport {
     }
   }
 
-  const authEnabled = Boolean(process.env.APP_PASSWORD?.trim());
-  const cronConfigured = Boolean(process.env.CRON_SECRET?.trim());
   const supabaseConfigured = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
   );
+  const authEnabled = supabaseConfigured;
+  const cronConfigured = Boolean(process.env.CRON_SECRET?.trim());
   const openaiConfigured = Boolean(process.env.OPENAI_API_KEY?.trim());
 
-  if (process.env.NODE_ENV === "production" && !authEnabled) {
-    warnings.push("APP_PASSWORD not set — HQ is publicly accessible");
+  if (process.env.NODE_ENV === "production" && !supabaseConfigured) {
+    warnings.push("Supabase not configured — Supabase Auth cannot protect HQ");
   }
   if (process.env.NODE_ENV === "production" && !cronConfigured) {
     warnings.push("CRON_SECRET not set — background agents will not run on cron");

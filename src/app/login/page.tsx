@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import { Leaf, Lock, Loader2 } from "lucide-react";
+import { Leaf, Mail, Lock, Loader2 } from "lucide-react";
 import { login } from "@/lib/actions/auth";
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const from = searchParams.get("from") ?? "/";
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -16,23 +17,55 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const res = await login(password, from);
+      const res = await login(email, password, from);
       if (!res.ok) setError(res.error);
     });
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#e8f5ec] via-white to-[#dceee3] px-4">
-      <div className="w-full max-w-md rounded-3xl border border-brand-border/60 bg-white p-8 shadow-lg">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-[#dceee3] via-[#f0f7f2] to-[#e8f5ec] px-4">
+      <div
+        className="pointer-events-none absolute -left-24 top-16 h-64 w-64 rounded-full bg-brand-accent/20 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -right-16 bottom-12 h-72 w-72 rounded-full bg-brand-primary/15 blur-3xl"
+        aria-hidden
+      />
+
+      <div className="relative w-full max-w-md rounded-3xl border border-white/70 bg-white/95 p-8 shadow-xl backdrop-blur-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-primary text-white shadow-md">
-            <Leaf className="h-7 w-7" />
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-primary text-white shadow-lg shadow-brand-primary/25">
+            <Leaf className="h-8 w-8" />
           </div>
-          <h1 className="font-heading text-2xl font-bold text-brand-primary">PlantPal Marketing OS</h1>
-          <p className="mt-2 text-sm text-brand-muted">Private HQ — founder access only</p>
+          <h1 className="font-heading text-2xl font-bold tracking-tight text-brand-primary">
+            PlantPal HQ
+          </h1>
+          <p className="mt-2 text-sm text-brand-muted">
+            Sign in to your marketing command center
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-brand-primary">
+              Email
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@getplantpal.com"
+                autoComplete="email"
+                required
+                className="w-full rounded-xl border border-brand-border bg-brand-bg/80 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-brand-sage focus:ring-2 focus:ring-brand-sage/20"
+              />
+            </div>
+          </div>
+
           <div>
             <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-brand-primary">
               Password
@@ -44,30 +77,31 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter app password"
+                placeholder="Your password"
                 autoComplete="current-password"
                 required
-                className="w-full rounded-xl border border-brand-border bg-brand-bg py-3 pl-10 pr-4 text-sm outline-none transition focus:border-brand-sage focus:ring-2 focus:ring-brand-sage/20"
+                className="w-full rounded-xl border border-brand-border bg-brand-bg/80 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-brand-sage focus:ring-2 focus:ring-brand-sage/20"
               />
             </div>
           </div>
 
           {error && (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p>
+            <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p>
           )}
 
           <button
             type="submit"
-            disabled={pending || !password}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-primary py-3 text-sm font-semibold text-white transition hover:bg-brand-primary/90 disabled:opacity-60"
+            disabled={pending || !email || !password}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-primary py-3 text-sm font-semibold text-white shadow-md shadow-brand-primary/20 transition hover:bg-brand-primary/90 disabled:opacity-60"
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Sign in to HQ
+            Sign in to PlantPal HQ
           </button>
         </form>
 
-        <p className="mt-6 text-center text-[11px] text-brand-muted">
-          Agents run on Vercel Cron — no auto-posting · human approval required for all outbound actions
+        <p className="mt-6 text-center text-[11px] leading-relaxed text-brand-muted">
+          Approved team members only · No auto-posting · Human approval required for all outbound
+          actions
         </p>
       </div>
     </div>

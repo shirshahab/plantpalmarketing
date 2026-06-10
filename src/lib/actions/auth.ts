@@ -1,44 +1,51 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import {
-  createSessionCookieValue,
-  getSessionCookieName,
-  isAuthEnabled,
-  SESSION_MAX_AGE,
-} from "@/lib/auth/session";
+import { createAuthServerClient } from "@/lib/supabase/auth-server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export type AuthResult = { ok: true } | { ok: false; error: string };
 
-export async function login(password: string, redirectTo?: string): Promise<AuthResult> {
-  const appPassword = process.env.APP_PASSWORD?.trim();
-  if (!appPassword) {
-    return { ok: false, error: "APP_PASSWORD not configured on server" };
+export async function login(
+  email: string,
+  password: string,
+  redirectTo?: string
+): Promise<AuthResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Supabase is not configured on the server" };
   }
 
-  if (password !== appPassword) {
-    return { ok: false, error: "Incorrect password" };
+  const trimmedEmail = email.trim().toLowerCase();
+  if (!trimmedEmail || !password) {
+    return { ok: false, error: "Email and password are required" };
   }
 
-  const cookieStore = await cookies();
-  cookieStore.set(getSessionCookieName(), createSessionCookieValue(), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_MAX_AGE,
+  const supabase = await createAuthServerClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email: trimmedEmail,
+    password,
   });
 
-  redirect(redirectTo && redirectTo.startsWith("/") ? redirectTo : "/");
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  const target =
+    redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("/login")
+      ? redirectTo
+      : "/";
+
+  redirect(target);
 }
 
 export async function logout() {
-  const cookieStore = await cookies();
-  cookieStore.delete(getSessionCookieName());
+  if (isSupabaseConfigured()) {
+    const supabase = await createAuthServerClient();
+    await supabase.auth.signOut();
+  }
   redirect("/login");
 }
 
 export async function getAuthStatus() {
-  return { enabled: isAuthEnabled() };
+  return { enabled: isSupabaseConfigured(), provider: "supabase" as const };
 }

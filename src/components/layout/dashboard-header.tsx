@@ -1,17 +1,14 @@
 import { Bell, Search } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { LogoutButton } from "@/components/auth/logout-button";
+import { UserMenu } from "@/components/auth/user-menu";
 
-export function DashboardHeader() {
+export function DashboardHeader({ userEmail }: { userEmail: string | null }) {
   return (
     <header className="hidden items-center justify-between border-b border-brand-border bg-white px-8 py-4 lg:flex">
       <div>
         <p className="text-xs font-medium uppercase tracking-wider text-brand-sage">
           Grow with confidence
         </p>
-        <p className="text-sm text-brand-muted">
-          PlantPal HQ — mission control for growth
-        </p>
+        <p className="text-sm text-brand-muted">PlantPal HQ — mission control for growth</p>
       </div>
       <div className="flex items-center gap-3">
         <div className="relative">
@@ -28,20 +25,7 @@ export function DashboardHeader() {
             3
           </span>
         </button>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-xl border border-brand-border px-3 py-1.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary text-xs font-bold text-white">
-              PP
-            </div>
-            <div className="text-left">
-              <p className="text-xs font-medium text-brand-primary">Founder</p>
-              <Badge variant="muted" className="mt-0.5 text-[10px]">
-                Private HQ
-              </Badge>
-            </div>
-          </div>
-          <LogoutButton />
-        </div>
+        <UserMenu email={userEmail} />
       </div>
     </header>
   );

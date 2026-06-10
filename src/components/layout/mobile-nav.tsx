@@ -6,9 +6,10 @@ import { useState } from "react";
 import { Leaf, Menu, X } from "lucide-react";
 import { navItems } from "@/components/layout/nav-items";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { UserMenu } from "@/components/auth/user-menu";
 import { cn } from "@/lib/utils";
 
-export function MobileNav() {
+export function MobileNav({ userEmail }: { userEmail?: string | null }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -76,7 +77,8 @@ export function MobileNav() {
                 );
               })}
             </div>
-            <div className="mt-6 border-t border-brand-border pt-4">
+            <div className="mt-6 space-y-3 border-t border-brand-border pt-4">
+              <UserMenu email={userEmail} compact />
               <LogoutButton className="w-full justify-center" />
             </div>
           </nav>

@@ -4,9 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Leaf, FileText } from "lucide-react";
 import { navItems } from "@/components/layout/nav-items";
+import { LogoutButton } from "@/components/auth/logout-button";
 import { cn } from "@/lib/utils";
 
-export function Sidebar() {
+export function Sidebar({ userEmail }: { userEmail?: string | null }) {
   const pathname = usePathname();
 
   return (
@@ -51,7 +52,15 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t border-brand-border p-4">
+      <div className="border-t border-brand-border p-4 space-y-3">
+        {userEmail && (
+          <div className="rounded-xl border border-brand-border/60 bg-brand-bg p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-sage">
+              Signed in
+            </p>
+            <p className="mt-1 truncate text-xs font-medium text-brand-primary">{userEmail}</p>
+          </div>
+        )}
         <div className="rounded-xl bg-brand-bg p-3">
           <div className="flex items-center gap-2 text-xs font-medium text-brand-primary">
             <FileText className="h-3.5 w-3.5" />
@@ -61,6 +70,7 @@ export function Sidebar() {
             Living command center — human approval before any post goes live.
           </p>
         </div>
+        <LogoutButton className="w-full justify-center" />
       </div>
     </aside>
   );
