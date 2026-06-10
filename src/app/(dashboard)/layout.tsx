@@ -3,6 +3,10 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { getServerUser } from "@/lib/auth/get-user";
 
+/** All dashboard routes fetch live Supabase data — skip static prerender (CI build timeout) */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function DashboardLayout({
   children,
 }: {

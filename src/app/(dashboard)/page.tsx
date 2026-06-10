@@ -11,6 +11,10 @@ import type { AgentDecision, AgentMemory, AgentMessage, AgentSlug, AgentTask, Co
 
 type MessageLine = { from: AgentSlug; to: AgentSlug; priority: CollaborationPriority; id: string };
 
+/** HQ calls getHQAgentData() at request time — not during next build */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function PlantPalHQPage() {
   const configured = isSupabaseConfigured();
 
