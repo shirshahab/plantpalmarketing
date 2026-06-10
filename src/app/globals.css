@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fafbf8;
+  --foreground: #1a2e1f;
+  --brand-primary: #2d6a4f;
+  --brand-sage: #95b89b;
+  --brand-accent: #74c365;
+  --brand-bg: #fafbf8;
+  --brand-muted: #6b7c72;
+  --brand-border: #e4ebe6;
+  --brand-card: #ffffff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-sage: var(--brand-sage);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-bg: var(--brand-bg);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-border: var(--brand-border);
+  --color-brand-card: var(--brand-card);
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-plus-jakarta);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-heading {
+  font-family: var(--font-heading), var(--font-sans), system-ui, sans-serif;
+}
+
+/* PlantPal HQ — living command center */
+@keyframes hq-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes hq-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+@keyframes hq-pulse-ring {
+  0% { transform: scale(0.95); opacity: 0.6; }
+  70% { transform: scale(1.15); opacity: 0; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+@keyframes hq-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes hq-feed-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.hq-float {
+  animation: hq-float 3s ease-in-out infinite;
+}
+
+.hq-float-delay-1 { animation-delay: 0.4s; }
+.hq-float-delay-2 { animation-delay: 0.8s; }
+.hq-float-delay-3 { animation-delay: 1.2s; }
+.hq-float-delay-4 { animation-delay: 1.6s; }
+.hq-float-delay-5 { animation-delay: 2s; }
+.hq-float-delay-6 { animation-delay: 2.4s; }
+
+.hq-breathe {
+  animation: hq-breathe 4s ease-in-out infinite;
+}
+
+.hq-pulse-ring::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  border: 2px solid currentColor;
+  animation: hq-pulse-ring 2s ease-out infinite;
+}
+
+.hq-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(116, 195, 101, 0.15) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: hq-shimmer 3s linear infinite;
+}
+
+.hq-feed-item {
+  animation: hq-feed-in 0.4s ease-out both;
+}
+
+@keyframes hq-walk-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.hq-walk-bob {
+  animation: hq-walk-bob 0.35s ease-in-out infinite;
+}
+
+@keyframes hq-cloud-drift {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(24px); }
+}
+
+@keyframes hq-water-ripple {
+  0%, 100% { transform: scale(1); opacity: 0.35; }
+  50% { transform: scale(1.12); opacity: 0.15; }
+}
+
+.hq-cloud {
+  box-shadow: 12px 4px 0 -2px rgba(255, 255, 255, 0.35);
+}
+
+.hq-cloud::after {
+  content: "";
+  position: absolute;
+  right: -8px;
+  top: 4px;
+  width: 60%;
+  height: 70%;
+  border-radius: 9999px;
+  background: inherit;
+  opacity: 0.85;
+}

@@ -1,0 +1,92 @@
+import { Clapperboard } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ConfigBanner } from "@/components/ui/config-banner";
+import { ErrorBanner } from "@/components/ui/error-banner";
+import { DeleteButton } from "@/components/shared/delete-button";
+import { ApprovalActions } from "@/components/shared/approval-actions";
+import { fetchPageData } from "@/lib/db/fetch-page-data";
+import { getVideoScripts } from "@/lib/db/queries";
+import { formatDate } from "@/lib/utils";
+
+export default async function VideoScriptsPage() {
+  const { data, error, configured } = await fetchPageData(getVideoScripts);
+
+  if (!configured) {
+    return (<div><PageHeader title="Video Script Generator" /><ConfigBanner /></div>);
+  }
+
+  return (
+    <div>
+      <PageHeader title="Video Script Generator" description="Short-form scripts with hooks, scenes, voiceover, and CTAs." />
+      {error && <ErrorBanner message={error} />}
+
+      {!data || data.length === 0 ? (
+        <EmptyState icon={Clapperboard} title="No video scripts" description="Seed data or add scripts via Supabase." />
+      ) : (
+        <div className="space-y-6">
+          {data.map((script) => (
+            <Card key={script.id}>
+              <CardContent className="py-6">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge>{script.platform}</Badge>
+                    <StatusBadge status={script.status} />
+                    <span className="text-xs text-brand-muted">{formatDate(script.createdAt)}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <ApprovalActions table="video_scripts" id={script.id} initialStatus={script.status} />
+                    <DeleteButton table="video_scripts" id={script.id} />
+                  </div>
+                </div>
+                <div className="mt-4 flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-primary/8 text-brand-primary">
+                    <Clapperboard className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-heading text-xl font-semibold text-brand-primary">{script.title}</h3>
+                    <p className="mt-2 rounded-xl bg-brand-accent/10 px-4 py-3 text-sm font-medium text-brand-primary">🎣 Hook: {script.hook}</p>
+                  </div>
+                </div>
+                <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                  <div>
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-brand-sage">Scene Breakdown</h4>
+                    <div className="mt-3 space-y-2">
+                      {script.scenes.map((scene) => (
+                        <div key={scene.label} className="rounded-xl border border-brand-border p-3">
+                          <p className="text-xs font-semibold text-brand-primary">{scene.label}</p>
+                          <p className="mt-1 text-sm text-brand-muted">{scene.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-brand-sage">On-Screen Text</h4>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {script.onScreenText.map((text) => (
+                          <span key={text} className="rounded-lg bg-brand-bg px-3 py-1.5 text-xs font-medium">{text}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-brand-sage">Voiceover</h4>
+                      <p className="mt-2 text-sm leading-relaxed text-brand-muted">{script.voiceover}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-brand-sage">CTA</h4>
+                      <p className="mt-2 text-sm font-medium text-brand-accent">{script.cta}</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

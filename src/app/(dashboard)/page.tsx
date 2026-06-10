@@ -1,0 +1,99 @@
+import { PlantPalHQ } from "@/components/hq/plantpal-hq";
+import { ConfigBanner } from "@/components/ui/config-banner";
+import { buildHQActivity, buildHQAgents } from "@/lib/hq/build-hq-data";
+import { HQ_AGENTS, HQ_ACTIVITY } from "@/lib/hq/mock-data";
+import Link from "next/link";
+import { getHQAgentData } from "@/lib/db/scout-roots-queries";
+import { getAgentDecisions, getAgentMemories } from "@/lib/db/agent-brain-queries";
+import { probeHQLiveData } from "@/lib/db/hq-debug";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import type { AgentDecision, AgentMemory, AgentMessage, AgentSlug, AgentTask, CollaborationPriority } from "@/lib/types";
+
+type MessageLine = { from: AgentSlug; to: AgentSlug; priority: CollaborationPriority; id: string };
+
+export default async function PlantPalHQPage() {
+  const configured = isSupabaseConfigured();
+
+  let agents = HQ_AGENTS;
+  let activity = HQ_ACTIVITY;
+  let liveData = false;
+  let messageLines: MessageLine[] = [];
+  let collaborationStats: { unreadMessages: number; activeTasks: number } | undefined;
+  let collaborationMessages: AgentMessage[] = [];
+  let collaborationTasks: AgentTask[] = [];
+  let agentMemories: AgentMemory[] = [];
+  let agentDecisions: AgentDecision[] = [];
+  let hqLoadError: string | null = null;
+  let hqDebugSummary: string | null = null;
+
+  if (configured) {
+    try {
+      const [data, memories, decisions] = await Promise.all([
+        getHQAgentData(),
+        getAgentMemories(undefined, 40).catch(() => []),
+        getAgentDecisions(undefined, 30).catch(() => []),
+      ]);
+      agents = buildHQAgents(data);
+      activity = buildHQActivity(data);
+      messageLines = data.collaboration?.activeMessageLines ?? [];
+      collaborationStats = data.collaboration
+        ? { unreadMessages: data.collaboration.stats.unreadMessages, activeTasks: data.collaboration.stats.activeTasks }
+        : undefined;
+      collaborationMessages = data.collaboration?.messages ?? [];
+      collaborationTasks = data.collaboration?.activeTasks ?? [];
+      agentMemories = memories;
+      agentDecisions = decisions;
+      liveData = true;
+    } catch (e) {
+      hqLoadError = e instanceof Error ? e.message : String(e);
+      console.error("[HQ] getHQAgentData failed — demo mode active:", hqLoadError);
+      const probe = await probeHQLiveData();
+      hqDebugSummary = probe.summary;
+      if (probe.failedStep) {
+        console.error("[HQ] failed query:", probe.failedStep.label);
+        console.error("[HQ] table:", probe.failedStep.table);
+        console.error("[HQ] supabase code:", probe.failedStep.errorCode);
+        console.error("[HQ] supabase error:", probe.failedStep.errorMessage);
+      }
+    }
+  }
+
+  return (
+    <div className="-mx-4 -my-6 sm:-mx-6 lg:-my-8">
+      {!configured && (
+        <div className="mb-4 px-4 sm:px-6">
+          <ConfigBanner />
+        </div>
+      )}
+      {configured && !liveData && (
+        <div className="mb-4 mx-4 sm:mx-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 space-y-2">
+          <p>
+            <strong>Demo mode active.</strong> Condition: <code className="rounded bg-white px-1">getHQAgentData()</code> threw — see error below (server console also logs details).
+          </p>
+          {hqLoadError && (
+            <p className="font-mono text-xs text-rose-800 bg-white/80 rounded-lg px-2 py-1.5 break-all">
+              Error: {hqLoadError}
+            </p>
+          )}
+          {hqDebugSummary && <p>{hqDebugSummary}</p>}
+          <p>
+            <Link href="/debug/database" className="font-medium text-amber-900 underline">
+              Open /debug/database
+            </Link>{" "}
+            for full table + column diagnostics.
+          </p>
+        </div>
+      )}
+      <PlantPalHQ
+        initialAgents={agents}
+        initialActivity={activity}
+        messageLines={messageLines}
+        collaborationStats={collaborationStats}
+        collaborationMessages={collaborationMessages}
+        collaborationTasks={collaborationTasks}
+        agentMemories={agentMemories}
+        agentDecisions={agentDecisions}
+      />
+    </div>
+  );
+}
