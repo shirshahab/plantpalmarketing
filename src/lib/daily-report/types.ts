@@ -51,6 +51,11 @@ export interface AnalyticsSummary {
     agentTasks: AnalyticsSection;
     agentMessages: AnalyticsSection;
     agentEvents: AnalyticsSection;
+    contentCalendar?: AnalyticsSection;
+    agentRuns?: AnalyticsSection;
+    hqWorkflowEvents?: AnalyticsSection;
+    integrationCalls?: AnalyticsSection;
+    providerHealth?: AnalyticsSection;
   };
   approvalQueue: {
     pending: number;
@@ -80,6 +85,71 @@ export interface ProviderUsageEntry {
   failed: number;
   rateLimitWarnings: number;
   lastSuccessAt: string | null;
+  lastErrorAt?: string | null;
+  lastErrorMessage?: string;
+  connected: boolean;
+}
+
+export interface ExecutiveSummaryStructured {
+  whatHappened: string;
+  biggestWin: string;
+  biggestRisk: string;
+  needsAttention: string[];
+  aiError: string | null;
+}
+
+export interface ContentReport {
+  created: number;
+  approved: number;
+  rejected: number;
+  scheduled: number;
+  missingAssets: number;
+  readyToPublish: number;
+  topOpportunities: string[];
+  connected: boolean;
+}
+
+export interface GrowthReport {
+  creatorLeads: number;
+  highPriorityLeads: number;
+  partnershipOpportunities: number;
+  communityOpportunities: number;
+  competitorAlerts: number;
+  highSeverityAlerts: number;
+  recommendedMoves: string[];
+  connected: boolean;
+}
+
+export type ActionCategory = "urgent" | "growth" | "content" | "system";
+
+export interface ActionItemEntry {
+  title: string;
+  ownerAgent: AgentSlug;
+  priority: CollaborationPriority;
+  impactScore: number;
+  nextStep: string;
+  category: ActionCategory;
+}
+
+export interface ActionPlan {
+  urgent: ActionItemEntry[];
+  growth: ActionItemEntry[];
+  content: ActionItemEntry[];
+  system: ActionItemEntry[];
+}
+
+export interface FounderReviewItem {
+  label: string;
+  detail: string;
+  kind: "approval" | "publish" | "outreach" | "high_risk";
+}
+
+export interface FounderReview {
+  needingApproval: number;
+  readyToPublish: number;
+  outreachAwaiting: number;
+  highRisk: number;
+  items: FounderReviewItem[];
   connected: boolean;
 }
 
@@ -134,6 +204,12 @@ export interface DailyReport {
   apiUsageSummary: ApiUsageSummary;
   growthRecommendations: GrowthUpgradeRecommendation[];
   recommendedActions: RecommendedAction[];
+  // Phase 27 structured sections (optional — older saved reports won't have them)
+  executiveSummary?: ExecutiveSummaryStructured | null;
+  contentReport?: ContentReport | null;
+  growthReport?: GrowthReport | null;
+  actionPlan?: ActionPlan | null;
+  founderReview?: FounderReview | null;
   createdAt: string;
 }
 

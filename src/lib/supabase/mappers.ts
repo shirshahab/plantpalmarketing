@@ -1488,6 +1488,12 @@ export function mapDailyReport(row: Database["public"]["Tables"]["daily_reports"
     apiUsageSummary: (row.api_usage_summary as unknown as ApiUsageSummary) ?? ({} as ApiUsageSummary),
     growthRecommendations: (row.growth_recommendations as unknown as GrowthUpgradeRecommendation[]) ?? [],
     recommendedActions: (row.recommended_actions as unknown as RecommendedAction[]) ?? [],
+    // Phase 27 structured sections — null for reports saved before migration 046
+    executiveSummary: (row.executive_summary as unknown as DailyReport["executiveSummary"]) ?? null,
+    contentReport: (row.content_report as unknown as DailyReport["contentReport"]) ?? null,
+    growthReport: (row.growth_report as unknown as DailyReport["growthReport"]) ?? null,
+    actionPlan: (row.action_plan as unknown as DailyReport["actionPlan"]) ?? null,
+    founderReview: (row.founder_review as unknown as DailyReport["founderReview"]) ?? null,
     createdAt: row.created_at,
   };
 }

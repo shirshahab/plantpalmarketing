@@ -9,6 +9,13 @@ import {
   buildApiUsageSummary,
 } from "@/lib/daily-report/collector";
 import { buildGrowthRecommendations, buildRecommendedActions } from "@/lib/daily-report/growth-recommendations";
+import {
+  buildActionPlan,
+  buildContentReport,
+  buildExecutiveStructured,
+  buildFounderReview,
+  buildGrowthReport,
+} from "@/lib/daily-report/report-sections";
 import { generateExecutiveSummary } from "@/lib/daily-report/ai-summary";
 import type { DailyReport } from "@/lib/daily-report/types";
 
@@ -21,42 +28,70 @@ export async function runDailyReportGeneration(): Promise<{ report: DailyReport;
   const growthRecommendations = buildGrowthRecommendations(analyticsSummary, workflowSummary);
   const recommendedActions = buildRecommendedActions(analyticsSummary, workflowSummary, growthRecommendations);
 
-  const summary = await generateExecutiveSummary(
+  // AI narrative — never throws. 401/missing key degrades to the rule-based
+  // summary and the failed attempt is logged to integration_logs.
+  const { text: summary, aiError } = await generateExecutiveSummary(
     agentProductivity,
     workflowSummary,
     analyticsSummary,
     apiUsageSummary
   );
 
+  // Phase 27 structured operator sections
+  const contentReport = buildContentReport(raw);
+  const growthReport = buildGrowthReport(raw, growthRecommendations);
+  const executiveSummary = buildExecutiveStructured(
+    raw, agentProductivity, workflowSummary, contentReport, growthReport, apiUsageSummary, aiError
+  );
+  const actionPlan = buildActionPlan(raw, workflowSummary, apiUsageSummary, contentReport, growthReport, aiError);
+  const founderReview = buildFounderReview(raw);
+
   const reportDate = new Date().toISOString().slice(0, 10);
   const supabase = createServerClient();
 
-  const { data: inserted, error } = await supabase
+  const baseRow = {
+    report_date: reportDate,
+    summary,
+    agent_productivity: agentProductivity as unknown as Json,
+    workflow_summary: workflowSummary as unknown as Json,
+    analytics_summary: analyticsSummary as unknown as Json,
+    api_usage_summary: apiUsageSummary as unknown as Json,
+    growth_recommendations: growthRecommendations as unknown as Json,
+    recommended_actions: recommendedActions as unknown as Json,
+  };
+  const phase27Columns = {
+    executive_summary: executiveSummary as unknown as Json,
+    content_report: contentReport as unknown as Json,
+    growth_report: growthReport as unknown as Json,
+    action_plan: actionPlan as unknown as Json,
+    founder_review: founderReview as unknown as Json,
+  };
+
+  let { data: inserted, error } = await supabase
     .from("daily_reports")
-    .insert({
-      report_date: reportDate,
-      summary,
-      agent_productivity: agentProductivity as unknown as Json,
-      workflow_summary: workflowSummary as unknown as Json,
-      analytics_summary: analyticsSummary as unknown as Json,
-      api_usage_summary: apiUsageSummary as unknown as Json,
-      growth_recommendations: growthRecommendations as unknown as Json,
-      recommended_actions: recommendedActions as unknown as Json,
-    })
+    .insert({ ...baseRow, ...phase27Columns })
     .select("*")
     .single();
 
-  if (error) {
-    if (isMissingTableError(error)) {
+  // Migration 046 not applied yet → retry with legacy columns only
+  if (error && /column|schema cache/i.test(error.message)) {
+    const retry = await supabase.from("daily_reports").insert(baseRow).select("*").single();
+    inserted = retry.data;
+    error = retry.error;
+  }
+
+  if (error || !inserted) {
+    if (error && isMissingTableError(error)) {
       throw new Error("daily_reports table not found — run migration 036 in Supabase SQL Editor");
     }
-    throw new Error(error.message);
+    throw new Error(error?.message ?? "Failed to save daily report");
   }
 
   await persistWorkflowRuns(workflowSummary.all);
   await persistGrowthActionItems(growthRecommendations, recommendedActions);
 
-  // Phase 25: mirror the report into agent_daily_briefs (Ivy's daily brief table)
+  // Phase 25/27: mirror the full report into agent_daily_briefs (Ivy's daily brief table).
+  // Structured Phase 27 sections nest inside the existing jsonb columns — no new migration needed here.
   const { error: briefError } = await supabase.from("agent_daily_briefs").insert({
     brief_date: reportDate,
     title: `Daily Brief — ${reportDate}`,
@@ -64,8 +99,18 @@ export async function runDailyReportGeneration(): Promise<{ report: DailyReport;
     agent_productivity: agentProductivity as unknown as Json,
     workflow_summary: workflowSummary as unknown as Json,
     api_usage_summary: apiUsageSummary as unknown as Json,
-    analytics_summary: analyticsSummary as unknown as Json,
-    recommendations: [...growthRecommendations, ...recommendedActions] as unknown as Json,
+    analytics_summary: {
+      ...analyticsSummary,
+      executiveSummary,
+      contentReport,
+      growthReport,
+      founderReview,
+    } as unknown as Json,
+    recommendations: [
+      ...Object.values(actionPlan).flat(),
+      ...growthRecommendations,
+      ...recommendedActions,
+    ] as unknown as Json,
     created_by_agent: "ivy",
     status: "generated",
   });
@@ -100,6 +145,11 @@ export async function runDailyReportGeneration(): Promise<{ report: DailyReport;
     apiUsageSummary,
     growthRecommendations,
     recommendedActions,
+    executiveSummary,
+    contentReport,
+    growthReport,
+    actionPlan,
+    founderReview,
     createdAt: inserted.created_at,
   };
 

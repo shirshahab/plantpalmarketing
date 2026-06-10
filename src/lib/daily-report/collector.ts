@@ -95,6 +95,20 @@ export async function collectDailyReportData() {
     integrationLogs,
     healthChecks,
     xData,
+    bloomAwaiting,
+    calendarCreated,
+    calendarScheduled,
+    calendarMissingAssets,
+    calendarReady,
+    calendarPublished,
+    xPosts24h,
+    xQueuePending,
+    xQueueReady,
+    agentRuns24h,
+    hqWorkflowEvents24h,
+    batchHighRisk,
+    outreachPending,
+    topOpps,
   ] = await Promise.all([
     safeSelect("agent_tasks", since, (r) => r),
     safeSelect("agent_messages", since, (r) => r),
@@ -115,6 +129,31 @@ export async function collectDailyReportData() {
     safeSelect("integration_logs", since, (r) => r),
     safeSelect("provider_health_checks", since, (r) => r),
     getXDashboardData().catch(() => null),
+    safeCount("bloom_content_pieces", (q) => q.eq("status", "awaiting_review")),
+    safeCount("content_calendar", (q) => q.gte("created_at", since)),
+    safeCount("content_calendar", (q) => q.eq("status", "scheduled")),
+    safeCount("content_calendar", (q) => q.eq("status", "needs_asset")),
+    safeCount("content_calendar", (q) => q.eq("status", "ready_to_publish")),
+    safeCount("content_calendar", (q) => q.eq("status", "published").gte("published_at", since)),
+    safeCount("x_posts", (q) => q.gte("created_at", since)),
+    safeCount("x_post_queue", (q) => q.in("status", ["sage_review", "gate_approval"])),
+    safeCount("x_post_queue", (q) => q.eq("status", "ready_to_publish")),
+    safeCount("agent_runs", (q) => q.gte("started_at", since)),
+    safeCount("hq_workflow_events", (q) => q.gte("created_at", since)),
+    safeCount("batch_approvals", (q) => q.eq("status", "pending").eq("risk_level", "high")),
+    safeCount("approval_queue", (q) =>
+      q.eq("status", "pending").or("draft.ilike.%creator lead%,draft.ilike.Partnership:%")
+    ),
+    safeSelect(
+      "community_opportunities",
+      since,
+      (rows) =>
+        rows
+          .slice(0, 3)
+          .map((r) => String(r.topic ?? r.question ?? "").slice(0, 90))
+          .filter(Boolean),
+      (q) => q.limit(5)
+    ),
   ]);
 
   return {
@@ -140,6 +179,20 @@ export async function collectDailyReportData() {
     integrationLogs,
     healthChecks,
     xData,
+    bloomAwaiting,
+    calendarCreated,
+    calendarScheduled,
+    calendarMissingAssets,
+    calendarReady,
+    calendarPublished,
+    xPosts24h,
+    xQueuePending,
+    xQueueReady,
+    agentRuns24h,
+    hqWorkflowEvents24h,
+    batchHighRisk,
+    outreachPending,
+    topOpps,
   };
 }
 
@@ -217,8 +270,10 @@ const WORKFLOW_DEFS: {
 }[] = [
   { name: "Scout → Oak", source: "scout", target: "oak", agents: ["scout", "oak"] },
   { name: "Roots → Bloom", source: "roots", target: "bloom", agents: ["roots", "bloom"] },
+  { name: "Bloom → Sage", source: "bloom", target: "sage", agents: ["bloom", "sage"] },
+  { name: "Sage → Gate", source: "sage", target: "gate", agents: ["sage", "gate"] },
+  { name: "Gate → Sprout", source: "gate", target: "sprout", agents: ["gate", "sprout"] },
   { name: "Sentinel → Atlas", source: "sentinel", target: "atlas", agents: ["sentinel", "atlas"] },
-  { name: "Bloom → Sage → Gate → Sprout", source: "bloom", target: "sprout", agents: ["bloom", "sage", "gate", "sprout"] },
   { name: "Echo → Atlas", source: "echo", target: "atlas", agents: ["echo", "atlas"] },
   { name: "Atlas → Ivy", source: "atlas", target: "ivy", agents: ["atlas", "ivy"] },
 ];
@@ -266,16 +321,38 @@ export function buildWorkflowSummary(
         status = "active";
       }
     }
-    if (def.name === "Bloom → Sage → Gate → Sprout") {
+    if (def.name === "Bloom → Sage") {
       const bloomCount = data.bloomContent.connected ? (data.bloomContent.data as unknown[]).length : 0;
       itemsMoved += bloomCount;
-      const gateQueue = data.xData?.stats.approvalCount ?? 0;
-      if (gateQueue > 0) {
-        bottleneck = `${gateQueue} items in Gate approval queue`;
-        recommendedFix = "Founder reviews Gate queue — Sprout schedules only after approval.";
+      if (data.bloomAwaiting.count > 0) {
+        bottleneck = `${data.bloomAwaiting.count} pieces waiting for Sage review`;
+        recommendedFix = "Run Sage from Agent Operations to score the backlog.";
         status = "blocked";
       } else if (bloomCount > 0) {
         status = "active";
+      }
+    }
+    if (def.name === "Sage → Gate") {
+      itemsMoved += data.approval.approved.count + data.approval.rejected.count;
+      if (data.approval.pending.count > 0) {
+        bottleneck = `${data.approval.pending.count} items waiting in the approval queue`;
+        recommendedFix = "Open /approvals or the /automation inbox and clear the queue — 10 minutes of founder time.";
+        status = "blocked";
+      } else if (itemsMoved > 0) {
+        status = "active";
+      }
+    }
+    if (def.name === "Gate → Sprout") {
+      itemsMoved += data.calendarScheduled.count + data.xQueueReady.count;
+      if (data.calendarReady.count > 0) {
+        bottleneck = `${data.calendarReady.count} approved items ready to publish, not yet posted`;
+        recommendedFix = "Use the calendar copy buttons to post manually, or click Publish to X for queued tweets.";
+        status = "active";
+      }
+      if (data.calendarMissingAssets.count > 0) {
+        bottleneck = bottleneck || `${data.calendarMissingAssets.count} approved items missing assets`;
+        recommendedFix = "Generate or upload the missing assets, then publish.";
+        status = "blocked";
       }
     }
     if (def.name === "Echo → Atlas") {
@@ -396,6 +473,32 @@ export function buildAnalyticsSummary(
         value: data.events.connected ? (data.events.data as unknown[]).length : "not connected yet",
         connected: data.events.connected,
       },
+      contentCalendar: {
+        label: "Calendar Items (24h)",
+        value: data.calendarCreated.count,
+        detail: `${data.calendarReady.count} ready to publish, ${data.calendarMissingAssets.count} missing assets`,
+        connected: data.calendarCreated.connected,
+      },
+      agentRuns: {
+        label: "Agent Runs (24h)",
+        value: data.agentRuns24h.count,
+        connected: data.agentRuns24h.connected,
+      },
+      hqWorkflowEvents: {
+        label: "HQ Workflow Events",
+        value: data.hqWorkflowEvents24h.count,
+        connected: data.hqWorkflowEvents24h.connected,
+      },
+      integrationCalls: {
+        label: "API Calls (24h)",
+        value: data.integrationLogs.connected ? (data.integrationLogs.data as unknown[]).length : "not connected yet",
+        connected: data.integrationLogs.connected,
+      },
+      providerHealth: {
+        label: "Health Checks (24h)",
+        value: data.healthChecks.connected ? (data.healthChecks.data as unknown[]).length : "not connected yet",
+        connected: data.healthChecks.connected,
+      },
     },
     approvalQueue: {
       pending: data.approval.pending.count,
@@ -465,6 +568,8 @@ export function buildApiUsageSummary(
           ? String(lastSuccessLog.created_at)
           : null;
 
+    const lastErrorLog = providerLogs.find((l) => l.status === "error" || l.status === "rate_limited");
+
     return {
       provider,
       totalCalls: providerLogs.length,
@@ -472,6 +577,10 @@ export function buildApiUsageSummary(
       failed,
       rateLimitWarnings,
       lastSuccessAt,
+      lastErrorAt: lastErrorLog ? String(lastErrorLog.created_at) : null,
+      lastErrorMessage: lastErrorLog
+        ? String(lastErrorLog.error_message ?? lastErrorLog.message ?? "").slice(0, 160)
+        : "",
       connected: data.integrationLogs.connected,
     };
   });

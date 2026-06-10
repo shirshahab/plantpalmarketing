@@ -2,7 +2,7 @@
 
 Apply each file in **SQL Editor** before deploying to Vercel. Filenames are prefixed with execution order.
 
-## Full list (001 → 045)
+## Full list (001 → 046)
 
 1. `001_marketing_os_schema.sql`
 2. `002_marketing_os_seed.sql`
@@ -49,6 +49,7 @@ Apply each file in **SQL Editor** before deploying to Vercel. Filenames are pref
 43. `043_phase25_content_calendar.sql`
 44. `044_phase26_automation.sql`
 45. `045_phase26_discovery_items.sql`
+46. `046_phase27_executive_daily_report.sql`
 
 ## If you already ran early migrations
 
@@ -63,6 +64,7 @@ Minimum repair set for current HQ features:
 - `043_phase25_content_calendar.sql` — Content Calendar (`/calendar`)
 - `044_phase26_automation.sql` — Automation rules, runs, publishing packages, batch approvals (`/automation`)
 - `045_phase26_discovery_items.sql` — fixes "Could not find the table public.discovery_items" (run after 042)
+- `046_phase27_executive_daily_report.sql` — adds structured executive sections (content/growth reports, action plan, founder review) to `daily_reports`
 
 ## After running
 

@@ -2974,6 +2974,11 @@ export interface Database {
           api_usage_summary: Json;
           growth_recommendations: Json;
           recommended_actions: Json;
+          executive_summary?: Json;
+          content_report?: Json;
+          growth_report?: Json;
+          action_plan?: Json;
+          founder_review?: Json;
           created_at: string;
         },
         {
@@ -2986,6 +2991,11 @@ export interface Database {
           api_usage_summary?: Json;
           growth_recommendations?: Json;
           recommended_actions?: Json;
+          executive_summary?: Json;
+          content_report?: Json;
+          growth_report?: Json;
+          action_plan?: Json;
+          founder_review?: Json;
           created_at?: string;
         },
         {
@@ -2998,6 +3008,11 @@ export interface Database {
           api_usage_summary?: Json;
           growth_recommendations?: Json;
           recommended_actions?: Json;
+          executive_summary?: Json;
+          content_report?: Json;
+          growth_report?: Json;
+          action_plan?: Json;
+          founder_review?: Json;
           created_at?: string;
         }
       >;

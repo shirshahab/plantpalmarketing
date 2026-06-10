@@ -4,10 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  AlertTriangle,
   CalendarDays,
+  ClipboardCheck,
   FileBarChart,
+  FileText,
   Loader2,
   Play,
+  Rocket,
   TrendingUp,
   Workflow,
   Plug,
@@ -21,7 +25,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { generateDailyReport } from "@/lib/actions/daily-report";
 import { formatDate } from "@/lib/utils";
-import type { DailyReport, GrowthActionItem } from "@/lib/daily-report/types";
+import type { ActionItemEntry, DailyReport, GrowthActionItem } from "@/lib/daily-report/types";
 import type { CalendarDayStats, ContentCalendarItem } from "@/lib/types";
 import type { mapWorkflowRun } from "@/lib/supabase/mappers";
 
@@ -158,6 +162,19 @@ export function DailyReportPanel({
         </Card>
       ) : (
         <>
+          {report.executiveSummary?.aiError && (
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-semibold">{report.executiveSummary.aiError}</p>
+                <p className="mt-0.5 text-xs">
+                  This report used the rule-based summary instead. The failed attempt was saved to integration logs —
+                  check key status on the Integrations page.
+                </p>
+              </div>
+            </div>
+          )}
+
           <Card className="border-violet-200/50">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
@@ -168,10 +185,77 @@ export function DailyReportPanel({
               </div>
               <Badge variant="info">{report.analyticsSummary.periodLabel ?? "Last 24 hours"}</Badge>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-brand-primary">{report.summary}</p>
+              {report.executiveSummary && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-brand-border/40 bg-brand-bg/30 p-3">
+                    <p className="text-[10px] font-semibold uppercase text-brand-sage">What happened</p>
+                    <p className="mt-1 text-xs text-brand-primary">{report.executiveSummary.whatHappened}</p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/50 p-3">
+                    <p className="text-[10px] font-semibold uppercase text-emerald-700">Biggest win</p>
+                    <p className="mt-1 text-xs text-brand-primary">{report.executiveSummary.biggestWin}</p>
+                  </div>
+                  <div className="rounded-xl border border-rose-200/60 bg-rose-50/50 p-3">
+                    <p className="text-[10px] font-semibold uppercase text-rose-700">Biggest risk</p>
+                    <p className="mt-1 text-xs text-brand-primary">{report.executiveSummary.biggestRisk}</p>
+                  </div>
+                  <div className="rounded-xl border border-amber-200/60 bg-amber-50/50 p-3">
+                    <p className="text-[10px] font-semibold uppercase text-amber-700">Needs your attention</p>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-brand-primary">
+                      {report.executiveSummary.needsAttention.map((n, i) => (
+                        <li key={i}>{n}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          {report.founderReview && (
+            <section>
+              <div className="mb-3 flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4 text-brand-sage" />
+                <h3 className="font-heading font-semibold text-brand-primary">Founder Review</h3>
+              </div>
+              <Card className="border-violet-200/40">
+                <CardContent className="p-4">
+                  <div className="grid gap-2 sm:grid-cols-4">
+                    {[
+                      { label: "Needing approval", value: report.founderReview.needingApproval },
+                      { label: "Ready to publish", value: report.founderReview.readyToPublish },
+                      { label: "Outreach awaiting OK", value: report.founderReview.outreachAwaiting },
+                      { label: "High-risk items", value: report.founderReview.highRisk, warn: report.founderReview.highRisk > 0 },
+                    ].map((s) => (
+                      <div key={s.label} className="rounded-lg border border-brand-border/30 p-3">
+                        <p className="text-[10px] font-semibold uppercase text-brand-sage">{s.label}</p>
+                        <p className={`text-lg font-semibold ${s.warn ? "text-rose-700" : "text-brand-primary"}`}>{s.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {report.founderReview.items.length > 0 ? (
+                    <div className="mt-3 space-y-1.5">
+                      {report.founderReview.items.map((item, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2 border-b border-brand-border/20 py-1.5 text-xs">
+                          <div>
+                            <p className="font-semibold text-brand-primary">{item.label}</p>
+                            <p className="text-brand-muted">{item.detail}</p>
+                          </div>
+                          <Badge variant={item.kind === "high_risk" ? "danger" : item.kind === "publish" ? "info" : "warning"}>
+                            {item.kind.replace("_", " ")}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-brand-muted">Nothing waiting on you right now.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </section>
+          )}
 
           <section>
             <div className="mb-3 flex items-center gap-2">
@@ -234,6 +318,138 @@ export function DailyReportPanel({
             </div>
           </section>
 
+          {(report.contentReport || report.growthReport) && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              {report.contentReport && (
+                <section>
+                  <div className="mb-3 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-brand-sage" />
+                    <h3 className="font-heading font-semibold text-brand-primary">Content Report</h3>
+                  </div>
+                  <Card>
+                    <CardContent className="p-4">
+                      {!report.contentReport.connected ? (
+                        <p className="text-sm text-brand-muted">Not connected yet</p>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            {[
+                              { label: "Created", value: report.contentReport.created },
+                              { label: "Approved", value: report.contentReport.approved },
+                              { label: "Rejected", value: report.contentReport.rejected },
+                              { label: "Scheduled", value: report.contentReport.scheduled },
+                              { label: "Missing assets", value: report.contentReport.missingAssets, warn: report.contentReport.missingAssets > 0 },
+                              { label: "Ready to publish", value: report.contentReport.readyToPublish },
+                            ].map((s) => (
+                              <div key={s.label} className="rounded-lg border border-brand-border/30 p-2.5">
+                                <p className="text-[10px] font-semibold uppercase text-brand-sage">{s.label}</p>
+                                <p className={`text-base font-semibold ${s.warn ? "text-amber-700" : "text-brand-primary"}`}>{s.value}</p>
+                              </div>
+                            ))}
+                          </div>
+                          {report.contentReport.topOpportunities.length > 0 && (
+                            <div className="mt-3">
+                              <p className="text-[10px] font-semibold uppercase text-brand-sage">Top content opportunities</p>
+                              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-brand-primary">
+                                {report.contentReport.topOpportunities.map((o, i) => (
+                                  <li key={i}>{o}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                </section>
+              )}
+              {report.growthReport && (
+                <section>
+                  <div className="mb-3 flex items-center gap-2">
+                    <Rocket className="h-4 w-4 text-brand-sage" />
+                    <h3 className="font-heading font-semibold text-brand-primary">Growth Report</h3>
+                  </div>
+                  <Card>
+                    <CardContent className="p-4">
+                      {!report.growthReport.connected ? (
+                        <p className="text-sm text-brand-muted">Not connected yet</p>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            {[
+                              { label: "Creator leads", value: report.growthReport.creatorLeads },
+                              { label: "High priority", value: report.growthReport.highPriorityLeads },
+                              { label: "Partnerships", value: report.growthReport.partnershipOpportunities },
+                              { label: "Community opps", value: report.growthReport.communityOpportunities },
+                              { label: "Competitor alerts", value: report.growthReport.competitorAlerts },
+                              { label: "High severity", value: report.growthReport.highSeverityAlerts, warn: report.growthReport.highSeverityAlerts > 0 },
+                            ].map((s) => (
+                              <div key={s.label} className="rounded-lg border border-brand-border/30 p-2.5">
+                                <p className="text-[10px] font-semibold uppercase text-brand-sage">{s.label}</p>
+                                <p className={`text-base font-semibold ${s.warn ? "text-rose-700" : "text-brand-primary"}`}>{s.value}</p>
+                              </div>
+                            ))}
+                          </div>
+                          {report.growthReport.recommendedMoves.length > 0 && (
+                            <div className="mt-3">
+                              <p className="text-[10px] font-semibold uppercase text-brand-sage">Recommended growth moves</p>
+                              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-brand-primary">
+                                {report.growthReport.recommendedMoves.map((m, i) => (
+                                  <li key={i}>{m}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                </section>
+              )}
+            </div>
+          )}
+
+          {report.actionPlan && (
+            <section>
+              <div className="mb-3 flex items-center gap-2">
+                <ListChecks className="h-4 w-4 text-brand-sage" />
+                <h3 className="font-heading font-semibold text-brand-primary">Action Items</h3>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {(
+                  [
+                    { title: "Urgent", items: report.actionPlan.urgent, accent: "border-rose-200/60" },
+                    { title: "Growth", items: report.actionPlan.growth, accent: "border-sky-200/60" },
+                    { title: "Content", items: report.actionPlan.content, accent: "border-emerald-200/60" },
+                    { title: "System", items: report.actionPlan.system, accent: "border-amber-200/60" },
+                  ] as { title: string; items: ActionItemEntry[]; accent: string }[]
+                ).map((group) => (
+                  <Card key={group.title} className={group.accent}>
+                    <CardHeader className="pb-2">
+                      <h4 className="text-sm font-semibold text-brand-primary">{group.title}</h4>
+                    </CardHeader>
+                    <CardContent className="space-y-2.5 pt-0">
+                      {group.items.map((a, i) => (
+                        <div key={i} className="rounded-lg border border-brand-border/30 p-2.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-xs font-semibold text-brand-primary">{a.title}</p>
+                            <Badge variant={a.priority === "urgent" ? "danger" : a.priority === "high" ? "warning" : "default"}>
+                              {a.priority}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-[11px] text-brand-muted">{a.nextStep}</p>
+                          <p className="mt-1 text-[10px] text-violet-700 capitalize">
+                            Owner: {a.ownerAgent} · Impact {a.impactScore}
+                          </p>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          )}
+
           <div className="grid gap-6 lg:grid-cols-2">
             <section>
               <div className="mb-3 flex items-center gap-2">
@@ -256,9 +472,15 @@ export function DailyReportPanel({
                           <span className="font-semibold uppercase">{p.provider}</span>
                           <span className="ml-2 text-brand-muted">
                             {p.totalCalls} calls · {p.successful} ok · {p.failed} err
+                            {p.rateLimitWarnings > 0 && (
+                              <span className="text-amber-700"> · {p.rateLimitWarnings} rate-limit</span>
+                            )}
                           </span>
                           {p.lastSuccessAt && (
                             <p className="text-[10px] text-brand-muted">Last success: {formatDate(p.lastSuccessAt)}</p>
+                          )}
+                          {p.lastErrorMessage && (
+                            <p className="text-[10px] text-rose-700">Last error: {p.lastErrorMessage}</p>
                           )}
                         </div>
                       ))}

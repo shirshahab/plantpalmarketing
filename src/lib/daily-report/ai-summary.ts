@@ -64,20 +64,32 @@ function fallbackSummary(
   ].join(" ");
 }
 
+export const OPENAI_KEY_ERROR_MESSAGE =
+  "OpenAI API key is invalid or missing. Update OPENAI_API_KEY in Vercel.";
+
+export interface ExecutiveSummaryResult {
+  text: string;
+  aiUsed: boolean;
+  /** Founder-facing note when AI was unavailable. Never crashes the report. */
+  aiError: string | null;
+}
+
 export async function generateExecutiveSummary(
   productivity: AgentProductivityEntry[],
   workflows: WorkflowSummary,
   analytics: AnalyticsSummary,
   apiUsage: ApiUsageSummary
-): Promise<string> {
+): Promise<ExecutiveSummaryResult> {
   const prompt = buildPrompt(productivity, workflows, analytics, apiUsage);
+  const fallback = fallbackSummary(productivity, workflows, analytics);
 
   if (!isOpenAIIntegrationConfigured()) {
-    return fallbackSummary(productivity, workflows, analytics);
+    return { text: fallback, aiUsed: false, aiError: OPENAI_KEY_ERROR_MESSAGE };
   }
 
   try {
     const { apiKey, model } = getOpenAIConfig();
+    // invokeIntegration logs every attempt (success/error/rate_limited) to integration_logs
     const summary = await invokeIntegration({
       provider: "openai",
       action: "daily_report_summary",
@@ -104,14 +116,33 @@ export async function generateExecutiveSummary(
             temperature: 0.6,
           }),
         });
-        if (!res.ok) throw new Error(`OpenAI ${res.status}`);
+        if (!res.ok) {
+          let detail = "";
+          try {
+            const body = (await res.json()) as { error?: { message?: string } };
+            detail = body.error?.message ?? "";
+          } catch {
+            /* keep status-only message */
+          }
+          throw new Error(`OpenAI ${res.status}${detail ? `: ${detail}` : ""}`);
+        }
         const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
         return json.choices?.[0]?.message?.content?.trim() ?? "";
       },
       summarize: (r) => r.slice(0, 80),
     });
-    return summary || fallbackSummary(productivity, workflows, analytics);
-  } catch {
-    return fallbackSummary(productivity, workflows, analytics);
+    if (!summary) return { text: fallback, aiUsed: false, aiError: null };
+    return { text: summary, aiUsed: true, aiError: null };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "";
+    const isKeyError =
+      message.includes("401") ||
+      message.toLowerCase().includes("incorrect api key") ||
+      message.toLowerCase().includes("invalid api key");
+    return {
+      text: fallback,
+      aiUsed: false,
+      aiError: isKeyError ? OPENAI_KEY_ERROR_MESSAGE : `OpenAI unavailable — ${message || "unknown error"}. Using rule-based summary.`,
+    };
   }
 }

@@ -29,6 +29,8 @@ interface ProviderView {
   xReadConnected?: boolean;
   xPublishConnected?: boolean;
   xMissingPublishVars?: string[];
+  openaiKeyPresent?: boolean;
+  openaiKeyInvalid?: boolean;
 }
 
 function StatusIcon({ status, configured }: { status: IntegrationStatus; configured: boolean }) {
@@ -131,6 +133,32 @@ export function IntegrationsPanel({
             </div>
 
             <div className="mt-4 space-y-2 text-xs text-brand-muted">
+              {s.provider === "openai" && (
+                <div className="space-y-1.5 rounded-lg border border-brand-border/50 bg-brand-bg/40 p-2.5">
+                  <p className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 rounded-full ${s.openaiKeyPresent ? "bg-emerald-500" : "bg-rose-400"}`}
+                    />
+                    <span className="font-medium text-brand-primary">API key</span>
+                    <span>{s.openaiKeyPresent ? "Present" : "Missing OPENAI_API_KEY"}</span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        !s.openaiKeyPresent ? "bg-rose-400" : s.openaiKeyInvalid ? "bg-rose-400" : "bg-emerald-500"
+                      }`}
+                    />
+                    <span className="font-medium text-brand-primary">Key validity</span>
+                    <span>
+                      {!s.openaiKeyPresent
+                        ? "Add the key, then test"
+                        : s.openaiKeyInvalid
+                          ? "Invalid — last call returned 401. Update OPENAI_API_KEY in Vercel."
+                          : "No auth errors on the latest calls"}
+                    </span>
+                  </p>
+                </div>
+              )}
               {s.provider === "x" && (
                 <div className="space-y-1.5 rounded-lg border border-brand-border/50 bg-brand-bg/40 p-2.5">
                   <p className="flex items-center gap-2">

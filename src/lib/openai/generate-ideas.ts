@@ -1,6 +1,11 @@
 import OpenAI from "openai";
 import { getOpenAIConfig, isOpenAIConfigured } from "@/lib/openai/config";
 import {
+  OPENAI_KEY_ERROR_MESSAGE,
+  isOpenAIKeyError,
+} from "@/lib/openai/client";
+import { logIntegrationCall, updateProviderStatus } from "@/lib/integrations/log";
+import {
   buildCreativeSystemPrompt,
   buildUserPrompt,
 } from "@/lib/openai/creative-system-prompt";
@@ -56,27 +61,40 @@ export async function generateCreativeIdeasWithOpenAI(opts: {
   theme?: string;
 }): Promise<GeneratedCreativeIdea[]> {
   if (!isOpenAIConfigured()) {
-    throw new Error("OpenAI is not configured. Add OPENAI_API_KEY to .env.local");
+    throw new Error(OPENAI_KEY_ERROR_MESSAGE);
   }
 
   const { apiKey, model } = getOpenAIConfig();
   const client = new OpenAI({ apiKey });
 
-  const response = await client.chat.completions.create({
-    model,
-    temperature: 0.95,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: buildCreativeSystemPrompt() },
-      { role: "user", content: buildUserPrompt(opts) },
-    ],
-  });
+  try {
+    const response = await client.chat.completions.create({
+      model,
+      temperature: 0.95,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: buildCreativeSystemPrompt() },
+        { role: "user", content: buildUserPrompt(opts) },
+      ],
+    });
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error("Empty response from OpenAI");
+    const content = response.choices[0]?.message?.content;
+    if (!content) throw new Error("Empty response from OpenAI");
 
-  const ideas = parseIdeas(content);
-  if (ideas.length === 0) throw new Error("No ideas generated");
+    const ideas = parseIdeas(content);
+    if (ideas.length === 0) throw new Error("No ideas generated");
 
-  return ideas.slice(0, opts.count);
+    return ideas.slice(0, opts.count);
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : "OpenAI call failed";
+    const friendly = isOpenAIKeyError(raw) ? OPENAI_KEY_ERROR_MESSAGE : raw;
+    await logIntegrationCall({
+      provider: "openai",
+      action: "generate_creative_ideas",
+      status: "error",
+      errorMessage: friendly === raw ? raw : `${friendly} (${raw.slice(0, 160)})`,
+    });
+    await updateProviderStatus("openai", "error", { errorMessage: friendly });
+    throw new Error(friendly);
+  }
 }
