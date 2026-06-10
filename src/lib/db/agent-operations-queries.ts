@@ -8,6 +8,7 @@ import { isMissingTableError } from "@/lib/integrations/db-safe";
 import {
   PHASE24_SCHEDULED_AGENTS,
   type AgentScheduleStats,
+  type HQAgentScheduleHealth,
   type SchedulableAgent,
 } from "@/lib/agent-worker/types";
 
@@ -119,7 +120,39 @@ export async function getAgentOperationsData() {
       successRuns24h,
       itemsCreated24h,
       totalAgents: activeSchedules.length,
-      cronSchedule: "0 * * * * (hourly)",
+      cronSchedule: "*/30 * * * * (every 30 min)",
     },
   };
+}
+
+export async function getHQAgentScheduleHealth(): Promise<HQAgentScheduleHealth[]> {
+  const [schedules, health, recentRuns] = await Promise.all([
+    getAgentSchedules(),
+    getAgentHealthRecords(),
+    getAgentRuns(30),
+  ]);
+
+  const healthByAgent = new Map(health.map((h) => [h.agentId, h]));
+  const lastRunByAgent = new Map<SchedulableAgent, (typeof recentRuns)[number]>();
+
+  for (const run of recentRuns) {
+    if (!lastRunByAgent.has(run.agentId)) {
+      lastRunByAgent.set(run.agentId, run);
+    }
+  }
+
+  return PHASE24_SCHEDULED_AGENTS.map((agentId) => {
+    const schedule = schedules.find((s) => s.agentId === agentId && s.enabled);
+    const h = healthByAgent.get(agentId);
+    const lastRun = lastRunByAgent.get(agentId);
+
+    return {
+      agentId,
+      healthStatus: h?.status ?? "sleeping",
+      lastRunAt: schedule?.lastRunAt ?? null,
+      nextRunAt: schedule?.nextRunAt ?? null,
+      lastRunStatus: lastRun?.status ?? null,
+      lastErrorMessage: h?.lastErrorMessage || lastRun?.errorMessage || null,
+    };
+  });
 }

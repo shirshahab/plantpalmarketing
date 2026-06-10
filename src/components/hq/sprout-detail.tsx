@@ -67,6 +67,10 @@ export function SproutAgentDetail({ agent, onClose }: { agent: HQAgent; onClose:
             { label: "Ready", key: "ready", icon: Send },
             { label: "Scheduling", key: "scheduling", icon: Calendar },
             { label: "Published", key: "published", icon: Rocket },
+            { label: "Scheduled today", key: "scheduledToday", icon: Calendar },
+            { label: "Ready to publish", key: "readyToPublish", icon: Send },
+            { label: "Missing assets", key: "missingAssets", icon: Clock },
+            { label: "Posted today", key: "postedToday", icon: Rocket },
           ].map(({ label, key }) => (
             <div key={key} className="rounded-xl border border-lime-100 bg-white p-3">
               <p className="text-[10px] text-brand-muted">{label}</p>
@@ -75,6 +79,11 @@ export function SproutAgentDetail({ agent, onClose }: { agent: HQAgent; onClose:
           ))}
         </div>
       )}
+
+      <Button variant="secondary" className="w-full" onClick={() => { onClose(); window.location.href = "/calendar"; }}>
+        <Calendar className="h-4 w-4" />
+        Open Content Calendar
+      </Button>
 
       <p className="rounded-lg bg-lime-50 px-3 py-2 text-xs text-lime-900">
         No auto-publishing. Every schedule requires human approval before going live.

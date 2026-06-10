@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import { isMissingTableError } from "@/lib/integrations/db-safe";
 import {
   mapAgentDailyBrief,
   mapDiscoveryItem,
@@ -14,7 +15,10 @@ export async function getLatestDailyBrief() {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingTableError(error)) return null;
+    throw new Error(error.message);
+  }
   return data ? mapAgentDailyBrief(data) : null;
 }
 
@@ -25,7 +29,10 @@ export async function getDailyBriefs(limit = 10) {
     .select("*")
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    throw new Error(error.message);
+  }
   return (data ?? []).map(mapAgentDailyBrief);
 }
 
@@ -36,7 +43,10 @@ export async function getDiscoveryItemsByBrief(briefId: string) {
     .select("*")
     .eq("brief_id", briefId)
     .order("relevance_score", { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    throw new Error(error.message);
+  }
   return (data ?? []).map(mapDiscoveryItem);
 }
 

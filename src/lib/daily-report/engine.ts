@@ -56,6 +56,29 @@ export async function runDailyReportGeneration(): Promise<{ report: DailyReport;
   await persistWorkflowRuns(workflowSummary.all);
   await persistGrowthActionItems(growthRecommendations, recommendedActions);
 
+  // Phase 25: mirror the report into agent_daily_briefs (Ivy's daily brief table)
+  const { error: briefError } = await supabase.from("agent_daily_briefs").insert({
+    brief_date: reportDate,
+    title: `Daily Brief — ${reportDate}`,
+    summary,
+    agent_productivity: agentProductivity as unknown as Json,
+    workflow_summary: workflowSummary as unknown as Json,
+    api_usage_summary: apiUsageSummary as unknown as Json,
+    analytics_summary: analyticsSummary as unknown as Json,
+    recommendations: [...growthRecommendations, ...recommendedActions] as unknown as Json,
+    created_by_agent: "ivy",
+    status: "generated",
+  });
+  if (briefError) {
+    if (isMissingTableError(briefError)) {
+      console.error(
+        "[agent_daily_briefs] table not found — run supabase/migrations/042_phase25_agent_daily_briefs.sql"
+      );
+    } else {
+      console.error("[agent_daily_briefs]", briefError.message);
+    }
+  }
+
   try {
     await supabase.from("agent_activity_log").insert({
       agent_id: "ivy",

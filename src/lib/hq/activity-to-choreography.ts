@@ -274,6 +274,41 @@ const ACTIVITY_ROUTE_DEFS: Partial<Record<ActivityItem["type"], RouteDef>> = {
 };
 
 export function activityToWorkflow(item: ActivityItem): WorkflowChoreography | null {
+  if (item.id.startsWith("weather-signal-")) {
+    try {
+      if (item.agentId === "community") {
+        return buildWorkflow(
+          {
+            walker: "chief_of_staff",
+            target: "community",
+            workflowName: "openweather_to_roots",
+            pathLabel: "Rain signal → Roots",
+            feedLabel: item.title,
+          },
+          "activity",
+          item.id,
+          item.title
+        );
+      }
+      if (item.agentId === "content") {
+        return buildWorkflow(
+          {
+            walker: "chief_of_staff",
+            target: "content",
+            workflowName: "openweather_to_bloom",
+            pathLabel: "Dry heat signal → Bloom",
+            feedLabel: item.title,
+          },
+          "activity",
+          item.id,
+          item.title
+        );
+      }
+    } catch {
+      return null;
+    }
+  }
+
   const def = ACTIVITY_ROUTE_DEFS[item.type];
   if (!def) return null;
   try {

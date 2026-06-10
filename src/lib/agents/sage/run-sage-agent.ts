@@ -1,6 +1,8 @@
 import { scoreBloomPiece, SAGE_PASS_THRESHOLD } from "@/lib/agents/sage/mock-scorer";
 import { mapBloomContentPiece } from "@/lib/supabase/mappers";
 import { createServerClient } from "@/lib/supabase/server";
+import { attachSageScoreToCalendar } from "@/lib/content-calendar/sync";
+import { recordAutomationRun } from "@/lib/automation/engine";
 import type { BloomContentFormat } from "@/lib/types";
 
 export interface SageRunResult {
@@ -98,6 +100,14 @@ export async function runSageAgent(): Promise<SageRunResult> {
 
     if (reviewError) throw new Error(reviewError.message);
 
+    // Phase 26: creative score lands on the calendar item automatically
+    await attachSageScoreToCalendar(row.id, {
+      aggregateScore: scores.aggregateScore,
+      recommendation: scores.recommendation,
+      hookSuggestion: scores.hookSuggestion,
+      ctaSuggestion: scores.ctaSuggestion,
+    });
+
     if (scores.recommendation === "approve") {
       const { error: statusError } = await supabase
         .from("bloom_content_pieces")
@@ -156,6 +166,16 @@ export async function runSageAgent(): Promise<SageRunResult> {
     action: "review_complete",
     detail: `Reviewed ${awaiting.length} pieces — ${approvedCount} approved (≥${SAGE_PASS_THRESHOLD}), ${rejectedCount} rejected`,
     metadata: { batch_id: batchRow.id, approved: approvedCount, rejected: rejectedCount },
+  });
+
+  await recordAutomationRun({
+    ruleKey: "content_ideas",
+    agentId: "sage",
+    action: "auto_score_content",
+    itemsProcessed: awaiting.length,
+    itemsCreated: approvedCount,
+    detail: `Sage scored ${awaiting.length} pieces — creative scores attached to calendar items`,
+    metadata: { batch_id: batchRow.id, avg_score: avgAggregateScore },
   });
 
   return {

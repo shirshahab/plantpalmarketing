@@ -126,7 +126,7 @@ export function HQLivingAgentDrawer({
                     </div>
                     <p className="mt-2 text-sm">{t.description}</p>
                     <p className="mt-1 text-xs text-brand-muted">
-                      {AGENT_SLUG_LABELS[t.createdBy]} → {AGENT_SLUG_LABELS[t.assignedAgent]}
+                      {AGENT_SLUG_LABELS[t.createdBy] ?? t.createdBy} → {AGENT_SLUG_LABELS[t.assignedAgent] ?? t.assignedAgent}
                     </p>
                   </div>
                 ))
@@ -142,7 +142,7 @@ export function HQLivingAgentDrawer({
                 agentMessages.map((m) => (
                   <div key={m.id} className={`rounded-xl border p-3 ${m.status === "unread" ? "border-sky-200 bg-sky-50/40" : ""}`}>
                     <p className="text-xs font-medium">
-                      {AGENT_SLUG_LABELS[m.fromAgent]} → {AGENT_SLUG_LABELS[m.toAgent]}
+                      {AGENT_SLUG_LABELS[m.fromAgent] ?? m.fromAgent} → {AGENT_SLUG_LABELS[m.toAgent] ?? m.toAgent}
                     </p>
                     <p className="mt-1 font-medium text-sm">{m.title}</p>
                     <p className="mt-1 text-xs text-brand-muted">{m.body}</p>

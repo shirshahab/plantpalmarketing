@@ -26,14 +26,27 @@ function mapApprovalType(format: string): string {
 export async function runDailyContentPipeline(): Promise<PipelineRunResult> {
   const supabase = createServerClient();
 
+  const today = new Date().toISOString().slice(0, 10);
   const { data: brief, error: briefError } = await supabase
     .from("agent_daily_briefs")
-    .insert({ status: "running" })
+    .insert({
+      status: "running",
+      brief_date: today,
+      title: `Content Pipeline Brief — ${today}`,
+      created_by_agent: "bloom",
+    })
     .select("id")
     .single();
 
   if (briefError || !brief) {
-    throw new Error(briefError?.message ?? "Failed to create daily brief");
+    const isMissingTable =
+      briefError?.code === "PGRST205" ||
+      (briefError?.message ?? "").toLowerCase().includes("schema cache");
+    throw new Error(
+      isMissingTable
+        ? "agent_daily_briefs table not found — run supabase/migrations/042_phase25_agent_daily_briefs.sql in the Supabase SQL Editor"
+        : briefError?.message ?? "Failed to create daily brief"
+    );
   }
 
   const briefId = brief.id;
@@ -63,7 +76,16 @@ export async function runDailyContentPipeline(): Promise<PipelineRunResult> {
           relevance_score: item.relevance_score,
         }))
       );
-      if (discError) throw new Error(discError.message);
+      if (discError) {
+        const isMissingTable =
+          discError.code === "PGRST205" ||
+          discError.message.toLowerCase().includes("schema cache");
+        throw new Error(
+          isMissingTable
+            ? "discovery_items table not found — run supabase/migrations/045_phase26_discovery_items.sql in the Supabase SQL Editor"
+            : discError.message
+        );
+      }
     }
 
     const drafts = await runContentAgent(discovery.items);

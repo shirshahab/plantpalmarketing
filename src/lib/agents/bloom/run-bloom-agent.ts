@@ -5,6 +5,8 @@ import {
 } from "@/lib/agents/bloom/mock-generator";
 import { createServerClient } from "@/lib/supabase/server";
 import { bloomDraftXPost, bloomEnrichContentContext } from "@/lib/integrations/agent-integrations";
+import { syncBloomPieceToCalendar } from "@/lib/content-calendar/sync";
+import { recordAutomationRun } from "@/lib/automation/engine";
 export interface BloomRunResult {
   runId: string;
   piecesGenerated: number;
@@ -86,6 +88,9 @@ export async function runBloomAgent(): Promise<BloomRunResult> {
     if (pieceError || !inserted) throw new Error(pieceError?.message ?? "Failed to insert content piece");
     piecesAwaitingReview++;
 
+    // Phase 26: drafts land on the content calendar automatically (low risk, auto-approved)
+    await syncBloomPieceToCalendar(inserted.id, { stage: "draft" });
+
     if (piece.platform === "X" || piece.format === "x_post") {
       const xText = [piece.hook, piece.caption, piece.cta].filter(Boolean).join(" ").slice(0, 280);
       const draftText = enrichment ? `${xText}` : xText;
@@ -111,6 +116,16 @@ export async function runBloomAgent(): Promise<BloomRunResult> {
     action: "production_complete",
     detail: `Daily batch complete — ${pieces.length} pieces sent to Sage for Creative Director review`,
     metadata: { run_id: runRow.id, pieces: pieces.length, awaiting_review: piecesAwaitingReview },
+  });
+
+  await recordAutomationRun({
+    ruleKey: "content_drafts",
+    agentId: "bloom",
+    action: "auto_create_calendar_drafts",
+    itemsProcessed: pieces.length,
+    itemsCreated: pieces.length,
+    detail: `Bloom generated ${pieces.length} pieces and auto-created calendar drafts`,
+    metadata: { run_id: runRow.id },
   });
 
   return {

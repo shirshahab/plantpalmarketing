@@ -36,6 +36,8 @@ export default async function DailyReportPage() {
           reports={data?.reports ?? []}
           workflowRuns={data?.workflowRuns ?? []}
           actionItems={data?.actionItems ?? []}
+          calendarStats={data?.calendarStats ?? null}
+          calendarToday={data?.calendarToday ?? []}
         />
       ) : (
         <EmptyState

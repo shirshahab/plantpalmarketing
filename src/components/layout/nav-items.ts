@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Bot,
+  CalendarDays,
   CheckSquare,
   Eye,
   FileBarChart,
@@ -29,10 +30,13 @@ import {
   Workflow,
   Plug,
   Twitter,
+  Zap,
 } from "lucide-react";
 
 export const navItems = [
   { href: "/", label: "PlantPal HQ", icon: LayoutDashboard },
+  { href: "/automation", label: "Automation", icon: Zap },
+  { href: "/calendar", label: "Content Calendar", icon: CalendarDays },
   { href: "/daily-report", label: "Daily Report", icon: FileBarChart },
   { href: "/agent-operations", label: "Agent Operations", icon: Server },
   { href: "/integrations", label: "Integrations", icon: Plug },

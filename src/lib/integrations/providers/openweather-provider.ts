@@ -7,7 +7,32 @@ export interface WeatherSnapshot {
   tempC: number;
   description: string;
   humidity: number;
+  windSpeed: number;
+  clouds: number;
+  rain1h: number;
+  snow1h: number;
+  weatherMain: string;
   gardeningTip: string;
+}
+
+function gardeningTipFromConditions(tempC: number, humidity: number, rain1h: number, main: string): string {
+  const mainLower = main.toLowerCase();
+  if (rain1h > 0 || mainLower.includes("rain") || mainLower.includes("drizzle")) {
+    return "Rainy stretch — Roots should engage plant parents with indoor care tips. Bloom can draft cozy rainy-day content.";
+  }
+  if (tempC > 32 && humidity < 45) {
+    return "OpenWeather reports warm dry conditions. Bloom should create watering reminders and heat-stress content.";
+  }
+  if (tempC > 28) {
+    return "Heat alert — remind users to water early morning and shade sensitive plants.";
+  }
+  if (tempC < 5) {
+    return "Frost risk — cover outdoor containers and pause repotting.";
+  }
+  if (humidity > 75) {
+    return "Humid air — watch for fungal issues; Roots can share ventilation tips.";
+  }
+  return "Mild gardening weather — good window for pruning, repotting, and educational posts.";
 }
 
 export async function healthCheckOpenWeather(): Promise<HealthCheckResult> {
@@ -43,43 +68,49 @@ export async function healthCheckOpenWeather(): Promise<HealthCheckResult> {
   }
 }
 
-export async function fetchCurrentWeather(city = "London", agentId?: string): Promise<WeatherSnapshot> {
+export async function fetchCurrentWeather(location = "Pasadena,CA,US", agentId?: string): Promise<WeatherSnapshot> {
   const { apiKey } = getOpenWeatherConfig();
   return invokeIntegration({
     provider: "openweather",
     action: "current_weather",
     agentId,
-    requestSummary: `city=${city}`,
+    requestSummary: `location=${location}`,
     fn: async () => {
-      const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&units=metric&appid=${apiKey}`;
+      const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&units=metric&appid=${apiKey}`;
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error(`OpenWeather ${res.status}`);
       const data = (await res.json()) as {
         name: string;
         main: { temp: number; humidity: number };
-        weather: { description: string }[];
+        weather: { main: string; description: string }[];
+        wind?: { speed: number };
+        clouds?: { all: number };
+        rain?: { "1h"?: number };
+        snow?: { "1h"?: number };
       };
       const desc = data.weather[0]?.description ?? "clear";
+      const main = data.weather[0]?.main ?? "Clear";
       const temp = Math.round(data.main.temp);
-      const tip =
-        temp > 28
-          ? "Heat alert — remind users to water early morning and shade sensitive plants."
-          : temp < 5
-            ? "Frost risk — cover outdoor containers and pause repotting."
-            : "Mild conditions — good window for pruning and fertilizing.";
+      const rain1h = data.rain?.["1h"] ?? 0;
+      const snow1h = data.snow?.["1h"] ?? 0;
       return {
         city: data.name,
         tempC: temp,
         description: desc,
         humidity: data.main.humidity,
-        gardeningTip: tip,
+        windSpeed: data.wind?.speed ?? 0,
+        clouds: data.clouds?.all ?? 0,
+        rain1h,
+        snow1h,
+        weatherMain: main,
+        gardeningTip: gardeningTipFromConditions(temp, data.main.humidity, rain1h, main),
       };
     },
     summarize: (r) => `${r.city} ${r.tempC}°C`,
   });
 }
 
-export async function getGardeningWeatherContent(city?: string, agentId?: string): Promise<string> {
-  const snap = await fetchCurrentWeather(city ?? "London", agentId);
+export async function getGardeningWeatherContent(location?: string, agentId?: string): Promise<string> {
+  const snap = await fetchCurrentWeather(location ?? "Pasadena,CA,US", agentId);
   return `Weather in ${snap.city}: ${snap.tempC}°C, ${snap.description}. ${snap.gardeningTip}`;
 }

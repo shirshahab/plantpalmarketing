@@ -3,6 +3,12 @@ import type { AgentSlug } from "@/lib/types";
 
 export type { AgentSlug };
 
+/** Safe label lookup — unknown agent ids fall back to the raw value instead of crashing/blanking. */
+export function agentLabel(slug: string | null | undefined): string {
+  if (!slug) return "Agent";
+  return AGENT_SLUG_LABELS[slug as AgentSlug] ?? slug;
+}
+
 export const AGENT_SLUG_LABELS: Record<AgentSlug, string> = {
   scout: "Scout",
   roots: "Roots",

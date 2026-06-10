@@ -14,6 +14,7 @@ export interface AgentSchedule {
   agentId: SchedulableAgent;
   frequencyType: AgentFrequencyType;
   intervalHours: number | null;
+  intervalMinutes: number | null;
   dailyAtHour: number | null;
   dailyAtMinute: number;
   enabled: boolean;
@@ -75,12 +76,12 @@ export const SCHEDULE_LABELS: Record<SchedulableAgent, string> = {
   roots: "Every hour",
   sentinel: "Every 4 hours",
   bloom: "Every morning (8:00 AM UTC)",
-  sage: "When content exists",
-  oak: "Manual only (disabled)",
-  atlas: "Every morning (8:00 AM UTC)",
-  ivy: "Every morning (8:00 AM UTC)",
+  sage: "Every 30 min when content needs review",
+  oak: "Every morning (9:00 AM UTC)",
+  atlas: "Every morning (7:00 AM UTC)",
+  ivy: "Every morning (7:30 AM UTC)",
   echo: "Every 6 hours",
-  fern: "Manual only (disabled)",
+  fern: "Every morning (8:30 AM UTC)",
 };
 
 /** Phase 24 — autonomous Vercel Cron agents */
@@ -90,8 +91,10 @@ export const PHASE24_SCHEDULED_AGENTS: SchedulableAgent[] = [
   "sentinel",
   "bloom",
   "sage",
+  "oak",
   "ivy",
   "atlas",
+  "fern",
   "echo",
 ];
 
@@ -112,6 +115,15 @@ export interface AgentScheduleStats {
   successCount: number;
   failureCount: number;
   itemsCreated: number;
+}
+
+export interface HQAgentScheduleHealth {
+  agentId: SchedulableAgent;
+  healthStatus: AgentHealthStatus;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+  lastRunStatus: AgentRunStatus | null;
+  lastErrorMessage: string | null;
 }
 
 export type WorkerAgentSlug = SchedulableAgent | AgentSlug;

@@ -1263,7 +1263,7 @@ export interface ApprovalItem {
   updatedAt?: string;
 }
 
-export type BriefStatus = "running" | "completed" | "failed";
+export type BriefStatus = "generated" | "running" | "completed" | "failed" | "archived";
 
 export type DiscoveryItemType = "trending_topic" | "question" | "content_opportunity";
 
@@ -1271,6 +1271,15 @@ export type PipelineStatus = "pending_review" | "approved" | "rejected" | "needs
 
 export interface AgentDailyBrief {
   id: string;
+  briefDate: string;
+  title: string;
+  summary: string;
+  agentProductivity: Record<string, unknown>[];
+  workflowSummary: Record<string, unknown>;
+  apiUsageSummary: Record<string, unknown>;
+  analyticsSummary: Record<string, unknown>;
+  recommendations: Record<string, unknown>[];
+  createdByAgent: string;
   runDate: string;
   status: BriefStatus;
   discoverySummary: string;
@@ -1280,6 +1289,179 @@ export interface AgentDailyBrief {
   errorMessage?: string | null;
   createdAt: string;
   updatedAt?: string;
+}
+
+// ============ Content Calendar (Phase 25) ============
+
+export type CalendarPlatform =
+  | "x"
+  | "tiktok"
+  | "instagram"
+  | "youtube_shorts"
+  | "reddit"
+  | "blog"
+  | "email"
+  | "pinterest";
+
+export type CalendarStatus =
+  | "draft"
+  | "sage_review"
+  | "gate_review"
+  | "approved"
+  | "scheduled"
+  | "ready_to_publish"
+  | "published"
+  | "rejected"
+  | "needs_asset";
+
+export type CalendarApprovalStatus = "pending" | "sage_approved" | "approved" | "rejected";
+
+export interface ContentCalendarItem {
+  id: string;
+  title: string;
+  platform: CalendarPlatform;
+  channel: string;
+  contentType: string;
+  caption: string;
+  hook: string;
+  cta: string;
+  assetUrl: string;
+  assetType: string;
+  assetPrompt: string;
+  scheduledFor: string | null;
+  publishedAt: string | null;
+  status: CalendarStatus;
+  approvalStatus: CalendarApprovalStatus;
+  sourceAgent: string;
+  sourceTable: string;
+  sourceId: string | null;
+  copyText: string;
+  platformUrl: string;
+  notes: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContentAsset {
+  id: string;
+  calendarItemId: string;
+  assetType: string;
+  assetUrl: string;
+  assetPrompt: string;
+  thumbnailUrl: string;
+  status: "needed" | "generating" | "ready" | "attached" | "rejected";
+  createdByAgent: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ContentPublishLog {
+  id: string;
+  calendarItemId: string;
+  platform: string;
+  status: "logged" | "queued" | "published" | "manual_published" | "failed" | "status_change";
+  publishedUrl: string;
+  errorMessage: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface CalendarDayStats {
+  scheduledToday: number;
+  readyToPublish: number;
+  missingAssets: number;
+  postedToday: number;
+  approved: number;
+  overdue: number;
+}
+
+// ============ Automation (Phase 26) ============
+
+export type AutomationRiskLevel = "low" | "medium" | "high";
+
+export type AutomationAction = "auto_approve" | "batch_approval" | "human_approval";
+
+export interface AutomationRule {
+  id: string;
+  ruleKey: string;
+  label: string;
+  description: string;
+  agentId: string;
+  category: string;
+  riskLevel: AutomationRiskLevel;
+  action: AutomationAction;
+  enabled: boolean;
+  config: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AutomationRun {
+  id: string;
+  ruleKey: string;
+  agentId: string;
+  action: string;
+  status: "running" | "completed" | "failed" | "skipped";
+  itemsProcessed: number;
+  itemsCreated: number;
+  detail: string;
+  errorMessage: string;
+  metadata: Record<string, unknown>;
+  startedAt: string;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface PublishingPackage {
+  id: string;
+  calendarItemId: string;
+  platform: CalendarPlatform;
+  caption: string;
+  script: string;
+  hashtags: string[];
+  assetPrompt: string;
+  assetUrl: string;
+  thumbnailUrl: string;
+  uploadChecklist: string[];
+  recommendedPostTime: string;
+  recommendedPostAt: string | null;
+  platformNotes: string;
+  copyText: string;
+  status: "ready" | "needs_asset" | "published" | "archived";
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BatchApprovalItemType =
+  | "x_post"
+  | "tiktok_package"
+  | "instagram_package"
+  | "youtube_package"
+  | "reddit_reply"
+  | "blog_draft"
+  | "creator_outreach"
+  | "other";
+
+export type BatchApprovalStatus = "pending" | "approved" | "rejected" | "edited" | "sent_back";
+
+export interface BatchApprovalItem {
+  id: string;
+  batchDate: string;
+  itemType: BatchApprovalItemType;
+  riskLevel: AutomationRiskLevel;
+  platform: string;
+  title: string;
+  content: string;
+  sourceTable: string;
+  sourceId: string | null;
+  calendarItemId: string | null;
+  status: BatchApprovalStatus;
+  decidedAt: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DiscoveryItemRecord {

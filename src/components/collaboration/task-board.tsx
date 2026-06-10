@@ -74,7 +74,7 @@ export function TaskBoard({ tasks, showCompleted = false }: { tasks: AgentTask[]
             </div>
             <p className="mt-2 text-sm text-brand-primary">{task.description}</p>
             <p className="mt-1 text-xs text-brand-muted">
-              {AGENT_SLUG_LABELS[task.createdBy]} → {AGENT_SLUG_LABELS[task.assignedAgent]}
+              {AGENT_SLUG_LABELS[task.createdBy] ?? task.createdBy} → {AGENT_SLUG_LABELS[task.assignedAgent] ?? task.assignedAgent}
               {task.dueDate && ` · Due ${formatDate(task.dueDate)}`}
               {" · "}{formatDistanceToNow(new Date(task.createdAt), { addSuffix: true })}
             </p>

@@ -2,7 +2,7 @@
 
 Apply each file in **SQL Editor** before deploying to Vercel. Filenames are prefixed with execution order.
 
-## Full list (001 → 037)
+## Full list (001 → 045)
 
 1. `001_marketing_os_schema.sql`
 2. `002_marketing_os_seed.sql`
@@ -43,6 +43,12 @@ Apply each file in **SQL Editor** before deploying to Vercel. Filenames are pref
 37. `037_agent_worker_system.sql`
 38. `038_phase24_agent_scheduler.sql`
 39. `039_x_publish_readiness.sql`
+40. `040_hq_workflow_events.sql`
+41. `041_phase24_schedule_times.sql`
+42. `042_phase25_agent_daily_briefs.sql`
+43. `043_phase25_content_calendar.sql`
+44. `044_phase26_automation.sql`
+45. `045_phase26_discovery_items.sql`
 
 ## If you already ran early migrations
 
@@ -52,6 +58,11 @@ Minimum repair set for current HQ features:
 - `036_daily_report_system.sql`
 - `037_agent_worker_system.sql`
 - `038_phase24_agent_scheduler.sql`
+- `041_phase24_schedule_times.sql`
+- `042_phase25_agent_daily_briefs.sql` — fixes "Could not find the table public.agent_daily_briefs"
+- `043_phase25_content_calendar.sql` — Content Calendar (`/calendar`)
+- `044_phase26_automation.sql` — Automation rules, runs, publishing packages, batch approvals (`/automation`)
+- `045_phase26_discovery_items.sql` — fixes "Could not find the table public.discovery_items" (run after 042)
 
 ## After running
 

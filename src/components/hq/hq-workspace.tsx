@@ -124,6 +124,7 @@ export function HQWorkspace({
             >
               {row.map((id) => {
                 const agent = agentMap[id];
+                if (!agent) return null;
                 const delay = FLOAT_DELAYS[delayIdx++] ?? "";
                 return (
                   <AgentStation

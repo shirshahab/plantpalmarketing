@@ -100,7 +100,21 @@ import type {
   AtlasRecommendationCategory,
   AtlasReportType,
   ApprovalItem,
+  AutomationAction,
+  AutomationRiskLevel,
+  AutomationRule,
+  AutomationRun,
+  BatchApprovalItem,
+  BatchApprovalItemType,
+  BatchApprovalStatus,
+  PublishingPackage,
   BriefStatus,
+  CalendarApprovalStatus,
+  CalendarPlatform,
+  CalendarStatus,
+  ContentAsset,
+  ContentCalendarItem,
+  ContentPublishLog,
   CommunityMention,
   CommunityOpportunity,
   CommunityReplyDraft,
@@ -1012,6 +1026,15 @@ export function mapAgentDailyBrief(
 ): AgentDailyBrief {
   return {
     id: row.id,
+    briefDate: row.brief_date ?? row.run_date,
+    title: row.title ?? "",
+    summary: row.summary ?? "",
+    agentProductivity: (row.agent_productivity as unknown as Record<string, unknown>[]) ?? [],
+    workflowSummary: (row.workflow_summary as unknown as Record<string, unknown>) ?? {},
+    apiUsageSummary: (row.api_usage_summary as unknown as Record<string, unknown>) ?? {},
+    analyticsSummary: (row.analytics_summary as unknown as Record<string, unknown>) ?? {},
+    recommendations: (row.recommendations as unknown as Record<string, unknown>[]) ?? [],
+    createdByAgent: row.created_by_agent ?? "ivy",
     runDate: row.run_date,
     status: row.status as BriefStatus,
     discoverySummary: row.discovery_summary,
@@ -1021,6 +1044,155 @@ export function mapAgentDailyBrief(
     errorMessage: row.error_message,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+export function mapContentCalendarItem(
+  row: Database["public"]["Tables"]["content_calendar"]["Row"]
+): ContentCalendarItem {
+  return {
+    id: row.id,
+    title: row.title,
+    platform: row.platform as CalendarPlatform,
+    channel: row.channel,
+    contentType: row.content_type,
+    caption: row.caption,
+    hook: row.hook,
+    cta: row.cta,
+    assetUrl: row.asset_url,
+    assetType: row.asset_type,
+    assetPrompt: row.asset_prompt,
+    scheduledFor: row.scheduled_for,
+    publishedAt: row.published_at,
+    status: row.status as CalendarStatus,
+    approvalStatus: row.approval_status as CalendarApprovalStatus,
+    sourceAgent: row.source_agent,
+    sourceTable: row.source_table,
+    sourceId: row.source_id,
+    copyText: row.copy_text,
+    platformUrl: row.platform_url,
+    notes: row.notes,
+    metadata: (row.metadata as unknown as Record<string, unknown>) ?? {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapContentAsset(
+  row: Database["public"]["Tables"]["content_assets"]["Row"]
+): ContentAsset {
+  return {
+    id: row.id,
+    calendarItemId: row.calendar_item_id,
+    assetType: row.asset_type,
+    assetUrl: row.asset_url,
+    assetPrompt: row.asset_prompt,
+    thumbnailUrl: row.thumbnail_url,
+    status: row.status as ContentAsset["status"],
+    createdByAgent: row.created_by_agent,
+    metadata: (row.metadata as unknown as Record<string, unknown>) ?? {},
+    createdAt: row.created_at,
+  };
+}
+
+export function mapAutomationRule(
+  row: Database["public"]["Tables"]["automation_rules"]["Row"]
+): AutomationRule {
+  return {
+    id: row.id,
+    ruleKey: row.rule_key,
+    label: row.label,
+    description: row.description,
+    agentId: row.agent_id,
+    category: row.category,
+    riskLevel: row.risk_level as AutomationRiskLevel,
+    action: row.action as AutomationAction,
+    enabled: row.enabled,
+    config: (row.config as unknown as Record<string, unknown>) ?? {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapAutomationRun(
+  row: Database["public"]["Tables"]["automation_runs"]["Row"]
+): AutomationRun {
+  return {
+    id: row.id,
+    ruleKey: row.rule_key,
+    agentId: row.agent_id,
+    action: row.action,
+    status: row.status as AutomationRun["status"],
+    itemsProcessed: row.items_processed,
+    itemsCreated: row.items_created,
+    detail: row.detail,
+    errorMessage: row.error_message,
+    metadata: (row.metadata as unknown as Record<string, unknown>) ?? {},
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+  };
+}
+
+export function mapPublishingPackage(
+  row: Database["public"]["Tables"]["publishing_packages"]["Row"]
+): PublishingPackage {
+  return {
+    id: row.id,
+    calendarItemId: row.calendar_item_id,
+    platform: row.platform as CalendarPlatform,
+    caption: row.caption,
+    script: row.script,
+    hashtags: (row.hashtags as unknown as string[]) ?? [],
+    assetPrompt: row.asset_prompt,
+    assetUrl: row.asset_url,
+    thumbnailUrl: row.thumbnail_url,
+    uploadChecklist: (row.upload_checklist as unknown as string[]) ?? [],
+    recommendedPostTime: row.recommended_post_time,
+    recommendedPostAt: row.recommended_post_at,
+    platformNotes: row.platform_notes,
+    copyText: row.copy_text,
+    status: row.status as PublishingPackage["status"],
+    metadata: (row.metadata as unknown as Record<string, unknown>) ?? {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapBatchApprovalItem(
+  row: Database["public"]["Tables"]["batch_approvals"]["Row"]
+): BatchApprovalItem {
+  return {
+    id: row.id,
+    batchDate: row.batch_date,
+    itemType: row.item_type as BatchApprovalItemType,
+    riskLevel: row.risk_level as AutomationRiskLevel,
+    platform: row.platform,
+    title: row.title,
+    content: row.content,
+    sourceTable: row.source_table,
+    sourceId: row.source_id,
+    calendarItemId: row.calendar_item_id,
+    status: row.status as BatchApprovalStatus,
+    decidedAt: row.decided_at,
+    metadata: (row.metadata as unknown as Record<string, unknown>) ?? {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapContentPublishLog(
+  row: Database["public"]["Tables"]["content_publish_logs"]["Row"]
+): ContentPublishLog {
+  return {
+    id: row.id,
+    calendarItemId: row.calendar_item_id,
+    platform: row.platform,
+    status: row.status as ContentPublishLog["status"],
+    publishedUrl: row.published_url,
+    errorMessage: row.error_message,
+    metadata: (row.metadata as unknown as Record<string, unknown>) ?? {},
+    createdAt: row.created_at,
   };
 }
 
@@ -1352,11 +1524,15 @@ export function mapGrowthActionItem(row: Database["public"]["Tables"]["growth_ac
 }
 
 export function mapAgentSchedule(row: Database["public"]["Tables"]["agent_schedules"]["Row"]): AgentSchedule {
+  const extended = row as Database["public"]["Tables"]["agent_schedules"]["Row"] & {
+    interval_minutes?: number | null;
+  };
   return {
     id: row.id,
     agentId: row.agent_id as SchedulableAgent,
     frequencyType: row.frequency_type as AgentSchedule["frequencyType"],
     intervalHours: row.interval_hours,
+    intervalMinutes: extended.interval_minutes ?? null,
     dailyAtHour: row.daily_at_hour,
     dailyAtMinute: row.daily_at_minute,
     enabled: row.enabled,

@@ -8,7 +8,11 @@ const statusMap: Record<Status, { label: string; variant: "success" | "warning" 
   draft: { label: "Draft", variant: "muted" },
 };
 
-export function StatusBadge({ status }: { status: Status }) {
-  const { label, variant } = statusMap[status];
+export function StatusBadge({ status }: { status: Status | string | null }) {
+  // DB statuses are not guaranteed to match the TS union — never crash on unknowns.
+  const { label, variant } = (status ? statusMap[status as Status] : undefined) ?? {
+    label: status ? String(status) : "Unknown",
+    variant: "muted" as const,
+  };
   return <Badge variant={variant}>{label}</Badge>;
 }

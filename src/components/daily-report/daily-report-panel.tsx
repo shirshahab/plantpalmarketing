@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
+  CalendarDays,
   FileBarChart,
   Loader2,
   Play,
@@ -20,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { generateDailyReport } from "@/lib/actions/daily-report";
 import { formatDate } from "@/lib/utils";
 import type { DailyReport, GrowthActionItem } from "@/lib/daily-report/types";
+import type { CalendarDayStats, ContentCalendarItem } from "@/lib/types";
 import type { mapWorkflowRun } from "@/lib/supabase/mappers";
 
 type WorkflowRun = ReturnType<typeof mapWorkflowRun>;
@@ -36,11 +39,15 @@ export function DailyReportPanel({
   reports,
   workflowRuns,
   actionItems,
+  calendarStats = null,
+  calendarToday = [],
 }: {
   latestReport: DailyReport | null;
   reports: DailyReport[];
   workflowRuns: WorkflowRun[];
   actionItems: GrowthActionItem[];
+  calendarStats?: (CalendarDayStats & { connected: boolean }) | null;
+  calendarToday?: ContentCalendarItem[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -82,6 +89,66 @@ export function DailyReportPanel({
         </div>
         {message && <p className="mt-3 text-sm text-violet-900">{message}</p>}
       </div>
+
+      {calendarStats?.connected && (
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-brand-sage" />
+              <h3 className="font-heading font-semibold text-brand-primary">Content Calendar</h3>
+            </div>
+            <Link href="/calendar" className="text-xs font-medium text-brand-primary underline">
+              Open calendar
+            </Link>
+          </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="grid gap-2 sm:grid-cols-5">
+                {[
+                  { label: "Scheduled today", value: calendarStats.scheduledToday },
+                  { label: "Approved", value: calendarStats.approved },
+                  { label: "Published today", value: calendarStats.postedToday },
+                  { label: "Overdue posts", value: calendarStats.overdue, warn: calendarStats.overdue > 0 },
+                  { label: "Missing assets", value: calendarStats.missingAssets, warn: calendarStats.missingAssets > 0 },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-lg border border-brand-border/30 p-3">
+                    <p className="text-[10px] font-semibold uppercase text-brand-sage">{s.label}</p>
+                    <p className={`text-lg font-semibold ${s.warn ? "text-amber-700" : "text-brand-primary"}`}>
+                      {s.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {calendarToday.length > 0 && (
+                <div className="mt-3 space-y-1.5">
+                  {calendarToday.slice(0, 6).map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-2 border-b border-brand-border/20 py-1.5 text-xs">
+                      <span className="truncate text-brand-primary">
+                        <span className="font-semibold capitalize">{item.platform.replace("_", " ")}</span>
+                        {" — "}
+                        {item.title || item.hook || item.caption.slice(0, 60)}
+                      </span>
+                      <Badge
+                        variant={
+                          item.status === "published"
+                            ? "success"
+                            : item.status === "ready_to_publish"
+                              ? "info"
+                              : item.status === "needs_asset"
+                                ? "warning"
+                                : "default"
+                        }
+                      >
+                        {item.status.replace(/_/g, " ")}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       {!report ? (
         <Card>

@@ -5,6 +5,7 @@ import type { AgentSchedule, SchedulableAgent } from "@/lib/agent-worker/types";
 export function computeNextRunAt(schedule: {
   frequencyType: string;
   intervalHours: number | null;
+  intervalMinutes: number | null;
   dailyAtHour: number | null;
   dailyAtMinute: number;
   lastRunAt: string | null;
@@ -26,8 +27,11 @@ export function computeNextRunAt(schedule: {
     return next.toISOString();
   }
 
-  // on_content — poll hourly; worker skips if no pending content
-  return new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+  // on_content — Sage polls every interval_minutes when content needs review
+  const pollMinutes = schedule.intervalMinutes ?? 30;
+  const base = schedule.lastRunAt ? new Date(schedule.lastRunAt) : now;
+  const next = new Date(base.getTime() + pollMinutes * 60 * 1000);
+  return (next > now ? next : new Date(now.getTime() + pollMinutes * 60 * 1000)).toISOString();
 }
 
 export async function sageHasPendingContent(): Promise<boolean> {
@@ -55,9 +59,11 @@ export async function isAgentDue(
 
   if (schedule.frequencyType === "on_content") {
     const hasContent = await sageHasPendingContent();
-    return hasContent
-      ? { due: true, reason: "pending_content" }
-      : { due: false, reason: "no_pending_content" };
+    if (!hasContent) return { due: false, reason: "no_pending_content" };
+    if (schedule.nextRunAt && new Date(schedule.nextRunAt) > now) {
+      return { due: false, reason: "sage_cooldown" };
+    }
+    return { due: true, reason: "pending_content" };
   }
 
   if (!schedule.nextRunAt) return { due: true, reason: "no_next_run" };

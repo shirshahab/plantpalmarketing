@@ -209,6 +209,7 @@ async function finalizeRun(
     const nextRunAt = computeNextRunAt({
       frequencyType: schedule.frequencyType,
       intervalHours: schedule.intervalHours,
+      intervalMinutes: schedule.intervalMinutes,
       dailyAtHour: schedule.dailyAtHour,
       dailyAtMinute: schedule.dailyAtMinute,
       lastRunAt: completedAt,

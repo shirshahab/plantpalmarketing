@@ -28,7 +28,9 @@ export function DiscoveryList({ items }: { items: DiscoveryItemRecord[] }) {
       {items.map((item) => (
         <Card key={item.id} className="p-4">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={typeVariants[item.itemType]}>{typeLabels[item.itemType]}</Badge>
+            <Badge variant={typeVariants[item.itemType] ?? "muted"}>
+              {typeLabels[item.itemType] ?? item.itemType ?? "Item"}
+            </Badge>
             <Badge variant="muted">{item.source}</Badge>
             <span className="ml-auto text-xs font-medium text-brand-primary">
               Relevance {item.relevanceScore}

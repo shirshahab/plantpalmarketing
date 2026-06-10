@@ -5,6 +5,17 @@ import { formatDistanceToNow } from "date-fns";
 
 type HQData = Awaited<ReturnType<typeof getHQAgentData>>;
 
+const CALENDAR_PLATFORM_LABELS: Record<string, string> = {
+  x: "X",
+  tiktok: "TikTok",
+  instagram: "Instagram",
+  youtube_shorts: "YouTube Shorts",
+  reddit: "Reddit",
+  blog: "Blog",
+  email: "Email",
+  pinterest: "Pinterest",
+};
+
 const BASE_AGENTS: Pick<HQAgentData, "id" | "name" | "role" | "station" | "accent" | "character">[] = [
   { id: "publishing", name: "Sprout", role: "Publishing Agent", station: "Schedule Desk", accent: "#65a30d", character: "sprout" },
   { id: "content", name: "Bloom", role: "Content Production Agent", station: "Content Garden", accent: "#e85d9a", character: "bloom" },
@@ -300,12 +311,15 @@ export function buildHQAgents(data: HQData): HQAgentData[] {
                 ? "published"
                 : "idle";
 
+      const calendarStats = sprout.calendarStats;
       const sproutTask =
-        sproutState === "waiting"
-          ? `${sprout.sproutStats.waiting} posts awaiting schedule approval`
-          : sproutState === "ready"
-            ? `${sprout.sproutStats.ready} posts ready — manual publish only`
-            : `Scheduling across Instagram, TikTok, X, Threads, Pinterest, YouTube`;
+        (calendarStats?.readyToPublish ?? 0) > 0
+          ? `${calendarStats.readyToPublish} calendar items ready to publish — manual copy/upload`
+          : sproutState === "waiting"
+            ? `${sprout.sproutStats.waiting} posts awaiting schedule approval`
+            : sproutState === "ready"
+              ? `${sprout.sproutStats.ready} posts ready — manual publish only`
+              : `Scheduling across Instagram, TikTok, X, Threads, Pinterest, YouTube`;
 
       return {
         ...base,
@@ -330,6 +344,10 @@ export function buildHQAgents(data: HQData): HQAgentData[] {
           scheduling: sprout.sproutStats.scheduling,
           ready: sprout.sproutStats.ready,
           published: sprout.sproutStats.published,
+          scheduledToday: sprout.calendarStats?.scheduledToday,
+          readyToPublish: sprout.calendarStats?.readyToPublish,
+          missingAssets: sprout.calendarStats?.missingAssets,
+          postedToday: sprout.calendarStats?.postedToday,
         },
         activity: sprout.sproutActivity,
       };
@@ -909,6 +927,40 @@ export function buildHQActivity(data: HQData): ActivityItem[] {
         agentId: "publishing" as const,
         priority: "medium" as const,
         entityId: post.id,
+      });
+    }
+    for (const calItem of (data.sprout.calendarToday ?? []).slice(0, 3)) {
+      const platformLabel = CALENDAR_PLATFORM_LABELS[calItem.platform] ?? calItem.platform;
+      const weekday = calItem.scheduledFor
+        ? new Date(calItem.scheduledFor).toLocaleDateString("en-US", { weekday: "long" })
+        : "today";
+      const time = calItem.scheduledFor
+        ? new Date(calItem.scheduledFor).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+        : "";
+      const title =
+        calItem.status === "published"
+          ? `Published on ${platformLabel}: ${calItem.title.slice(0, 50)}`
+          : calItem.status === "ready_to_publish"
+            ? calItem.platform === "blog"
+              ? "Blog draft ready for manual publishing."
+              : `${platformLabel} post ready to publish — manual copy/upload`
+            : calItem.status === "scheduled"
+              ? `Sprout queued ${platformLabel} post for ${weekday} ${time}`.trim()
+              : `Gate approved ${platformLabel} post. Added to ${weekday} calendar.`;
+      items.push({
+        id: `calendar-${calItem.id}`,
+        type:
+          calItem.status === "published"
+            ? ("sprout_published" as const)
+            : calItem.status === "scheduled"
+              ? ("sprout_scheduled" as const)
+              : ("sprout_ready" as const),
+        title,
+        summary: calItem.hook || calItem.caption.slice(0, 80),
+        timestamp: formatDistanceToNow(new Date(calItem.updatedAt), { addSuffix: true }),
+        agentId: "publishing" as const,
+        priority: calItem.status === "ready_to_publish" ? ("high" as const) : ("medium" as const),
+        entityId: calItem.id,
       });
     }
   }

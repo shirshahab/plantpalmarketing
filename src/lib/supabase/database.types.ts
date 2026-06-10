@@ -434,6 +434,15 @@ export interface Database {
       agent_daily_briefs: TableDef<
         {
           id: string;
+          brief_date: string;
+          title: string;
+          summary: string;
+          agent_productivity: Json;
+          workflow_summary: Json;
+          api_usage_summary: Json;
+          analytics_summary: Json;
+          recommendations: Json;
+          created_by_agent: string;
           run_date: string;
           status: string;
           discovery_summary: string;
@@ -446,6 +455,15 @@ export interface Database {
         },
         {
           id?: string;
+          brief_date?: string;
+          title?: string;
+          summary?: string;
+          agent_productivity?: Json;
+          workflow_summary?: Json;
+          api_usage_summary?: Json;
+          analytics_summary?: Json;
+          recommendations?: Json;
+          created_by_agent?: string;
           run_date?: string;
           status?: string;
           discovery_summary?: string;
@@ -458,6 +476,15 @@ export interface Database {
         },
         {
           id?: string;
+          brief_date?: string;
+          title?: string;
+          summary?: string;
+          agent_productivity?: Json;
+          workflow_summary?: Json;
+          api_usage_summary?: Json;
+          analytics_summary?: Json;
+          recommendations?: Json;
+          created_by_agent?: string;
           run_date?: string;
           status?: string;
           discovery_summary?: string;
@@ -467,6 +494,362 @@ export interface Database {
           error_message?: string | null;
           created_at?: string;
           updated_at?: string;
+        }
+      >;
+      content_calendar: TableDef<
+        {
+          id: string;
+          title: string;
+          platform: string;
+          channel: string;
+          content_type: string;
+          caption: string;
+          hook: string;
+          cta: string;
+          asset_url: string;
+          asset_type: string;
+          asset_prompt: string;
+          scheduled_for: string | null;
+          published_at: string | null;
+          status: string;
+          approval_status: string;
+          source_agent: string;
+          source_table: string;
+          source_id: string | null;
+          copy_text: string;
+          platform_url: string;
+          notes: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          title?: string;
+          platform?: string;
+          channel?: string;
+          content_type?: string;
+          caption?: string;
+          hook?: string;
+          cta?: string;
+          asset_url?: string;
+          asset_type?: string;
+          asset_prompt?: string;
+          scheduled_for?: string | null;
+          published_at?: string | null;
+          status?: string;
+          approval_status?: string;
+          source_agent?: string;
+          source_table?: string;
+          source_id?: string | null;
+          copy_text?: string;
+          platform_url?: string;
+          notes?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          title?: string;
+          platform?: string;
+          channel?: string;
+          content_type?: string;
+          caption?: string;
+          hook?: string;
+          cta?: string;
+          asset_url?: string;
+          asset_type?: string;
+          asset_prompt?: string;
+          scheduled_for?: string | null;
+          published_at?: string | null;
+          status?: string;
+          approval_status?: string;
+          source_agent?: string;
+          source_table?: string;
+          source_id?: string | null;
+          copy_text?: string;
+          platform_url?: string;
+          notes?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      content_assets: TableDef<
+        {
+          id: string;
+          calendar_item_id: string;
+          asset_type: string;
+          asset_url: string;
+          asset_prompt: string;
+          thumbnail_url: string;
+          status: string;
+          created_by_agent: string;
+          metadata: Json;
+          created_at: string;
+        },
+        {
+          id?: string;
+          calendar_item_id: string;
+          asset_type?: string;
+          asset_url?: string;
+          asset_prompt?: string;
+          thumbnail_url?: string;
+          status?: string;
+          created_by_agent?: string;
+          metadata?: Json;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          calendar_item_id?: string;
+          asset_type?: string;
+          asset_url?: string;
+          asset_prompt?: string;
+          thumbnail_url?: string;
+          status?: string;
+          created_by_agent?: string;
+          metadata?: Json;
+          created_at?: string;
+        }
+      >;
+      automation_rules: TableDef<
+        {
+          id: string;
+          rule_key: string;
+          label: string;
+          description: string;
+          agent_id: string;
+          category: string;
+          risk_level: string;
+          action: string;
+          enabled: boolean;
+          config: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          rule_key: string;
+          label?: string;
+          description?: string;
+          agent_id?: string;
+          category?: string;
+          risk_level?: string;
+          action?: string;
+          enabled?: boolean;
+          config?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          rule_key?: string;
+          label?: string;
+          description?: string;
+          agent_id?: string;
+          category?: string;
+          risk_level?: string;
+          action?: string;
+          enabled?: boolean;
+          config?: Json;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      automation_runs: TableDef<
+        {
+          id: string;
+          rule_key: string;
+          agent_id: string;
+          action: string;
+          status: string;
+          items_processed: number;
+          items_created: number;
+          detail: string;
+          error_message: string;
+          metadata: Json;
+          started_at: string;
+          completed_at: string | null;
+          created_at: string;
+        },
+        {
+          id?: string;
+          rule_key?: string;
+          agent_id?: string;
+          action?: string;
+          status?: string;
+          items_processed?: number;
+          items_created?: number;
+          detail?: string;
+          error_message?: string;
+          metadata?: Json;
+          started_at?: string;
+          completed_at?: string | null;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          rule_key?: string;
+          agent_id?: string;
+          action?: string;
+          status?: string;
+          items_processed?: number;
+          items_created?: number;
+          detail?: string;
+          error_message?: string;
+          metadata?: Json;
+          started_at?: string;
+          completed_at?: string | null;
+          created_at?: string;
+        }
+      >;
+      publishing_packages: TableDef<
+        {
+          id: string;
+          calendar_item_id: string;
+          platform: string;
+          caption: string;
+          script: string;
+          hashtags: Json;
+          asset_prompt: string;
+          asset_url: string;
+          thumbnail_url: string;
+          upload_checklist: Json;
+          recommended_post_time: string;
+          recommended_post_at: string | null;
+          platform_notes: string;
+          copy_text: string;
+          status: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          calendar_item_id: string;
+          platform?: string;
+          caption?: string;
+          script?: string;
+          hashtags?: Json;
+          asset_prompt?: string;
+          asset_url?: string;
+          thumbnail_url?: string;
+          upload_checklist?: Json;
+          recommended_post_time?: string;
+          recommended_post_at?: string | null;
+          platform_notes?: string;
+          copy_text?: string;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          calendar_item_id?: string;
+          platform?: string;
+          caption?: string;
+          script?: string;
+          hashtags?: Json;
+          asset_prompt?: string;
+          asset_url?: string;
+          thumbnail_url?: string;
+          upload_checklist?: Json;
+          recommended_post_time?: string;
+          recommended_post_at?: string | null;
+          platform_notes?: string;
+          copy_text?: string;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      batch_approvals: TableDef<
+        {
+          id: string;
+          batch_date: string;
+          item_type: string;
+          risk_level: string;
+          platform: string;
+          title: string;
+          content: string;
+          source_table: string;
+          source_id: string | null;
+          calendar_item_id: string | null;
+          status: string;
+          decided_at: string | null;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          batch_date?: string;
+          item_type?: string;
+          risk_level?: string;
+          platform?: string;
+          title?: string;
+          content?: string;
+          source_table?: string;
+          source_id?: string | null;
+          calendar_item_id?: string | null;
+          status?: string;
+          decided_at?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          batch_date?: string;
+          item_type?: string;
+          risk_level?: string;
+          platform?: string;
+          title?: string;
+          content?: string;
+          source_table?: string;
+          source_id?: string | null;
+          calendar_item_id?: string | null;
+          status?: string;
+          decided_at?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      content_publish_logs: TableDef<
+        {
+          id: string;
+          calendar_item_id: string;
+          platform: string;
+          status: string;
+          published_url: string;
+          error_message: string;
+          metadata: Json;
+          created_at: string;
+        },
+        {
+          id?: string;
+          calendar_item_id: string;
+          platform?: string;
+          status?: string;
+          published_url?: string;
+          error_message?: string;
+          metadata?: Json;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          calendar_item_id?: string;
+          platform?: string;
+          status?: string;
+          published_url?: string;
+          error_message?: string;
+          metadata?: Json;
+          created_at?: string;
         }
       >;
       discovery_items: TableDef<
@@ -2703,6 +3086,7 @@ export interface Database {
           agent_id: string;
           frequency_type: string;
           interval_hours: number | null;
+          interval_minutes: number | null;
           daily_at_hour: number | null;
           daily_at_minute: number;
           enabled: boolean;
@@ -2716,6 +3100,7 @@ export interface Database {
           agent_id: string;
           frequency_type: string;
           interval_hours?: number | null;
+          interval_minutes?: number | null;
           daily_at_hour?: number | null;
           daily_at_minute?: number;
           enabled?: boolean;
@@ -2729,6 +3114,7 @@ export interface Database {
           agent_id?: string;
           frequency_type?: string;
           interval_hours?: number | null;
+          interval_minutes?: number | null;
           daily_at_hour?: number | null;
           daily_at_minute?: number;
           enabled?: boolean;

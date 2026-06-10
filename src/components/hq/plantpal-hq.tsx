@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HQLivingWorld } from "@/components/hq/living/hq-living-world";
 import { HQLivingAgentDrawer } from "@/components/hq/living/hq-living-agent-drawer";
@@ -16,6 +16,8 @@ import {
 } from "@/lib/hq/activity-to-choreography";
 import type { ActivityItem, AgentId, HQAgent } from "@/lib/hq/types";
 import type { HQWeatherState } from "@/lib/hq/hq-weather";
+import { buildWeatherWorkflows, mergeWeatherActivity } from "@/lib/hq/weather-activity";
+import type { HQAgentScheduleHealth } from "@/lib/agent-worker/types";
 import type {
   AgentDecision,
   AgentMemory,
@@ -38,6 +40,7 @@ export function PlantPalHQ({
   agentDecisions = [],
   weather,
   liveDataAvailable = true,
+  agentScheduleHealth = [],
 }: {
   initialAgents: HQAgent[];
   initialActivity: ActivityItem[];
@@ -49,10 +52,14 @@ export function PlantPalHQ({
   agentDecisions?: AgentDecision[];
   weather: HQWeatherState;
   liveDataAvailable?: boolean;
+  agentScheduleHealth?: HQAgentScheduleHealth[];
 }) {
   const router = useRouter();
   const [agents] = useState<HQAgent[]>(initialAgents);
-  const [activity, setActivity] = useState<ActivityItem[]>(initialActivity);
+  const [activity, setActivity] = useState<ActivityItem[]>(() =>
+    mergeWeatherActivity(initialActivity, weather)
+  );
+  const weatherWorkflowsLogged = useRef(false);
   const [selectedAgentId, setSelectedAgentId] = useState<AgentId | null>(null);
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>(null);
@@ -69,9 +76,17 @@ export function PlantPalHQ({
   );
 
   const liveActionLabel = useMemo(
-    () => getLiveActionLabel(activity, workflowLabel),
-    [activity, workflowLabel]
+    () => getLiveActionLabel(activity, workflowLabel ?? weather.gardening_tip),
+    [activity, workflowLabel, weather.gardening_tip]
   );
+
+  useEffect(() => {
+    if (weatherWorkflowsLogged.current || !weather.live) return;
+    weatherWorkflowsLogged.current = true;
+    for (const wf of buildWeatherWorkflows(weather)) {
+      void recordHQWorkflowEvent(wf);
+    }
+  }, [weather]);
 
   const handleWorkflowStarted = useCallback(
     (workflow: WorkflowChoreography) => {
@@ -188,6 +203,7 @@ export function PlantPalHQ({
         liveActionLabel={liveActionLabel}
         onWorkflowStarted={handleWorkflowStarted}
         onDailyReportGenerated={handleDailyReportGenerated}
+        agentScheduleHealth={agentScheduleHealth}
       />
 
       {drawerMode === "agent" && (

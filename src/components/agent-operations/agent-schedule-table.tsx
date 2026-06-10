@@ -1,9 +1,10 @@
 "use client";
 
-import { CheckCircle2, Clock, Package, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Loader2, Package, Play, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AGENT_SLUG_LABELS } from "@/lib/agents/agent-slugs";
-import { SCHEDULE_LABELS, type AgentScheduleStats } from "@/lib/agent-worker/types";
+import { SCHEDULE_LABELS, type AgentScheduleStats, type SchedulableAgent } from "@/lib/agent-worker/types";
 import { formatDate } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
@@ -14,7 +15,17 @@ const STATUS_VARIANT: Record<string, "success" | "danger" | "default" | "info"> 
   running: "info",
 };
 
-export function AgentScheduleTable({ stats }: { stats: AgentScheduleStats[] }) {
+export function AgentScheduleTable({
+  stats,
+  onRunAgent,
+  runningAgent,
+  pending,
+}: {
+  stats: AgentScheduleStats[];
+  onRunAgent?: (agentId: SchedulableAgent) => void;
+  runningAgent?: SchedulableAgent | null;
+  pending?: boolean;
+}) {
   if (stats.length === 0) {
     return (
       <p className="rounded-2xl border border-dashed border-brand-border/60 p-6 text-center text-sm text-brand-muted">
@@ -36,15 +47,16 @@ export function AgentScheduleTable({ stats }: { stats: AgentScheduleStats[] }) {
             <th className="px-4 py-3">Failure</th>
             <th className="px-4 py-3">Items created</th>
             <th className="px-4 py-3">Last status</th>
+            {onRunAgent && <th className="px-4 py-3">Run</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-brand-border/20">
           {stats.map((row) => (
             <tr key={row.agentId} className="hover:bg-brand-bg/30">
               <td className="px-4 py-3 font-medium text-brand-primary">
-                {AGENT_SLUG_LABELS[row.agentId]}
+                {AGENT_SLUG_LABELS[row.agentId] ?? row.agentId}
               </td>
-              <td className="px-4 py-3 text-xs text-brand-muted">{SCHEDULE_LABELS[row.agentId]}</td>
+              <td className="px-4 py-3 text-xs text-brand-muted">{SCHEDULE_LABELS[row.agentId] ?? "—"}</td>
               <td className="px-4 py-3 text-xs text-brand-muted">
                 {row.lastRunAt ? (
                   <span className="flex items-center gap-1">
@@ -102,6 +114,24 @@ export function AgentScheduleTable({ stats }: { stats: AgentScheduleStats[] }) {
                   <span className="text-xs text-brand-muted">—</span>
                 )}
               </td>
+              {onRunAgent && (
+                <td className="px-4 py-3">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={pending}
+                    onClick={() => onRunAgent(row.agentId)}
+                    title={`Run ${AGENT_SLUG_LABELS[row.agentId] ?? row.agentId} now`}
+                  >
+                    {runningAgent === row.agentId ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Play className="h-3 w-3" />
+                    )}
+                    Now
+                  </Button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import { getCalendarHQStats, getCalendarTodayItems } from "@/lib/db/calendar-queries";
 import { mapAgentActivityLog, mapSproutScheduledPost } from "@/lib/supabase/mappers";
 import type { SproutPostStatus } from "@/lib/types";
 
@@ -63,12 +64,15 @@ export async function getSproutStats() {
 }
 
 export async function getSproutHQData() {
-  const [sproutStats, sproutActivity, queue, readyPosts, calendarPosts] = await Promise.all([
-    getSproutStats(),
-    getSproutActivity(8),
-    getSproutQueue().then((q) => q.slice(0, 5)),
-    getSproutScheduledPosts("ready").then((p) => p.slice(0, 4)),
-    getSproutCalendarPosts().then((p) => p.slice(0, 6)),
-  ]);
-  return { sproutStats, sproutActivity, queue, readyPosts, calendarPosts };
+  const [sproutStats, sproutActivity, queue, readyPosts, calendarPosts, calendarStats, calendarToday] =
+    await Promise.all([
+      getSproutStats(),
+      getSproutActivity(8),
+      getSproutQueue().then((q) => q.slice(0, 5)),
+      getSproutScheduledPosts("ready").then((p) => p.slice(0, 4)),
+      getSproutCalendarPosts().then((p) => p.slice(0, 6)),
+      getCalendarHQStats(),
+      getCalendarTodayItems(6),
+    ]);
+  return { sproutStats, sproutActivity, queue, readyPosts, calendarPosts, calendarStats, calendarToday };
 }

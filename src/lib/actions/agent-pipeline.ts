@@ -3,6 +3,7 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { revalidateDashboard } from "@/lib/actions/shared";
 import { runDailyContentPipeline } from "@/lib/agents/run-pipeline";
+import { syncApprovalQueueItemToCalendar } from "@/lib/content-calendar/sync";
 import { isOpenAIConfigured } from "@/lib/openai/config";
 import type { PipelineStatus } from "@/lib/types";
 
@@ -45,10 +46,14 @@ export async function updatePipelineStatus(
     if (error) return { ok: false, error: error.message };
 
     if (status === "approved" || status === "rejected") {
-      await supabase
+      const { data: approvalRows } = await supabase
         .from("approval_queue")
         .update({ status: status === "approved" ? "approved" : "rejected" })
-        .eq("source_id", id);
+        .eq("source_id", id)
+        .select("id");
+      for (const row of approvalRows ?? []) {
+        await syncApprovalQueueItemToCalendar(row.id, status === "approved");
+      }
     }
 
     await revalidateDashboard();

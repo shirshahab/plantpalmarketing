@@ -5,6 +5,7 @@ import { runAllHealthChecks, runProviderHealthCheck } from "@/lib/integrations/h
 import { createServerClient } from "@/lib/supabase/server";
 import { syncXData, publishApprovedXTweet, draftXTweet, advanceXQueueStatus } from "@/lib/integrations/x-service";
 import { validateTweetContent } from "@/lib/integrations/x-publish-readiness";
+import { syncXQueueItemToCalendar } from "@/lib/content-calendar/sync";
 import type { IntegrationProvider } from "@/lib/integrations/types";
 
 export type IntegrationActionResult =
@@ -67,6 +68,7 @@ export async function createXDraft(text: string): Promise<IntegrationActionResul
 export async function approveXForGate(queueId: string): Promise<IntegrationActionResult> {
   try {
     await advanceXQueueStatus(queueId, "gate_approval", { sageApproved: true });
+    await syncXQueueItemToCalendar(queueId, "gate_review");
     await revalidateDashboard();
     return { ok: true, message: "Sent to Gate for human approval" };
   } catch (e) {
@@ -100,6 +102,7 @@ export async function gateApproveXPost(queueId: string): Promise<IntegrationActi
       sageApproved: true,
       scheduledAt: new Date().toISOString(),
     });
+    await syncXQueueItemToCalendar(queueId, "ready_to_publish");
     await revalidateDashboard();
     return {
       ok: true,
@@ -113,6 +116,9 @@ export async function gateApproveXPost(queueId: string): Promise<IntegrationActi
 export async function publishXPost(queueId: string): Promise<IntegrationActionResult & { tweetId?: string }> {
   try {
     const { tweetId } = await publishApprovedXTweet(queueId, "sprout");
+    await syncXQueueItemToCalendar(queueId, "published", {
+      publishedUrl: `https://x.com/PlantPalApp/status/${tweetId}`,
+    });
     await revalidateDashboard();
     return { ok: true, message: `Published tweet ${tweetId}`, tweetId };
   } catch (e) {
@@ -123,6 +129,7 @@ export async function publishXPost(queueId: string): Promise<IntegrationActionRe
 export async function rejectXPost(queueId: string): Promise<IntegrationActionResult> {
   try {
     await advanceXQueueStatus(queueId, "rejected");
+    await syncXQueueItemToCalendar(queueId, "rejected");
     await revalidateDashboard();
     return { ok: true, message: "Post rejected" };
   } catch (e) {

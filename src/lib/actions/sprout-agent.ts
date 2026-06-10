@@ -3,6 +3,7 @@
 import { revalidateDashboard } from "@/lib/actions/shared";
 import { getBestPostingTime, nextSlotDate } from "@/lib/agents/sprout/posting-times";
 import { runSproutAgent } from "@/lib/agents/sprout/run-sprout-agent";
+import { syncSproutScheduleToCalendar } from "@/lib/content-calendar/sync";
 import { createServerClient } from "@/lib/supabase/server";
 import type { SproutPlatform } from "@/lib/types";
 
@@ -55,6 +56,7 @@ export async function approveSproutSchedule(
       metadata: { post_id: id, platform: post.platform },
     });
 
+    await syncSproutScheduleToCalendar(id);
     await revalidateDashboard();
     return { ok: true };
   } catch (e) {
@@ -84,6 +86,7 @@ export async function markSproutPublished(
       });
     }
 
+    await syncSproutScheduleToCalendar(id, { published: true });
     await revalidateDashboard();
     return { ok: true };
   } catch (e) {

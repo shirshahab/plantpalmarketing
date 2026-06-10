@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import { getCalendarHQStats, getCalendarTodayItems } from "@/lib/db/calendar-queries";
 import { mapDailyReport, mapGrowthActionItem, mapWorkflowRun } from "@/lib/supabase/mappers";
 import { isMissingTableError } from "@/lib/integrations/db-safe";
 
@@ -60,11 +61,14 @@ export async function getGrowthActionItems(limit = 30) {
 }
 
 export async function getDailyReportPageData() {
-  const [latestReport, reports, workflowRuns, actionItems] = await Promise.all([
-    getLatestDailyReport(),
-    getDailyReports(5),
-    getWorkflowRuns(),
-    getGrowthActionItems(),
-  ]);
-  return { latestReport, reports, workflowRuns, actionItems };
+  const [latestReport, reports, workflowRuns, actionItems, calendarStats, calendarToday] =
+    await Promise.all([
+      getLatestDailyReport(),
+      getDailyReports(5),
+      getWorkflowRuns(),
+      getGrowthActionItems(),
+      getCalendarHQStats(),
+      getCalendarTodayItems(10),
+    ]);
+  return { latestReport, reports, workflowRuns, actionItems, calendarStats, calendarToday };
 }

@@ -9,7 +9,6 @@ import {
   Loader2,
   Moon,
   Package,
-  Play,
   RefreshCw,
   Server,
   XCircle,
@@ -22,9 +21,7 @@ import { AgentScheduleTable } from "@/components/agent-operations/agent-schedule
 import { triggerAgentManually, triggerScheduledBatch } from "@/lib/actions/agent-operations";
 import { AGENT_SLUG_LABELS } from "@/lib/agents/agent-slugs";
 import {
-  SCHEDULE_LABELS,
   type AgentRun,
-  type AgentSchedule,
   type AgentScheduleStats,
   type SchedulableAgent,
 } from "@/lib/agent-worker/types";
@@ -38,12 +35,10 @@ const RUN_VARIANT: Record<string, "success" | "warning" | "danger" | "info" | "d
 };
 
 export function AgentOperationsPanel({
-  schedules,
   recentRuns,
   scheduleStats,
   stats,
 }: {
-  schedules: AgentSchedule[];
   recentRuns: AgentRun[];
   scheduleStats: AgentScheduleStats[];
   stats: {
@@ -99,7 +94,7 @@ export function AgentOperationsPanel({
             <div>
               <h2 className="font-heading font-semibold text-brand-primary">Autonomous Agent Scheduler</h2>
               <p className="text-sm text-brand-muted">
-                Vercel Cron runs hourly — each agent wakes when its schedule is due
+                Vercel Cron runs every 30 minutes — each agent wakes when its schedule is due
               </p>
             </div>
           </div>
@@ -115,8 +110,8 @@ export function AgentOperationsPanel({
         {message && <p className="mt-3 text-sm text-emerald-900">{message}</p>}
         <p className="mt-2 text-xs text-brand-muted">
           Cron: <code className="rounded bg-white px-1">{stats.cronSchedule}</code> →{" "}
-          <code className="rounded bg-white px-1">/api/cron/agents</code> · Scout/Roots/Sentinel/Echo
-          interval · Bloom/Ivy/Atlas morning · Sage on content
+          <code className="rounded bg-white px-1">/api/cron/run-agents</code> · Scout/Roots/Sentinel/Echo
+          interval · Atlas/Ivy/Bloom/Fern/Oak morning · Sage on content (30 min)
         </p>
       </div>
 
@@ -133,30 +128,44 @@ export function AgentOperationsPanel({
         <p className="mb-3 text-xs text-brand-muted">
           Last run, next run, success/failure counts, and cumulative items created per agent
         </p>
-        <AgentScheduleTable stats={scheduleStats} />
+        <AgentScheduleTable
+          stats={scheduleStats}
+          onRunAgent={handleRunAgent}
+          runningAgent={runningAgent}
+          pending={pending}
+        />
       </section>
 
       <section>
-        <h3 className="mb-3 font-heading font-semibold text-brand-primary">Manual run</h3>
-        <div className="flex flex-wrap gap-2">
-          {schedules.map((schedule) => (
-            <Button
-              key={schedule.id}
-              size="sm"
-              variant="secondary"
-              disabled={pending}
-              onClick={() => handleRunAgent(schedule.agentId)}
-              title={SCHEDULE_LABELS[schedule.agentId]}
-            >
-              {runningAgent === schedule.agentId ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Play className="h-3 w-3" />
-              )}
-              {AGENT_SLUG_LABELS[schedule.agentId]}
-            </Button>
-          ))}
-        </div>
+        <h3 className="mb-3 font-heading font-semibold text-brand-primary">Failure logs</h3>
+        <Card>
+          <CardContent className="divide-y divide-brand-border/20 p-0">
+            {recentRuns.filter((r) => r.status === "failed").length === 0 ? (
+              <p className="p-6 text-center text-sm text-brand-muted">No failures recorded</p>
+            ) : (
+              recentRuns
+                .filter((r) => r.status === "failed")
+                .map((run) => (
+                  <div key={run.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+                    <div className="flex items-center gap-3">
+                      <XCircle className="h-4 w-4 text-rose-600" />
+                      <div>
+                        <p className="font-medium text-brand-primary">{AGENT_SLUG_LABELS[run.agentId] ?? run.agentId}</p>
+                        <p className="text-xs text-brand-muted">
+                          {formatDate(run.startedAt)} · {run.triggerSource}
+                          {run.durationMs != null && ` · ${(run.durationMs / 1000).toFixed(1)}s`}
+                        </p>
+                        {run.errorMessage && (
+                          <p className="text-xs text-rose-700">{run.errorMessage}</p>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant="danger">failed</Badge>
+                  </div>
+                ))
+            )}
+          </CardContent>
+        </Card>
       </section>
 
       <section>
@@ -177,7 +186,7 @@ export function AgentOperationsPanel({
                       <Activity className="h-4 w-4 text-sky-600" />
                     )}
                     <div>
-                      <p className="font-medium text-brand-primary">{AGENT_SLUG_LABELS[run.agentId]}</p>
+                      <p className="font-medium text-brand-primary">{AGENT_SLUG_LABELS[run.agentId] ?? run.agentId}</p>
                       <p className="text-xs text-brand-muted">
                         {formatDate(run.startedAt)} · {run.triggerSource}
                         {run.durationMs != null && ` · ${(run.durationMs / 1000).toFixed(1)}s`}
@@ -214,14 +223,14 @@ export function AgentOperationsPanel({
             <strong>1.</strong> Set <code>CRON_SECRET</code> in Vercel Production env
           </p>
           <p>
-            <strong>2.</strong> Deploy with <code>vercel.json</code> — hourly cron at <code>0 * * * *</code>
+            <strong>2.</strong> Deploy with <code>vercel.json</code> — cron at <code>*/30 * * * *</code>
           </p>
           <p>
-            <strong>3.</strong> Run migration <code>038_phase24_agent_scheduler.sql</code> in Supabase
+            <strong>3.</strong> Run migrations <code>037</code>, <code>038</code>, and <code>041</code> in Supabase
           </p>
           <p>
             <strong>Local test:</strong>{" "}
-            <code>curl -H &quot;Authorization: Bearer %CRON_SECRET%&quot; http://localhost:3000/api/cron/agents</code>
+            <code>curl -H &quot;Authorization: Bearer %CRON_SECRET%&quot; http://localhost:3000/api/cron/run-agents</code>
           </p>
         </CardContent>
       </Card>

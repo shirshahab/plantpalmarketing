@@ -44,8 +44,8 @@ export function CreativeIdeaCard({ idea }: { idea: CreativeContentIdea }) {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="info">{CONTENT_TYPE_LABELS[idea.contentType]}</Badge>
-            <Badge>{FORMAT_LABELS[idea.format]}</Badge>
+            <Badge variant="info">{CONTENT_TYPE_LABELS[idea.contentType] ?? idea.contentType}</Badge>
+            <Badge>{FORMAT_LABELS[idea.format] ?? idea.format}</Badge>
             <StatusBadge status={idea.status} />
             <span className="text-xs text-brand-muted">{formatDate(idea.createdAt)}</span>
           </div>

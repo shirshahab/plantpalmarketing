@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
+import {
+  syncApprovalQueueItemToCalendar,
+  syncBloomPieceToCalendar,
+} from "@/lib/content-calendar/sync";
 import type { MarketingTable, Status } from "@/lib/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -117,6 +121,17 @@ export async function updateStatus(
   try {
     const { error } = await updateStatusOnTable(table, id, status);
     if (error) return { ok: false, error: error.message };
+
+    // Phase 25: Gate approvals/rejections flow onto the content calendar
+    if (status === "approved" || status === "rejected") {
+      const approved = status === "approved";
+      if (table === "approval_queue") {
+        await syncApprovalQueueItemToCalendar(id, approved);
+      } else if (table === "bloom_content_pieces") {
+        await syncBloomPieceToCalendar(id, { approved });
+      }
+    }
+
     await revalidateDashboard();
     return { ok: true };
   } catch (e) {

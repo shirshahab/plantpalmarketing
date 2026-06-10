@@ -5,14 +5,16 @@ import { ConfigBanner } from "@/components/ui/config-banner";
 import { buildHQActivity, buildHQAgents } from "@/lib/hq/build-hq-data";
 import { HQ_AGENTS, HQ_ACTIVITY } from "@/lib/hq/mock-data";
 import Link from "next/link";
+import { getHQAgentScheduleHealth } from "@/lib/db/agent-operations-queries";
 import { getHQAgentData } from "@/lib/db/scout-roots-queries";
 import { getAgentDecisions, getAgentMemories } from "@/lib/db/agent-brain-queries";
 import { probeHQLiveData } from "@/lib/db/hq-debug";
 import { isNextBuildPhase } from "@/lib/build-phase";
-import { defaultHQWeatherState, weatherSnapshotToHQState } from "@/lib/hq/hq-weather";
-import { isOpenWeatherConfigured } from "@/lib/integrations/config";
-import { fetchCurrentWeather } from "@/lib/integrations/providers/openweather-provider";
+import { defaultHQWeatherState } from "@/lib/hq/hq-weather";
+import { fetchHQWeather } from "@/lib/hq/hq-weather-service";
+import { mergeWeatherActivity } from "@/lib/hq/weather-activity";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import type { HQAgentScheduleHealth } from "@/lib/agent-worker/types";
 import type { AgentDecision, AgentMemory, AgentMessage, AgentSlug, AgentTask, CollaborationPriority } from "@/lib/types";
 
 type MessageLine = { from: AgentSlug; to: AgentSlug; priority: CollaborationPriority; id: string };
@@ -40,26 +42,24 @@ export default async function PlantPalHQPage() {
   let hqLoadError: string | null = null;
   let hqDebugSummary: string | null = null;
   let weather = defaultHQWeatherState();
+  let agentScheduleHealth: HQAgentScheduleHealth[] = [];
 
-  if (!skipLiveFetch && isOpenWeatherConfigured()) {
-    try {
-      const city = process.env.HQ_WEATHER_CITY?.trim() || "Pasadena";
-      const snap = await fetchCurrentWeather(city, "hq_world");
-      weather = weatherSnapshotToHQState(snap);
-    } catch (e) {
-      console.error("[HQ] weather fetch failed — using simulated skies:", e);
-    }
+  if (!skipLiveFetch) {
+    weather = await fetchHQWeather();
+    activity = mergeWeatherActivity(activity, weather);
   }
 
   if (configured && !skipLiveFetch) {
     try {
-      const [data, memories, decisions] = await Promise.all([
+      const [data, memories, decisions, scheduleHealth] = await Promise.all([
         getHQAgentData(),
         getAgentMemories(undefined, 40).catch(() => []),
         getAgentDecisions(undefined, 30).catch(() => []),
+        getHQAgentScheduleHealth().catch(() => []),
       ]);
+      agentScheduleHealth = scheduleHealth;
       agents = buildHQAgents(data);
-      activity = buildHQActivity(data);
+      activity = mergeWeatherActivity(buildHQActivity(data), weather);
       messageLines = data.collaboration?.activeMessageLines ?? [];
       collaborationStats = data.collaboration
         ? { unreadMessages: data.collaboration.stats.unreadMessages, activeTasks: data.collaboration.stats.activeTasks }
@@ -120,6 +120,7 @@ export default async function PlantPalHQPage() {
         agentDecisions={agentDecisions}
         weather={weather}
         liveDataAvailable={configured && liveData}
+        agentScheduleHealth={agentScheduleHealth}
       />
     </div>
   );

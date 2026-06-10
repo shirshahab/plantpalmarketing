@@ -37,12 +37,12 @@ export function ActivityStream({ events }: { events: AgentEvent[] }) {
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="info">{EVENT_LABELS[event.eventType] ?? event.eventType}</Badge>
             <span className="text-xs font-medium text-brand-primary">
-              {AGENT_SLUG_LABELS[event.sourceAgent]}
+              {AGENT_SLUG_LABELS[event.sourceAgent] ?? event.sourceAgent}
             </span>
             {event.targetAgent && (
               <>
                 <ArrowRight className="h-3 w-3 text-brand-sage" />
-                <span className="text-xs text-brand-muted">{AGENT_SLUG_LABELS[event.targetAgent]}</span>
+                <span className="text-xs text-brand-muted">{AGENT_SLUG_LABELS[event.targetAgent] ?? event.targetAgent}</span>
               </>
             )}
             <span className="ml-auto text-[10px] text-brand-sage">

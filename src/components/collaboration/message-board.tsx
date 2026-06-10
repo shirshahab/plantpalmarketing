@@ -50,10 +50,10 @@ export function MessageBoard({ messages }: { messages: AgentMessage[] }) {
         >
           <div className="flex flex-wrap items-center gap-2">
             <Mail className="h-4 w-4 text-sky-600" />
-            <span className="text-xs font-semibold text-brand-primary">{AGENT_SLUG_LABELS[msg.fromAgent]}</span>
+            <span className="text-xs font-semibold text-brand-primary">{AGENT_SLUG_LABELS[msg.fromAgent] ?? msg.fromAgent}</span>
             <ArrowRight className="h-3 w-3 text-brand-sage" />
-            <span className="text-xs font-semibold text-brand-primary">{AGENT_SLUG_LABELS[msg.toAgent]}</span>
-            <Badge variant={PRIORITY_VARIANT[msg.priority]}>{msg.priority}</Badge>
+            <span className="text-xs font-semibold text-brand-primary">{AGENT_SLUG_LABELS[msg.toAgent] ?? msg.toAgent}</span>
+            <Badge variant={PRIORITY_VARIANT[msg.priority] ?? "muted"}>{msg.priority ?? "normal"}</Badge>
             <Badge variant="muted">{msg.messageType}</Badge>
             {msg.status === "unread" && <Badge variant="info">unread</Badge>}
             <span className="ml-auto text-[10px] text-brand-sage">

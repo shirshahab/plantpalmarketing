@@ -20,7 +20,10 @@ import { HQActivityDock } from "@/components/hq/living/hq-activity-dock";
 import { useWorldTime } from "@/components/hq/living/use-world-time";
 import { useWorldViewport } from "@/components/hq/living/use-world-viewport";
 import { useAmbientSound } from "@/components/hq/living/use-ambient-sound";
+import { useHQWeather } from "@/components/hq/living/use-hq-weather";
+import { HQAgentHealthCards } from "@/components/hq/living/hq-agent-health-cards";
 import { DailyReportGenerateButton } from "@/components/daily-report/daily-report-generate-button";
+import type { HQAgentScheduleHealth } from "@/lib/agent-worker/types";
 import { getSeasonAccent } from "@/lib/hq/world-time";
 import type { ActivityItem, AgentId, HQAgent } from "@/lib/hq/types";
 import type { HQWeatherState } from "@/lib/hq/hq-weather";
@@ -43,6 +46,7 @@ export function HQLivingWorld({
   liveActionLabel,
   onWorkflowStarted,
   onDailyReportGenerated,
+  agentScheduleHealth = [],
 }: {
   agents: HQAgent[];
   activity: ActivityItem[];
@@ -59,10 +63,12 @@ export function HQLivingWorld({
   liveActionLabel?: string | null;
   onWorkflowStarted?: (workflow: WorkflowChoreography) => void;
   onDailyReportGenerated?: () => void;
+  agentScheduleHealth?: HQAgentScheduleHealth[];
 }) {
   const worldTime = useWorldTime();
   const viewport = useWorldViewport();
-  const { enabled: soundEnabled, toggle: toggleSound } = useAmbientSound();
+  const { weather: liveWeather } = useHQWeather(weather);
+  const { enabled: soundEnabled, toggle: toggleSound } = useAmbientSound(liveWeather, worldTime.phase);
   const { motions, currentStep, activeWalk, activeWorkflow, handoffBurst } = useAgentChoreography({
     messageLines,
     activityItems: activity,
@@ -122,7 +128,7 @@ export function HQLivingWorld({
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           <span className="hidden items-center gap-1 rounded-full border border-white/60 bg-white/80 px-2 py-1 text-[9px] font-medium text-brand-primary sm:flex">
             <WeatherIcon className="h-3 w-3 text-sky-600" />
-            {weather.label}
+            {liveWeather.label}
           </span>
           <DailyReportGenerateButton onGenerated={onDailyReportGenerated} />
           {collaborationStats && collaborationStats.unreadMessages > 0 && (
@@ -136,6 +142,8 @@ export function HQLivingWorld({
           </div>
         </div>
       </div>
+
+      {agentScheduleHealth.length > 0 && <HQAgentHealthCards agents={agentScheduleHealth} />}
 
       {actionLabel && (
         <motion.div
@@ -168,7 +176,7 @@ export function HQLivingWorld({
         >
           <HQTerrainLayer />
           <HQDayNightOverlay worldTime={worldTime} />
-          <HQEnvironmentLayer phase={worldTime.phase} season={worldTime.season} weather={weather} />
+          <HQEnvironmentLayer phase={worldTime.phase} season={worldTime.season} weather={liveWeather} />
           <HQInteractionPaths messageLines={messageLines} activeWalk={activeWalk} />
           <HQWorkflowPath workflow={activeWorkflow} />
 
@@ -215,7 +223,7 @@ export function HQLivingWorld({
 
         <HQWorldControls
           worldTime={worldTime}
-          weather={weather}
+          weather={liveWeather}
           zoom={viewport.zoom}
           onZoomIn={viewport.zoomIn}
           onZoomOut={viewport.zoomOut}
