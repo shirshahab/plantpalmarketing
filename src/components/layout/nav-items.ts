@@ -48,7 +48,7 @@ export const navItems = [
   { href: "/fern", label: "Fern — User Acquisition", icon: Sprout },
   { href: "/echo", label: "Echo — Voice of Customer", icon: MessageCircleHeart },
   { href: "/executive", label: "Executive Dashboard (Legacy)", icon: BarChart3 },
-  { href: "/agents/daily-brief", label: "Daily Brief", icon: Bot },
+  { href: "/agents/daily-brief", label: "Ivy Executive Brief", icon: Bot },
   { href: "/agents/pipeline", label: "Content Pipeline", icon: Workflow },
   { href: "/agents/scores", label: "Content Scores", icon: Star },
   { href: "/agents/approved", label: "Approved Content", icon: ThumbsUp },

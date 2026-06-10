@@ -12,6 +12,7 @@ export async function generateDailyReport(): Promise<DailyReportGenerateResult> 
     const { reportId } = await runDailyReportGeneration();
     revalidatePath("/");
     revalidatePath("/daily-report");
+    revalidatePath("/agents/daily-brief");
     return {
       ok: true,
       reportId,
