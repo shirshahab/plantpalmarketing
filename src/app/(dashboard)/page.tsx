@@ -1,3 +1,5 @@
+import { unstable_noStore as noStore } from "next/cache";
+import { connection } from "next/server";
 import { PlantPalHQ } from "@/components/hq/plantpal-hq";
 import { ConfigBanner } from "@/components/ui/config-banner";
 import { buildHQActivity, buildHQAgents } from "@/lib/hq/build-hq-data";
@@ -6,17 +8,22 @@ import Link from "next/link";
 import { getHQAgentData } from "@/lib/db/scout-roots-queries";
 import { getAgentDecisions, getAgentMemories } from "@/lib/db/agent-brain-queries";
 import { probeHQLiveData } from "@/lib/db/hq-debug";
+import { isNextBuildPhase } from "@/lib/build-phase";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { AgentDecision, AgentMemory, AgentMessage, AgentSlug, AgentTask, CollaborationPriority } from "@/lib/types";
 
 type MessageLine = { from: AgentSlug; to: AgentSlug; priority: CollaborationPriority; id: string };
 
-/** HQ calls getHQAgentData() at request time — not during next build */
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 export default async function PlantPalHQPage() {
+  await connection();
+  noStore();
+
   const configured = isSupabaseConfigured();
+  const skipLiveFetch = isNextBuildPhase();
 
   let agents = HQ_AGENTS;
   let activity = HQ_ACTIVITY;
@@ -30,7 +37,7 @@ export default async function PlantPalHQPage() {
   let hqLoadError: string | null = null;
   let hqDebugSummary: string | null = null;
 
-  if (configured) {
+  if (configured && !skipLiveFetch) {
     try {
       const [data, memories, decisions] = await Promise.all([
         getHQAgentData(),
@@ -69,7 +76,7 @@ export default async function PlantPalHQPage() {
           <ConfigBanner />
         </div>
       )}
-      {configured && !liveData && (
+      {configured && !liveData && !skipLiveFetch && (
         <div className="mb-4 mx-4 sm:mx-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 space-y-2">
           <p>
             <strong>Demo mode active.</strong> Condition: <code className="rounded bg-white px-1">getHQAgentData()</code> threw — see error below (server console also logs details).
