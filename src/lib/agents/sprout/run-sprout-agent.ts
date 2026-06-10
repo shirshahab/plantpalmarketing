@@ -70,10 +70,10 @@ export async function runSproutAgent(): Promise<SproutRunResult> {
         .select("id, gate_approved, status")
         .eq("bloom_piece_id", piece.id)
         .eq("gate_approved", true)
-        .in("status", ["queued", "gate_approval"]);
+        .in("status", ["ready_to_publish", "queued", "gate_approval"]);
       for (const draft of xApproved ?? []) {
-        if (draft.status !== "queued") continue;
-        await advanceXQueueStatus(draft.id, "queued", {
+        if (!["queued", "ready_to_publish"].includes(draft.status)) continue;
+        await advanceXQueueStatus(draft.id, "ready_to_publish", {
           scheduledAt: nextSlotDate(slot.dayOfWeek, slot.hour).toISOString(),
         }).catch(() => undefined);
       }

@@ -39,17 +39,55 @@ export function isXReadConfigured(): boolean {
   return isValidKey(bearer, ["your_x_bearer", "your_"], 20);
 }
 
+export function isXAccessTokenConfigured(): boolean {
+  const access = process.env.X_ACCESS_TOKEN?.trim() ?? "";
+  return isValidKey(access, ["your_x_access", "your_"], 8);
+}
+
+export function isXAccessTokenSecretConfigured(): boolean {
+  const accessSecret = process.env.X_ACCESS_TOKEN_SECRET?.trim() ?? "";
+  return isValidKey(accessSecret, ["your_x_access", "your_"], 8);
+}
+
 export function isXPublishConfigured(): boolean {
   const key = process.env.X_API_KEY?.trim() ?? "";
   const secret = process.env.X_API_SECRET?.trim() ?? "";
-  const access = process.env.X_ACCESS_TOKEN?.trim() ?? "";
-  const accessSecret = process.env.X_ACCESS_TOKEN_SECRET?.trim() ?? "";
   return (
     isValidKey(key, ["your_x_api"], 8) &&
     isValidKey(secret, ["your_x_api"], 8) &&
-    isValidKey(access, ["your_"], 8) &&
-    isValidKey(accessSecret, ["your_"], 8)
+    isXAccessTokenConfigured() &&
+    isXAccessTokenSecretConfigured()
   );
+}
+
+export interface XPublishCredentialStatus {
+  readConnected: boolean;
+  publishConnected: boolean;
+  missingReadVars: string[];
+  missingPublishVars: string[];
+}
+
+export function getXPublishCredentialStatus(): XPublishCredentialStatus {
+  const missingReadVars: string[] = [];
+  const missingPublishVars: string[] = [];
+
+  if (!isXReadConfigured()) missingReadVars.push("X_BEARER_TOKEN");
+
+  if (!isValidKey(process.env.X_API_KEY?.trim() ?? "", ["your_x_api"], 8)) {
+    missingPublishVars.push("X_API_KEY");
+  }
+  if (!isValidKey(process.env.X_API_SECRET?.trim() ?? "", ["your_x_api"], 8)) {
+    missingPublishVars.push("X_API_SECRET");
+  }
+  if (!isXAccessTokenConfigured()) missingPublishVars.push("X_ACCESS_TOKEN");
+  if (!isXAccessTokenSecretConfigured()) missingPublishVars.push("X_ACCESS_TOKEN_SECRET");
+
+  return {
+    readConnected: isXReadConfigured(),
+    publishConnected: isXPublishConfigured(),
+    missingReadVars,
+    missingPublishVars,
+  };
 }
 
 export function isXConfigured(): boolean {

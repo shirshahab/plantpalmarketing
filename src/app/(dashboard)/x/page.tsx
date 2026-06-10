@@ -40,8 +40,10 @@ export default async function XDashboardPage() {
           recentPosts={data.recentPosts}
           topPosts={data.topPosts}
           drafts={data.drafts}
+          sageQueue={data.sageQueue}
           gateQueue={data.gateQueue}
           publishQueue={data.publishQueue}
+          publishCredentials={data.publishCredentials}
           stats={data.stats}
         />
       ) : (

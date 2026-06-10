@@ -2752,6 +2752,9 @@ export interface Database {
           consecutive_failures: number;
           total_runs: number;
           total_successes: number;
+          total_failures: number;
+          total_items_created: number;
+          last_items_created: number;
           avg_duration_ms: number;
           updated_at: string;
         },
@@ -2765,6 +2768,9 @@ export interface Database {
           consecutive_failures?: number;
           total_runs?: number;
           total_successes?: number;
+          total_failures?: number;
+          total_items_created?: number;
+          last_items_created?: number;
           avg_duration_ms?: number;
           updated_at?: string;
         },
@@ -2778,6 +2784,9 @@ export interface Database {
           consecutive_failures?: number;
           total_runs?: number;
           total_successes?: number;
+          total_failures?: number;
+          total_items_created?: number;
+          last_items_created?: number;
           avg_duration_ms?: number;
           updated_at?: string;
         }

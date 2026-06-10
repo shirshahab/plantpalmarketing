@@ -125,10 +125,11 @@ Copy `.env.local.example` as reference. Set the **same keys** in Vercel.
 | `CRON_SECRET` | Vercel → Production | Random 32+ char string — server-only |
 | `OPENAI_API_KEY` | Vercel → Production | Required for AI agents & daily report |
 
-Generate secrets locally:
+Generate secrets locally (writes to `.secrets.generated.txt`, gitignored):
 
 ```powershell
-node scripts/generate-secrets.mjs
+npm run generate:secrets
+# Open .secrets.generated.txt → copy into Vercel → delete the file
 ```
 
 ### 3.2 Recommended

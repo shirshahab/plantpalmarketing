@@ -5,7 +5,11 @@ import {
   mapAgentSchedule,
 } from "@/lib/supabase/mappers";
 import { isMissingTableError } from "@/lib/integrations/db-safe";
-import type { SchedulableAgent } from "@/lib/agent-worker/types";
+import {
+  PHASE24_SCHEDULED_AGENTS,
+  type AgentScheduleStats,
+  type SchedulableAgent,
+} from "@/lib/agent-worker/types";
 
 export async function getAgentSchedules() {
   const supabase = createServerClient();
@@ -42,12 +46,52 @@ export async function getAgentRuns(limit = 50, agentId?: SchedulableAgent) {
   return (data ?? []).map(mapAgentRun);
 }
 
+function buildScheduleStats(
+  schedules: Awaited<ReturnType<typeof getAgentSchedules>>,
+  health: Awaited<ReturnType<typeof getAgentHealthRecords>>,
+  recentRuns: Awaited<ReturnType<typeof getAgentRuns>>
+): AgentScheduleStats[] {
+  const healthByAgent = new Map(health.map((h) => [h.agentId, h]));
+  const lastRunByAgent = new Map<SchedulableAgent, (typeof recentRuns)[number]>();
+
+  for (const run of recentRuns) {
+    if (!lastRunByAgent.has(run.agentId)) {
+      lastRunByAgent.set(run.agentId, run);
+    }
+  }
+
+  const activeSchedules = schedules.filter(
+    (s) => s.enabled && PHASE24_SCHEDULED_AGENTS.includes(s.agentId)
+  );
+
+  return activeSchedules.map((schedule) => {
+    const h = healthByAgent.get(schedule.agentId);
+    const lastRun = lastRunByAgent.get(schedule.agentId);
+
+    return {
+      agentId: schedule.agentId,
+      lastRunAt: schedule.lastRunAt,
+      nextRunAt: schedule.nextRunAt,
+      lastSuccessAt: h?.lastSuccessAt ?? null,
+      lastFailureAt: h?.lastFailureAt ?? null,
+      lastRunStatus: lastRun?.status ?? null,
+      lastItemsCreated: h?.lastItemsCreated ?? lastRun?.itemsProcessed ?? 0,
+      successCount: h?.totalSuccesses ?? 0,
+      failureCount: h?.totalFailures ?? 0,
+      itemsCreated: h?.totalItemsCreated ?? 0,
+    };
+  });
+}
+
 export async function getAgentOperationsData() {
   const [schedules, health, recentRuns] = await Promise.all([
     getAgentSchedules(),
     getAgentHealthRecords(),
-    getAgentRuns(40),
+    getAgentRuns(60),
   ]);
+
+  const scheduleStats = buildScheduleStats(schedules, health, recentRuns);
+  const activeSchedules = schedules.filter((s) => s.enabled);
 
   const running = health.filter((h) => h.status === "running").length;
   const sleeping = health.filter((h) => h.status === "sleeping" || h.status === "healthy").length;
@@ -56,17 +100,26 @@ export async function getAgentOperationsData() {
     const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
     return r.status === "success" && new Date(r.startedAt).getTime() >= dayAgo;
   }).length;
+  const itemsCreated24h = recentRuns
+    .filter((r) => {
+      const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      return r.status === "success" && new Date(r.startedAt).getTime() >= dayAgo;
+    })
+    .reduce((sum, r) => sum + r.itemsProcessed, 0);
 
   return {
-    schedules,
+    schedules: activeSchedules,
     health,
     recentRuns,
+    scheduleStats,
     stats: {
       running,
       sleeping,
       failed,
       successRuns24h,
-      totalAgents: schedules.length,
+      itemsCreated24h,
+      totalAgents: activeSchedules.length,
+      cronSchedule: "0 * * * * (hourly)",
     },
   };
 }

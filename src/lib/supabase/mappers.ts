@@ -1385,6 +1385,11 @@ export function mapAgentRun(row: Database["public"]["Tables"]["agent_runs"]["Row
 }
 
 export function mapAgentHealth(row: Database["public"]["Tables"]["agent_health"]["Row"]): AgentHealth {
+  const extended = row as Database["public"]["Tables"]["agent_health"]["Row"] & {
+    total_failures?: number;
+    total_items_created?: number;
+    last_items_created?: number;
+  };
   return {
     id: row.id,
     agentId: row.agent_id as SchedulableAgent,
@@ -1395,6 +1400,9 @@ export function mapAgentHealth(row: Database["public"]["Tables"]["agent_health"]
     consecutiveFailures: row.consecutive_failures,
     totalRuns: row.total_runs,
     totalSuccesses: row.total_successes,
+    totalFailures: extended.total_failures ?? Math.max(0, row.total_runs - row.total_successes),
+    totalItemsCreated: extended.total_items_created ?? 0,
+    lastItemsCreated: extended.last_items_created ?? 0,
     avgDurationMs: row.avg_duration_ms,
     updatedAt: row.updated_at,
   };

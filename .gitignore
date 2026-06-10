@@ -30,6 +30,8 @@ yarn-error.log*
 
 # env files
 .env*.local
+.secrets.generated.txt
+.env.vercel.local
 
 # typescript
 *.tsbuildinfo

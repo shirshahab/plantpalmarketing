@@ -4,6 +4,10 @@ import { DatabaseDebugPanel } from "@/components/debug/database-debug-panel";
 import { probeHQLiveData, runDatabaseHealthChecks } from "@/lib/db/hq-debug";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
+/** Skip static prerender — probes hit live Supabase and exceed CI build timeout */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function DatabaseDebugPage() {
   const configured = isSupabaseConfigured();
 

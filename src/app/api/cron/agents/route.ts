@@ -40,12 +40,23 @@ async function handleCron(request: NextRequest) {
 
   try {
     const batch = await runScheduledAgentBatch("cron");
+    const itemsCreated = batch.triggered
+      .filter((t) => t.status === "success")
+      .reduce((sum, t) => sum + t.itemsProcessed, 0);
+
     return NextResponse.json({
       ok: true,
+      summary: {
+        ran: batch.triggered.length,
+        skipped: batch.skipped.length,
+        succeeded: batch.triggered.filter((t) => t.status === "success").length,
+        failed: batch.triggered.filter((t) => t.status === "failed").length,
+        itemsCreated,
+      },
       triggered: batch.triggered.map((t) => ({
         agent: t.agentId,
         status: t.status,
-        items: t.itemsProcessed,
+        itemsCreated: t.itemsProcessed,
         durationMs: t.durationMs,
         error: t.error,
       })),

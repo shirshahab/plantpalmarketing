@@ -6,6 +6,13 @@ import {
   isXPublishConfigured,
 } from "@/lib/integrations/config";
 import { buildOAuth1Header } from "@/lib/integrations/x-oauth";
+import { logIntegrationCall } from "@/lib/integrations/log";
+import {
+  assertNoDuplicatePublish,
+  checkXPublishEligibility,
+  validateTweetContent,
+} from "@/lib/integrations/x-publish-readiness";
+import { getXPublishCredentialStatus } from "@/lib/integrations/config";
 import type { HealthCheckResult } from "@/lib/integrations/types";
 
 export interface XAccountMetrics {
@@ -72,7 +79,12 @@ export async function healthCheckX(): Promise<HealthCheckResult> {
       configured: true,
       message: `Connected — @${username} (${followers} followers)${isXPublishConfigured() ? ", publish ready" : ", read-only"}`,
       durationMs: Date.now() - start,
-      metadata: { username, followers, publishReady: isXPublishConfigured() },
+      metadata: {
+        username,
+        followers,
+        publishReady: isXPublishConfigured(),
+        ...getXPublishCredentialStatus(),
+      },
     };
   } catch (e) {
     return {
@@ -254,7 +266,7 @@ export async function draftXTweet(
 
 export async function advanceXQueueStatus(
   queueId: string,
-  status: "sage_review" | "gate_approval" | "queued" | "rejected",
+  status: "sage_review" | "gate_approval" | "queued" | "ready_to_publish" | "rejected",
   opts: { sageApproved?: boolean; gateApproved?: boolean; scheduledAt?: string } = {}
 ) {
   const supabase = createServerClient();
@@ -270,14 +282,27 @@ export async function advanceXQueueStatus(
   if (error) throw new Error(error.message);
 }
 
+async function recordPublishFailure(queueId: string, errorMessage: string, agentId: string) {
+  const supabase = createServerClient();
+  await supabase
+    .from("x_post_queue")
+    .update({ status: "failed", error_message: errorMessage })
+    .eq("id", queueId);
+
+  await logIntegrationCall({
+    provider: "x",
+    action: "publish_tweet_failed",
+    status: "error",
+    errorMessage,
+    agentId,
+    requestSummary: queueId,
+  });
+}
+
 export async function publishApprovedXTweet(
   queueId: string,
   agentId = "sprout"
 ): Promise<{ tweetId: string }> {
-  if (!isXPublishConfigured()) {
-    throw new Error("X publish not configured — set X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET");
-  }
-
   const supabase = createServerClient();
   const { data: item, error } = await supabase
     .from("x_post_queue")
@@ -286,71 +311,102 @@ export async function publishApprovedXTweet(
     .single();
 
   if (error || !item) throw new Error(error?.message ?? "Queue item not found");
-  if (!item.gate_approved || item.status !== "queued") {
-    throw new Error("Human Gate approval required before publishing. Status must be queued with gate_approved=true.");
+
+  const eligibility = checkXPublishEligibility({
+    sageApproved: item.sage_approved,
+    gateApproved: item.gate_approved,
+    status: item.status as import("@/lib/integrations/types").XPostQueueStatus,
+    publishedTweetId: item.published_tweet_id,
+  });
+
+  if (!eligibility.ok) {
+    const msg = eligibility.reasons.join("; ");
+    await recordPublishFailure(queueId, msg, agentId);
+    throw new Error(msg);
+  }
+
+  const contentCheck = validateTweetContent(item.text);
+  if (!contentCheck.ok) {
+    const msg = contentCheck.errors.join("; ");
+    await recordPublishFailure(queueId, msg, agentId);
+    throw new Error(msg);
+  }
+
+  const dupCheck = await assertNoDuplicatePublish(queueId, contentCheck.normalizedText!);
+  if (!dupCheck.ok) {
+    await recordPublishFailure(queueId, dupCheck.error!, agentId);
+    throw new Error(dupCheck.error);
   }
 
   const { apiKey, apiSecret, accessToken, accessTokenSecret } = getXConfig();
   const url = "https://api.twitter.com/2/tweets";
+  const tweetText = contentCheck.normalizedText!;
 
-  const result = await invokeIntegration({
-    provider: "x",
-    action: "publish_tweet",
-    agentId,
-    requestSummary: item.text.slice(0, 80),
-    fn: async () => {
-      const auth = buildOAuth1Header({
-        method: "POST",
-        url,
-        apiKey,
-        apiSecret,
-        accessToken,
-        accessTokenSecret,
-      });
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: auth,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text: item.text }),
-      });
-      if (!res.ok) throw new Error(`X publish ${res.status}: ${(await res.text()).slice(0, 200)}`);
-      return res.json() as Promise<{ data?: { id: string } }>;
-    },
-    summarize: (r) => r.data?.id ?? "published",
-  });
+  try {
+    const result = await invokeIntegration({
+      provider: "x",
+      action: "publish_tweet",
+      agentId,
+      requestSummary: tweetText.slice(0, 80),
+      fn: async () => {
+        const auth = buildOAuth1Header({
+          method: "POST",
+          url,
+          apiKey,
+          apiSecret,
+          accessToken,
+          accessTokenSecret,
+        });
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: auth,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ text: tweetText }),
+        });
+        if (!res.ok) throw new Error(`X publish ${res.status}: ${(await res.text()).slice(0, 200)}`);
+        return res.json() as Promise<{ data?: { id: string } }>;
+      },
+      summarize: (r) => r.data?.id ?? "published",
+    });
 
-  const tweetId = result.data?.id;
-  if (!tweetId) throw new Error("X API returned no tweet id");
+    const tweetId = result.data?.id;
+    if (!tweetId) throw new Error("X API returned no tweet id");
 
-  await supabase
-    .from("x_post_queue")
-    .update({
-      status: "published",
-      published_tweet_id: tweetId,
-      published_at: new Date().toISOString(),
-      error_message: "",
-    })
-    .eq("id", queueId);
+    await supabase
+      .from("x_post_queue")
+      .update({
+        status: "published",
+        published_tweet_id: tweetId,
+        published_at: new Date().toISOString(),
+        error_message: "",
+        text: tweetText,
+      })
+      .eq("id", queueId);
 
-  await supabase.from("x_posts").insert({
-    tweet_id: tweetId,
-    text: item.text,
-    author_username: "PlantPalApp",
-    posted_at: new Date().toISOString(),
-    is_plantpal: true,
-    source: "api",
-  });
+    await supabase.from("x_posts").insert({
+      tweet_id: tweetId,
+      text: tweetText,
+      author_username: "PlantPalApp",
+      posted_at: new Date().toISOString(),
+      is_plantpal: true,
+      source: "api",
+    });
 
-  await supabase.from("agent_activity_log").insert({
-    agent_id: agentId,
-    action: "x_published",
-    detail: `Published approved X post: "${item.text.slice(0, 50)}..."`,
-    metadata: { queue_id: queueId, tweet_id: tweetId },
-  });
+    await supabase.from("agent_activity_log").insert({
+      agent_id: agentId,
+      action: "x_published",
+      detail: `Human-confirmed publish to X: "${tweetText.slice(0, 50)}..."`,
+      metadata: { queue_id: queueId, tweet_id: tweetId, human_confirmed: true },
+    });
 
-  return { tweetId };
+    return { tweetId };
+  } catch (e) {
+    const errorMessage = e instanceof Error ? e.message : "X publish failed";
+    await recordPublishFailure(queueId, errorMessage, agentId);
+    throw e;
+  }
 }
 
 export async function syncXData(agentId?: string) {

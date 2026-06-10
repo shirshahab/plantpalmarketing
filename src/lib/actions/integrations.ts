@@ -2,7 +2,9 @@
 
 import { revalidateDashboard } from "@/lib/actions/shared";
 import { runAllHealthChecks, runProviderHealthCheck } from "@/lib/integrations/health";
+import { createServerClient } from "@/lib/supabase/server";
 import { syncXData, publishApprovedXTweet, draftXTweet, advanceXQueueStatus } from "@/lib/integrations/x-service";
+import { validateTweetContent } from "@/lib/integrations/x-publish-readiness";
 import type { IntegrationProvider } from "@/lib/integrations/types";
 
 export type IntegrationActionResult =
@@ -74,9 +76,35 @@ export async function approveXForGate(queueId: string): Promise<IntegrationActio
 
 export async function gateApproveXPost(queueId: string): Promise<IntegrationActionResult> {
   try {
-    await advanceXQueueStatus(queueId, "queued", { gateApproved: true, scheduledAt: new Date().toISOString() });
+    const supabase = createServerClient();
+    const { data: item, error } = await supabase
+      .from("x_post_queue")
+      .select("sage_approved, text, status")
+      .eq("id", queueId)
+      .single();
+
+    if (error || !item) {
+      return { ok: false, error: error?.message ?? "Queue item not found" };
+    }
+    if (!item.sage_approved) {
+      return { ok: false, error: "Sage approval required before Gate can approve" };
+    }
+
+    const contentCheck = validateTweetContent(item.text);
+    if (!contentCheck.ok) {
+      return { ok: false, error: contentCheck.errors.join("; ") };
+    }
+
+    await advanceXQueueStatus(queueId, "ready_to_publish", {
+      gateApproved: true,
+      sageApproved: true,
+      scheduledAt: new Date().toISOString(),
+    });
     await revalidateDashboard();
-    return { ok: true, message: "Gate approved — queued for Sprout publish (human must confirm publish)" };
+    return {
+      ok: true,
+      message: "Gate approved — moved to Ready to Publish. Human must click Publish to X.",
+    };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Gate approval failed" };
   }

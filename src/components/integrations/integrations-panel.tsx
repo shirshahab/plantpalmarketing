@@ -26,6 +26,9 @@ interface ProviderView {
   lastErrorAt: string | null;
   lastErrorMessage: string;
   lastHealthCheckAt: string | null;
+  xReadConnected?: boolean;
+  xPublishConnected?: boolean;
+  xMissingPublishVars?: string[];
 }
 
 function StatusIcon({ status, configured }: { status: IntegrationStatus; configured: boolean }) {
@@ -128,6 +131,28 @@ export function IntegrationsPanel({
             </div>
 
             <div className="mt-4 space-y-2 text-xs text-brand-muted">
+              {s.provider === "x" && (
+                <div className="space-y-1.5 rounded-lg border border-brand-border/50 bg-brand-bg/40 p-2.5">
+                  <p className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 rounded-full ${s.xReadConnected ? "bg-emerald-500" : "bg-rose-400"}`}
+                    />
+                    <span className="font-medium text-brand-primary">Read access</span>
+                    <span>{s.xReadConnected ? "Connected" : "Missing X_BEARER_TOKEN"}</span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 rounded-full ${s.xPublishConnected ? "bg-emerald-500" : "bg-amber-400"}`}
+                    />
+                    <span className="font-medium text-brand-primary">Publish access</span>
+                    <span>
+                      {s.xPublishConnected
+                        ? "Connected"
+                        : `Missing ${(s.xMissingPublishVars ?? ["X_ACCESS_TOKEN", "X_ACCESS_TOKEN_SECRET"]).join(", ")}`}
+                    </span>
+                  </p>
+                </div>
+              )}
               <p>
                 <span className="font-medium text-brand-primary">Env:</span>{" "}
                 {s.envVars.join(", ")}

@@ -48,6 +48,9 @@ export interface AgentHealth {
   consecutiveFailures: number;
   totalRuns: number;
   totalSuccesses: number;
+  totalFailures: number;
+  totalItemsCreated: number;
+  lastItemsCreated: number;
   avgDurationMs: number;
   updatedAt: string;
 }
@@ -69,19 +72,46 @@ export interface SchedulerBatchResult {
 
 export const SCHEDULE_LABELS: Record<SchedulableAgent, string> = {
   scout: "Every 6 hours",
-  roots: "Every 1 hour",
+  roots: "Every hour",
   sentinel: "Every 4 hours",
-  bloom: "Daily at 8:00 AM UTC",
-  sage: "When new content appears",
-  oak: "Every morning (8:00 AM UTC)",
+  bloom: "Every morning (8:00 AM UTC)",
+  sage: "When content exists",
+  oak: "Manual only (disabled)",
   atlas: "Every morning (8:00 AM UTC)",
   ivy: "Every morning (8:00 AM UTC)",
   echo: "Every 6 hours",
-  fern: "Every morning (8:00 AM UTC)",
+  fern: "Manual only (disabled)",
 };
 
-export const SCHEDULABLE_AGENTS: SchedulableAgent[] = [
-  "scout", "roots", "sentinel", "bloom", "sage", "oak", "ivy", "atlas", "echo", "fern",
+/** Phase 24 — autonomous Vercel Cron agents */
+export const PHASE24_SCHEDULED_AGENTS: SchedulableAgent[] = [
+  "scout",
+  "roots",
+  "sentinel",
+  "bloom",
+  "sage",
+  "ivy",
+  "atlas",
+  "echo",
 ];
+
+export const SCHEDULABLE_AGENTS: SchedulableAgent[] = [
+  ...PHASE24_SCHEDULED_AGENTS,
+  "oak",
+  "fern",
+];
+
+export interface AgentScheduleStats {
+  agentId: SchedulableAgent;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastRunStatus: AgentRunStatus | null;
+  lastItemsCreated: number;
+  successCount: number;
+  failureCount: number;
+  itemsCreated: number;
+}
 
 export type WorkerAgentSlug = SchedulableAgent | AgentSlug;

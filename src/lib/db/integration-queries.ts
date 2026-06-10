@@ -7,6 +7,7 @@ import {
   mapXPostQueueItem,
 } from "@/lib/supabase/mappers";
 import { isMissingTableError } from "@/lib/integrations/db-safe";
+import { getXPublishCredentialStatus } from "@/lib/integrations/config";
 import { getIntegrationStatuses } from "@/lib/integrations/status-service";
 import type { IntegrationProvider } from "@/lib/integrations/types";
 
@@ -118,16 +119,27 @@ export async function getXPostQueue(status?: string) {
 }
 
 export async function getXDashboardData() {
-  const [snapshot, recentPosts, topPosts, allQueue, drafts, gateQueue, publishQueue] =
+  const [snapshot, recentPosts, topPosts, allQueue, drafts, sageQueue, gateQueue, readyQueue, legacyQueued] =
     await Promise.all([
       getLatestXSnapshot(),
       getXPosts(10),
       getTopXPosts(5),
       getXPostQueue(),
       getXPostQueue("draft"),
+      getXPostQueue("sage_review"),
       getXPostQueue("gate_approval"),
+      getXPostQueue("ready_to_publish"),
       getXPostQueue("queued"),
     ]);
+
+  const seen = new Set<string>();
+  const publishQueue = [...readyQueue, ...legacyQueued.filter((q) => q.gateApproved && q.sageApproved)].filter(
+    (q) => {
+      if (seen.has(q.id)) return false;
+      seen.add(q.id);
+      return true;
+    }
+  );
 
   const engagement = recentPosts.reduce(
     (acc, p) => acc + p.likeCount + p.retweetCount + p.replyCount,
@@ -142,12 +154,15 @@ export async function getXDashboardData() {
     drafts,
     gateQueue,
     publishQueue,
-    sageQueue: allQueue.filter((q) => q.status === "sage_review"),
+    sageQueue,
+    publishCredentials: getXPublishCredentialStatus(),
     stats: {
       followerCount: snapshot?.followerCount ?? 0,
       engagement,
       draftCount: drafts.length,
+      sageCount: sageQueue.length,
       approvalCount: gateQueue.length,
+      readyCount: publishQueue.length,
       queuedCount: publishQueue.length,
       publishedCount: allQueue.filter((q) => q.status === "published").length,
     },

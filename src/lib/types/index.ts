@@ -1332,6 +1332,7 @@ export type XPostQueueStatus =
   | "sage_review"
   | "gate_approval"
   | "queued"
+  | "ready_to_publish"
   | "published"
   | "failed"
   | "rejected";

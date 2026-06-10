@@ -41,6 +41,8 @@ Apply each file in **SQL Editor** before deploying to Vercel. Filenames are pref
 35. `035_hq_remaining_tables_repair.sql`
 36. `036_daily_report_system.sql`
 37. `037_agent_worker_system.sql`
+38. `038_phase24_agent_scheduler.sql`
+39. `039_x_publish_readiness.sql`
 
 ## If you already ran early migrations
 
@@ -49,6 +51,7 @@ Minimum repair set for current HQ features:
 - `035_hq_remaining_tables_repair.sql`
 - `036_daily_report_system.sql`
 - `037_agent_worker_system.sql`
+- `038_phase24_agent_scheduler.sql`
 
 ## After running
 

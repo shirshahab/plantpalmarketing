@@ -164,9 +164,14 @@ async function finalizeRun(
 
   const prevRuns = healthRow?.total_runs ?? 0;
   const prevSuccesses = healthRow?.total_successes ?? 0;
+  const prevFailures = healthRow?.total_failures ?? 0;
+  const prevItemsCreated = healthRow?.total_items_created ?? 0;
   const prevAvg = healthRow?.avg_duration_ms ?? 0;
   const newRuns = prevRuns + 1;
   const newSuccesses = opts.status === "success" ? prevSuccesses + 1 : prevSuccesses;
+  const newFailures = opts.status === "failed" ? prevFailures + 1 : prevFailures;
+  const newItemsCreated =
+    opts.status === "success" ? prevItemsCreated + opts.itemsProcessed : prevItemsCreated;
   const newAvg =
     opts.status === "success"
       ? Math.round((prevAvg * prevSuccesses + opts.durationMs) / Math.max(1, newSuccesses))
@@ -191,6 +196,9 @@ async function finalizeRun(
       consecutive_failures: consecutiveFailures,
       total_runs: newRuns,
       total_successes: newSuccesses,
+      total_failures: newFailures,
+      total_items_created: newItemsCreated,
+      last_items_created: opts.status === "success" ? opts.itemsProcessed : 0,
       avg_duration_ms: newAvg,
       updated_at: completedAt,
     },

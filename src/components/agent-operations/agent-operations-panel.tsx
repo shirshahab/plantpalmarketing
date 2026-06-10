@@ -6,9 +6,9 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
-  Clock,
   Loader2,
   Moon,
+  Package,
   Play,
   RefreshCw,
   Server,
@@ -18,19 +18,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/ui/stat-card";
+import { AgentScheduleTable } from "@/components/agent-operations/agent-schedule-table";
 import { triggerAgentManually, triggerScheduledBatch } from "@/lib/actions/agent-operations";
 import { AGENT_SLUG_LABELS } from "@/lib/agents/agent-slugs";
-import { SCHEDULE_LABELS, type AgentHealth, type AgentRun, type AgentSchedule, type SchedulableAgent } from "@/lib/agent-worker/types";
+import {
+  SCHEDULE_LABELS,
+  type AgentRun,
+  type AgentSchedule,
+  type AgentScheduleStats,
+  type SchedulableAgent,
+} from "@/lib/agent-worker/types";
 import { formatDate } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
-
-const HEALTH_VARIANT: Record<string, "success" | "warning" | "danger" | "info" | "default"> = {
-  running: "info",
-  healthy: "success",
-  sleeping: "default",
-  degraded: "warning",
-  failed: "danger",
-};
 
 const RUN_VARIANT: Record<string, "success" | "warning" | "danger" | "info" | "default"> = {
   success: "success",
@@ -41,27 +39,27 @@ const RUN_VARIANT: Record<string, "success" | "warning" | "danger" | "info" | "d
 
 export function AgentOperationsPanel({
   schedules,
-  health,
   recentRuns,
+  scheduleStats,
   stats,
 }: {
   schedules: AgentSchedule[];
-  health: AgentHealth[];
   recentRuns: AgentRun[];
+  scheduleStats: AgentScheduleStats[];
   stats: {
     running: number;
     sleeping: number;
     failed: number;
     successRuns24h: number;
+    itemsCreated24h: number;
     totalAgents: number;
+    cronSchedule: string;
   };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [runningAgent, setRunningAgent] = useState<SchedulableAgent | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-
-  const healthByAgent = new Map(health.map((h) => [h.agentId, h]));
 
   function handleBatch() {
     setMessage(null);
@@ -99,9 +97,9 @@ export function AgentOperationsPanel({
               <Server className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="font-heading font-semibold text-brand-primary">Agent Worker System</h2>
+              <h2 className="font-heading font-semibold text-brand-primary">Autonomous Agent Scheduler</h2>
               <p className="text-sm text-brand-muted">
-                Background workers run on Vercel Cron — agents keep working when your browser is closed
+                Vercel Cron runs hourly — each agent wakes when its schedule is due
               </p>
             </div>
           </div>
@@ -116,76 +114,53 @@ export function AgentOperationsPanel({
         </div>
         {message && <p className="mt-3 text-sm text-emerald-900">{message}</p>}
         <p className="mt-2 text-xs text-brand-muted">
-          Cron: hourly via <code className="rounded bg-white px-1">/api/cron/agents</code> · No auto-posting · No auto-outreach
+          Cron: <code className="rounded bg-white px-1">{stats.cronSchedule}</code> →{" "}
+          <code className="rounded bg-white px-1">/api/cron/agents</code> · Scout/Roots/Sentinel/Echo
+          interval · Bloom/Ivy/Atlas morning · Sage on content
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Running" value={stats.running} icon={Activity} />
-        <StatCard label="Sleeping / Healthy" value={stats.sleeping} icon={Moon} />
-        <StatCard label="Failed / Degraded" value={stats.failed} icon={AlertTriangle} />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <StatCard label="Active agents" value={stats.totalAgents} icon={Server} />
+        <StatCard label="Running now" value={stats.running} icon={Activity} />
+        <StatCard label="Healthy / sleeping" value={stats.sleeping} icon={Moon} />
         <StatCard label="Success (24h)" value={stats.successRuns24h} icon={CheckCircle2} />
+        <StatCard label="Items created (24h)" value={stats.itemsCreated24h} icon={Package} />
       </div>
 
       <section>
-        <h3 className="mb-3 font-heading font-semibold text-brand-primary">Agent Schedules & Health</h3>
-        <div className="grid gap-3 lg:grid-cols-2">
-          {schedules.map((schedule) => {
-            const h = healthByAgent.get(schedule.agentId);
-            return (
-              <Card key={schedule.id} className="border-brand-border/40">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-brand-primary">
-                        {AGENT_SLUG_LABELS[schedule.agentId]}
-                      </p>
-                      <p className="text-xs text-brand-muted">{SCHEDULE_LABELS[schedule.agentId]}</p>
-                    </div>
-                    <Badge variant={HEALTH_VARIANT[h?.status ?? "sleeping"] ?? "default"}>
-                      {h?.status ?? "unknown"}
-                    </Badge>
-                  </div>
+        <h3 className="mb-3 font-heading font-semibold text-brand-primary">Schedule tracking</h3>
+        <p className="mb-3 text-xs text-brand-muted">
+          Last run, next run, success/failure counts, and cumulative items created per agent
+        </p>
+        <AgentScheduleTable stats={scheduleStats} />
+      </section>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-brand-muted">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      Last: {schedule.lastRunAt ? formatDistanceToNow(new Date(schedule.lastRunAt), { addSuffix: true }) : "never"}
-                    </div>
-                    <div>
-                      Next: {schedule.nextRunAt ? formatDistanceToNow(new Date(schedule.nextRunAt), { addSuffix: true }) : "—"}
-                    </div>
-                    <div>Runs: {h?.totalRuns ?? 0} ({h?.totalSuccesses ?? 0} ok)</div>
-                    <div>Avg: {h?.avgDurationMs ? `${(h.avgDurationMs / 1000).toFixed(1)}s` : "—"}</div>
-                  </div>
-
-                  {h?.lastErrorMessage && h.status !== "healthy" && (
-                    <p className="mt-2 text-[10px] text-rose-700">{h.lastErrorMessage}</p>
-                  )}
-
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="mt-3"
-                    disabled={pending}
-                    onClick={() => handleRunAgent(schedule.agentId)}
-                  >
-                    {runningAgent === schedule.agentId ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Play className="h-3 w-3" />
-                    )}
-                    Run Now
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
+      <section>
+        <h3 className="mb-3 font-heading font-semibold text-brand-primary">Manual run</h3>
+        <div className="flex flex-wrap gap-2">
+          {schedules.map((schedule) => (
+            <Button
+              key={schedule.id}
+              size="sm"
+              variant="secondary"
+              disabled={pending}
+              onClick={() => handleRunAgent(schedule.agentId)}
+              title={SCHEDULE_LABELS[schedule.agentId]}
+            >
+              {runningAgent === schedule.agentId ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Play className="h-3 w-3" />
+              )}
+              {AGENT_SLUG_LABELS[schedule.agentId]}
+            </Button>
+          ))}
         </div>
       </section>
 
       <section>
-        <h3 className="mb-3 font-heading font-semibold text-brand-primary">Run History</h3>
+        <h3 className="mb-3 font-heading font-semibold text-brand-primary">Run history</h3>
         <Card>
           <CardContent className="divide-y divide-brand-border/20 p-0">
             {recentRuns.length === 0 ? (
@@ -206,7 +181,7 @@ export function AgentOperationsPanel({
                       <p className="text-xs text-brand-muted">
                         {formatDate(run.startedAt)} · {run.triggerSource}
                         {run.durationMs != null && ` · ${(run.durationMs / 1000).toFixed(1)}s`}
-                        {run.itemsProcessed > 0 && ` · ${run.itemsProcessed} items`}
+                        {run.itemsProcessed > 0 && ` · ${run.itemsProcessed} items created`}
                       </p>
                       {run.errorMessage && (
                         <p className="text-xs text-rose-700">{run.errorMessage}</p>
@@ -221,24 +196,32 @@ export function AgentOperationsPanel({
         </Card>
       </section>
 
+      {stats.failed > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="flex items-center gap-2 font-medium">
+            <AlertTriangle className="h-4 w-4" />
+            {stats.failed} agent(s) degraded or failed — check run history for errors
+          </div>
+        </div>
+      )}
+
       <Card className="border-sky-100 bg-sky-50/50">
         <CardHeader>
-          <h3 className="text-sm font-semibold text-brand-primary">Deployment</h3>
+          <h3 className="text-sm font-semibold text-brand-primary">Vercel Cron setup</h3>
         </CardHeader>
         <CardContent className="space-y-2 text-xs text-brand-muted">
           <p>
-            <strong>Vercel:</strong> Set <code>CRON_SECRET</code> in project env. Deploy with <code>vercel.json</code> — cron hits hourly.
+            <strong>1.</strong> Set <code>CRON_SECRET</code> in Vercel Production env
           </p>
           <p>
-            <strong>Local cron test:</strong>{" "}
-            <code>curl -H &quot;Authorization: Bearer $CRON_SECRET&quot; http://localhost:3000/api/cron/agents</code>
+            <strong>2.</strong> Deploy with <code>vercel.json</code> — hourly cron at <code>0 * * * *</code>
           </p>
           <p>
-            <strong>Deploy health:</strong>{" "}
-            <code>GET /api/health</code> — verifies auth, cron, Supabase, and secret leak checks (no keys exposed).
+            <strong>3.</strong> Run migration <code>038_phase24_agent_scheduler.sql</code> in Supabase
           </p>
           <p>
-            <strong>Supabase Edge:</strong> Schedule a function to POST to your deployed cron URL with the same Bearer token.
+            <strong>Local test:</strong>{" "}
+            <code>curl -H &quot;Authorization: Bearer %CRON_SECRET%&quot; http://localhost:3000/api/cron/agents</code>
           </p>
         </CardContent>
       </Card>
