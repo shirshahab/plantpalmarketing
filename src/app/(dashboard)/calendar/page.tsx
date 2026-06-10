@@ -8,7 +8,12 @@ import { isXPublishConfigured } from "@/lib/integrations/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function ContentCalendarPage() {
+export default async function ContentCalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ platform?: string; status?: string; view?: string }>;
+}) {
+  const params = await searchParams;
   const { data, error, configured } = await fetchPageData(getCalendarPageData);
 
   if (!configured) {
@@ -42,6 +47,9 @@ export default async function ContentCalendarPage() {
           }
         }
         xPublishConfigured={isXPublishConfigured()}
+        initialPlatform={params.platform}
+        initialStatus={params.status}
+        initialView={params.view}
       />
     </div>
   );

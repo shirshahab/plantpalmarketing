@@ -6,6 +6,7 @@ import {
   syncApprovalQueueItemToCalendar,
   syncBloomPieceToCalendar,
 } from "@/lib/content-calendar/sync";
+import { recordHandoff } from "@/lib/collaboration/handoff";
 import type { MarketingTable, Status } from "@/lib/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -129,6 +130,24 @@ export async function updateStatus(
         await syncApprovalQueueItemToCalendar(id, approved);
       } else if (table === "bloom_content_pieces") {
         await syncBloomPieceToCalendar(id, { approved });
+      }
+
+      // Phase 28: approved work actively moves to Sprout for scheduling
+      if (approved && (table === "approval_queue" || table === "bloom_content_pieces")) {
+        await recordHandoff({
+          fromAgent: "gate",
+          toAgent: "sprout",
+          workflowName: "Gate → Sprout",
+          triggerType: "gate_approval",
+          triggerId: id,
+          taskType: "schedule_post",
+          taskDescription: "Gate approved a content item — schedule it and build the publishing package.",
+          priority: "medium",
+          messageTitle: "Approved content ready for scheduling",
+          messageBody: "A content item cleared Gate review. Run Sprout to slot it at the best posting time.",
+          activityDetail: "Gate approved content and handed it to Sprout",
+          metadata: { source_table: table, source_id: id },
+        }).catch(() => undefined);
       }
     }
 

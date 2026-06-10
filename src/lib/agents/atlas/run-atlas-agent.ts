@@ -11,6 +11,7 @@ import {
 } from "@/lib/agents/atlas/growth-synthesizer";
 import { inferGrowthStage } from "@/lib/agents/atlas/decision-engine";
 import { createServerClient } from "@/lib/supabase/server";
+import { recordHandoff } from "@/lib/collaboration/handoff";
 import type { Json } from "@/lib/supabase/database.types";
 
 export interface AtlasRunResult {
@@ -233,6 +234,25 @@ export async function runAtlasAgent(): Promise<AtlasRunResult> {
   ).select().maybeSingle();
 
   const topRec = recommendations[0];
+
+  // Phase 28: growth insights become Ivy action items automatically
+  if (topRec) {
+    await recordHandoff({
+      fromAgent: "atlas",
+      toAgent: "ivy",
+      workflowName: "Atlas → Ivy",
+      triggerType: "growth_recommendation",
+      triggerId: dailyReportId,
+      taskType: "founder_action_item",
+      taskDescription: `Add to founder action items: ${topRec.title} (priority ${topRec.priorityScore}). ${topRec.description}`,
+      priority: "medium",
+      messageTitle: `Top growth move: ${topRec.title}`,
+      messageBody: `${topRec.description}\n\nPriority score: ${topRec.priorityScore}\n${recommendations.length} total recommendations, ${bottlenecks.length} bottlenecks, ${experiments.length} experiments proposed today.`,
+      activityDetail: `Atlas handed top growth recommendation to Ivy`,
+      metadata: { report_id: dailyReportId, recommendations: recommendations.length },
+    });
+  }
+
   await supabase.from("agent_activity_log").insert({
     agent_id: "atlas",
     action: "growth_brief",

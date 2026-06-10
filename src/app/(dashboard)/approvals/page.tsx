@@ -8,6 +8,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { CreateApprovalForm } from "@/components/forms/create-approval-form";
 import { EditApprovalForm } from "@/components/forms/edit-approval-form";
 import { ApprovalActions } from "@/components/shared/approval-actions";
+import { ApprovalFeedbackActions } from "@/components/shared/approval-feedback-actions";
 import { DeleteButton } from "@/components/shared/delete-button";
 import { fetchPageData } from "@/lib/db/fetch-page-data";
 import { getApprovalQueue } from "@/lib/db/queries";
@@ -54,7 +55,7 @@ export default async function ApprovalQueuePage() {
                     <p className="mt-2 text-sm leading-relaxed">{item.draft}</p>
                   </div>
                   <div className="flex shrink-0 flex-col gap-2">
-                    <ApprovalActions table="approval_queue" id={item.id} initialStatus={item.status} />
+                    <ApprovalFeedbackActions id={item.id} initialStatus={item.status} />
                     <EditApprovalForm item={item} />
                     <DeleteButton table="approval_queue" id={item.id} />
                   </div>

@@ -5,6 +5,7 @@ import {
   pickMockAlerts,
 } from "@/lib/agents/sentinel/mock-signals";
 import { sentinelMonitorCompetitorX } from "@/lib/integrations/agent-integrations";
+import { recordHandoff } from "@/lib/collaboration/handoff";
 
 export interface SentinelRunResult {
   competitorsScanned: number;
@@ -53,6 +54,40 @@ export async function runSentinelAgent(): Promise<SentinelRunResult> {
       });
       if (aqError) throw new Error(aqError.message);
       approvalQueueCount++;
+    }
+
+    // Phase 28: every alert creates an Atlas task with a recommended response
+    await recordHandoff({
+      fromAgent: "sentinel",
+      toAgent: "atlas",
+      workflowName: "Sentinel → Atlas",
+      triggerType: "competitor_alert",
+      triggerId: inserted.id,
+      taskType: "competitive_response",
+      taskDescription: `Assess "${alert.title}" (${alert.competitor}, ${alert.severity} severity). Recommended response: ${alert.recommendedAction}`,
+      priority: alert.severity === "high" ? "high" : "medium",
+      messageTitle: `Competitor move: ${alert.competitor} — ${alert.title}`,
+      messageBody: `${alert.description}\n\nSeverity: ${alert.severity}\nRecommended response: ${alert.recommendedAction}`,
+      activityDetail: `Sentinel handed ${alert.competitor} alert to Atlas`,
+      metadata: { alert_id: inserted.id, severity: alert.severity },
+    });
+
+    // High-severity alerts also reach Ivy directly
+    if (alert.severity === "high") {
+      await recordHandoff({
+        fromAgent: "sentinel",
+        toAgent: "ivy",
+        workflowName: "Sentinel → Ivy",
+        triggerType: "high_severity_alert",
+        triggerId: inserted.id,
+        taskType: "founder_briefing",
+        taskDescription: `Surface "${alert.title}" (${alert.competitor}) in the next executive brief — high severity.`,
+        priority: "high",
+        messageTitle: `High-severity competitor alert: ${alert.competitor}`,
+        messageBody: `${alert.title}\n\n${alert.description}\n\nRecommended: ${alert.recommendedAction}`,
+        activityDetail: `Sentinel escalated a high-severity ${alert.competitor} alert to Ivy`,
+        metadata: { alert_id: inserted.id },
+      });
     }
 
     const growthDelta = Math.floor(Math.random() * 6) - 2;

@@ -5,6 +5,7 @@ import {
   type FernAcquisitionContext,
 } from "@/lib/agents/fern/opportunity-synthesizer";
 import { createServerClient } from "@/lib/supabase/server";
+import { recordHandoff } from "@/lib/collaboration/handoff";
 
 export interface FernRunResult {
   opportunitiesCount: number;
@@ -111,6 +112,38 @@ export async function runFernAgent(): Promise<FernRunResult> {
   }
 
   const topOpp = opportunities[0];
+  const topExp = experiments[0];
+
+  // Phase 28: growth opportunities become experiments routed to Atlas + Ivy
+  if (topOpp) {
+    await recordHandoff({
+      fromAgent: "fern",
+      toAgent: "atlas",
+      workflowName: "Fern → Atlas",
+      triggerType: "acquisition_opportunity",
+      taskType: "growth_experiment",
+      taskDescription: `Evaluate acquisition play: ${topOpp.title} (~${topOpp.estimatedInstalls} installs, priority ${topOpp.priorityScore}). ${topExp ? `Paired experiment: ${topExp.name}.` : ""}`,
+      priority: "medium",
+      messageTitle: `Top acquisition opportunity: ${topOpp.title}`,
+      messageBody: `${topOpp.description}\n\nSource: ${topOpp.trafficSource}\nEstimated installs: ${topOpp.estimatedInstalls}\n${experiments.length} experiments proposed.`,
+      activityDetail: `Fern handed "${topOpp.title}" to Atlas as an experiment`,
+      metadata: { estimated_installs: topOpp.estimatedInstalls },
+    });
+    await recordHandoff({
+      fromAgent: "fern",
+      toAgent: "ivy",
+      workflowName: "Fern → Ivy",
+      triggerType: "acquisition_opportunity",
+      taskType: "founder_action_item",
+      taskDescription: `Surface in the brief: ${topOpp.title} — est. ${topOpp.estimatedInstalls} installs.`,
+      priority: "low",
+      messageTitle: `Acquisition headline for the brief`,
+      messageBody: `${topOpp.title}: ${topOpp.description}`,
+      activityDetail: `Fern flagged the top acquisition play to Ivy`,
+      metadata: { opportunity: topOpp.title },
+    });
+  }
+
   await supabase.from("agent_activity_log").insert({
     agent_id: "fern",
     action: "acquisition_scan",

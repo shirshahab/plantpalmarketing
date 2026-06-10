@@ -12,19 +12,24 @@ import type { CreatorLead, CreatorPartnership } from "@/lib/types";
 import { formatNumber } from "@/lib/utils";
 
 export function CreatorCRMPanel({
-  leads,
+  leads: allLeads,
   partnerships,
   stats,
+  initialPriority,
 }: {
   leads: CreatorLead[];
   partnerships: CreatorPartnership[];
   stats: { foundToday: number; highPriority: number; pendingOutreach: number; recommendedPartnerships: number };
+  initialPriority?: string;
 }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<string>(initialPriority ?? "all");
 
+  const leads =
+    priorityFilter === "all" ? allLeads : allLeads.filter((l) => l.priority === priorityFilter);
   const selected = leads.find((l) => l.id === selectedId) ?? null;
 
   function handleRunScout() {
@@ -65,6 +70,25 @@ export function CreatorCRMPanel({
         <StatCard label="High Priority" value={stats.highPriority} icon={Users} />
         <StatCard label="Pending Outreach" value={stats.pendingOutreach} icon={Users} />
         <StatCard label="Partnership Ideas" value={stats.recommendedPartnerships} icon={Users} />
+      </div>
+
+      <div className="mb-4 flex items-center gap-2 text-sm">
+        <span className="text-brand-muted">Priority:</span>
+        <select
+          value={priorityFilter}
+          onChange={(e) => setPriorityFilter(e.target.value)}
+          className="rounded-lg border border-brand-border bg-white px-2 py-1.5 text-sm text-brand-primary"
+        >
+          <option value="all">All</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        {priorityFilter !== "all" && (
+          <span className="text-xs text-brand-muted">
+            Showing {leads.length} of {allLeads.length} leads
+          </span>
+        )}
       </div>
 
       {leads.length === 0 ? (

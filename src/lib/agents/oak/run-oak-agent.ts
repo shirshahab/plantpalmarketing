@@ -1,6 +1,7 @@
 import { buildPipelineFromLead } from "@/lib/agents/oak/mock-generator";
 import { mapCreatorLead } from "@/lib/supabase/mappers";
 import { createServerClient } from "@/lib/supabase/server";
+import { recordHandoff } from "@/lib/collaboration/handoff";
 
 export interface OakRunResult {
   converted: number;
@@ -79,6 +80,22 @@ export async function runOakAgent(): Promise<OakRunResult> {
       .from("creator_leads")
       .update({ partnership_status: "outreach_pending" })
       .eq("id", lead.id);
+
+    // Phase 28: outreach + partnership package routes to Gate for approval
+    await recordHandoff({
+      fromAgent: "oak",
+      toAgent: "gate",
+      workflowName: "Oak → Gate",
+      triggerType: "partnership_outreach",
+      triggerId: inserted.id,
+      taskType: "review_outreach",
+      taskDescription: `Review outreach to ${pipeline.partnerName} (${pipeline.partnerType}). Creator outreach is high-risk — founder approval required before sending.`,
+      priority: "high",
+      messageTitle: `Outreach package ready: ${pipeline.partnerName}`,
+      messageBody: `Collaboration idea: ${pipeline.collaborationIdea}\n\nOutreach draft:\n${pipeline.outreachDraft}\n\nWaiting in the approval queue.`,
+      activityDetail: `Oak sent ${pipeline.partnerName} outreach package to Gate`,
+      metadata: { pipeline_id: inserted.id, lead_id: lead.id },
+    });
 
     converted++;
     outreachQueued++;

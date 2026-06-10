@@ -409,6 +409,15 @@ export interface Database {
           source_id: string | null;
           created_at: string;
           updated_at: string;
+          // Phase 28 — approval feedback (optional until migration 047 runs)
+          approval_feedback?: string;
+          rejection_reason?: string;
+          revision_notes?: string;
+          approved_by?: string;
+          approved_at?: string | null;
+          rejected_at?: string | null;
+          sent_back_to_agent?: string;
+          feedback_category?: string;
         },
         {
           id?: string;
@@ -419,6 +428,14 @@ export interface Database {
           source_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          approval_feedback?: string;
+          rejection_reason?: string;
+          revision_notes?: string;
+          approved_by?: string;
+          approved_at?: string | null;
+          rejected_at?: string | null;
+          sent_back_to_agent?: string;
+          feedback_category?: string;
         },
         {
           id?: string;
@@ -427,6 +444,14 @@ export interface Database {
           draft?: string;
           status?: string;
           source_id?: string | null;
+          approval_feedback?: string;
+          rejection_reason?: string;
+          revision_notes?: string;
+          approved_by?: string;
+          approved_at?: string | null;
+          rejected_at?: string | null;
+          sent_back_to_agent?: string;
+          feedback_category?: string;
           created_at?: string;
           updated_at?: string;
         }
@@ -494,6 +519,39 @@ export interface Database {
           error_message?: string | null;
           created_at?: string;
           updated_at?: string;
+        }
+      >;
+      content_feedback: TableDef<
+        {
+          id: string;
+          source_table: string;
+          source_id: string | null;
+          calendar_item_id: string | null;
+          decision: string;
+          feedback_category: string;
+          feedback_text: string;
+          sent_back_to_agent: string;
+          created_by: string;
+          created_at: string;
+        },
+        {
+          id?: string;
+          source_table?: string;
+          source_id?: string | null;
+          calendar_item_id?: string | null;
+          decision?: string;
+          feedback_category?: string;
+          feedback_text?: string;
+          sent_back_to_agent?: string;
+          created_by?: string;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          decision?: string;
+          feedback_category?: string;
+          feedback_text?: string;
+          sent_back_to_agent?: string;
         }
       >;
       content_calendar: TableDef<

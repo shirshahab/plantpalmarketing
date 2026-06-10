@@ -7,6 +7,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { bloomDraftXPost, bloomEnrichContentContext } from "@/lib/integrations/agent-integrations";
 import { syncBloomPieceToCalendar } from "@/lib/content-calendar/sync";
 import { recordAutomationRun } from "@/lib/automation/engine";
+import { recordHandoff } from "@/lib/collaboration/handoff";
 export interface BloomRunResult {
   runId: string;
   piecesGenerated: number;
@@ -117,6 +118,24 @@ export async function runBloomAgent(): Promise<BloomRunResult> {
     detail: `Daily batch complete — ${pieces.length} pieces sent to Sage for Creative Director review`,
     metadata: { run_id: runRow.id, pieces: pieces.length, awaiting_review: piecesAwaitingReview },
   });
+
+  // Phase 28: Bloom actively hands the batch to Sage for review
+  if (piecesAwaitingReview > 0) {
+    await recordHandoff({
+      fromAgent: "bloom",
+      toAgent: "sage",
+      workflowName: "Bloom → Sage",
+      triggerType: "content_batch",
+      triggerId: runRow.id,
+      taskType: "creative_review",
+      taskDescription: `Review ${piecesAwaitingReview} new Bloom pieces — score them, improve hooks/CTAs, approve high scorers, send weak ones back.`,
+      priority: "high",
+      messageTitle: `${piecesAwaitingReview} pieces ready for Creative Director review`,
+      messageBody: `Bloom finished a production run (${scoutInputs} Scout, ${rootsInputs} Roots, ${sentinelInputs} Sentinel, ${seasonalInputs} seasonal inputs).\nAll pieces are status awaiting_review — run Sage to score and route them.`,
+      activityDetail: `Bloom handed ${piecesAwaitingReview} pieces to Sage for review`,
+      metadata: { run_id: runRow.id },
+    });
+  }
 
   await recordAutomationRun({
     ruleKey: "content_drafts",

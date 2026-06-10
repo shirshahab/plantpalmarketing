@@ -33,40 +33,82 @@ import {
   Zap,
 } from "lucide-react";
 
-export const navItems = [
+import type { LucideIcon } from "lucide-react";
+
+export interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+export interface NavGroup {
+  label: string;
+  icon: LucideIcon;
+  items: NavItem[];
+}
+
+/** Founder-priority operating pages — always visible at the top. */
+export const mainNavItems: NavItem[] = [
   { href: "/", label: "PlantPal HQ", icon: LayoutDashboard },
-  { href: "/automation", label: "Automation", icon: Zap },
-  { href: "/calendar", label: "Content Calendar", icon: CalendarDays },
-  { href: "/daily-report", label: "Daily Report", icon: FileBarChart },
-  { href: "/agent-operations", label: "Agent Operations", icon: Server },
-  { href: "/integrations", label: "Integrations", icon: Plug },
-  { href: "/x", label: "X Dashboard", icon: Twitter },
-  { href: "/collaboration", label: "Agent Collaboration", icon: GitBranch },
-  { href: "/agent-brain", label: "Agent Brain (AI)", icon: Brain },
-  { href: "/ivy", label: "Ivy — Chief of Staff", icon: Crown },
-  { href: "/atlas", label: "Atlas — Head of Growth", icon: Telescope },
-  { href: "/fern", label: "Fern — User Acquisition", icon: Sprout },
-  { href: "/echo", label: "Echo — Voice of Customer", icon: MessageCircleHeart },
-  { href: "/executive", label: "Executive Dashboard (Legacy)", icon: BarChart3 },
   { href: "/agents/daily-brief", label: "Ivy Executive Brief", icon: Bot },
-  { href: "/agents/pipeline", label: "Content Pipeline", icon: Workflow },
-  { href: "/agents/scores", label: "Content Scores", icon: Star },
-  { href: "/agents/approved", label: "Approved Content", icon: ThumbsUp },
-  { href: "/agents/rejected", label: "Rejected Content", icon: ThumbsDown },
-  { href: "/bloom", label: "Bloom — Content Production", icon: Flower2 },
-  { href: "/sage", label: "Sage — Creative Director", icon: Star },
-  { href: "/sprout", label: "Sprout — Publishing", icon: Rocket },
-  { href: "/content", label: "Creative Engine", icon: Sparkles },
-  { href: "/social", label: "Social Posts", icon: FileText },
-  { href: "/images", label: "Image Prompts", icon: Image },
-  { href: "/video", label: "Video Scripts", icon: Video },
-  { href: "/community", label: "Roots — Community", icon: Eye },
-  { href: "/replies", label: "Social Reply Drafts", icon: MessageSquare },
-  { href: "/creators", label: "Scout — Creator CRM", icon: Users },
-  { href: "/oak", label: "Oak — Partnerships", icon: TreeDeciduous },
-  { href: "/partnerships", label: "Partnership Tracker (Legacy)", icon: Handshake },
-  { href: "/competitors", label: "Sentinel — Competitors", icon: Radar },
-  { href: "/approvals", label: "Approval Queue", icon: CheckSquare },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/automation", label: "Automation", icon: Zap },
+  { href: "/approvals", label: "Approvals / Founder Inbox", icon: CheckSquare },
+  { href: "/content", label: "Content Studio", icon: Sparkles },
+  { href: "/x", label: "Analytics", icon: BarChart3 },
+  { href: "/integrations", label: "Integrations", icon: Plug },
+  { href: "/agent-operations", label: "Settings & Operations", icon: Server },
+];
+
+/** Every agent page lives under one collapsible "Agents" group. */
+export const agentNavGroup: NavGroup = {
+  label: "Agents",
+  icon: Users,
+  items: [
+    { href: "/creators", label: "Scout — Creator CRM", icon: Telescope },
+    { href: "/community", label: "Roots — Community", icon: Eye },
+    { href: "/bloom", label: "Bloom — Content Production", icon: Flower2 },
+    { href: "/sage", label: "Sage — Creative Director", icon: Star },
+    { href: "/approvals", label: "Gate — Approvals", icon: CheckSquare },
+    { href: "/sprout", label: "Sprout — Publishing", icon: Rocket },
+    { href: "/competitors", label: "Sentinel — Competitors", icon: Radar },
+    { href: "/oak", label: "Oak — Partnerships", icon: TreeDeciduous },
+    { href: "/ivy", label: "Ivy — Chief of Staff", icon: Crown },
+    { href: "/atlas", label: "Atlas — Head of Growth", icon: Sprout },
+    { href: "/echo", label: "Echo — Voice of Customer", icon: MessageCircleHeart },
+    { href: "/fern", label: "Fern — User Acquisition", icon: Sprout },
+  ],
+};
+
+/** Secondary workspaces stay reachable without crowding the main nav. */
+export const moreNavGroup: NavGroup = {
+  label: "More",
+  icon: GitBranch,
+  items: [
+    { href: "/daily-report", label: "Daily Report", icon: FileBarChart },
+    { href: "/collaboration", label: "Agent Collaboration", icon: GitBranch },
+    { href: "/agent-brain", label: "Agent Brain (AI)", icon: Brain },
+    { href: "/agents/pipeline", label: "Content Pipeline", icon: Workflow },
+    { href: "/agents/scores", label: "Content Scores", icon: Star },
+    { href: "/agents/approved", label: "Approved Content", icon: ThumbsUp },
+    { href: "/agents/rejected", label: "Rejected Content", icon: ThumbsDown },
+    { href: "/social", label: "Social Posts", icon: FileText },
+    { href: "/images", label: "Image Prompts", icon: Image },
+    { href: "/video", label: "Video Scripts", icon: Video },
+    { href: "/replies", label: "Social Reply Drafts", icon: MessageSquare },
+    { href: "/x", label: "X Dashboard", icon: Twitter },
+    { href: "/partnerships", label: "Partnership Tracker (Legacy)", icon: Handshake },
+    { href: "/executive", label: "Executive Dashboard (Legacy)", icon: BarChart3 },
+  ],
+};
+
+export const navGroups: NavGroup[] = [agentNavGroup, moreNavGroup];
+
+/** Flat list kept for any legacy consumers. */
+export const navItems = [
+  ...mainNavItems,
+  ...agentNavGroup.items,
+  ...moreNavGroup.items,
 ] as const;
 
 export const contentFormats = [

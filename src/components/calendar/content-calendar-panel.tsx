@@ -180,23 +180,37 @@ function ItemCard({
   );
 }
 
+const CALENDAR_VIEWS: CalendarView[] = ["month", "week", "day", "list"];
+
 export function ContentCalendarPanel({
   items,
   assets,
   publishLogs,
   stats,
   xPublishConfigured,
+  initialPlatform,
+  initialStatus,
+  initialView,
 }: {
   items: ContentCalendarItem[];
   assets: ContentAsset[];
   publishLogs: ContentPublishLog[];
   stats: CalendarDayStats;
   xPublishConfigured: boolean;
+  initialPlatform?: string;
+  initialStatus?: string;
+  initialView?: string;
 }) {
-  const [view, setView] = useState<CalendarView>("month");
+  const [view, setView] = useState<CalendarView>(() =>
+    CALENDAR_VIEWS.includes(initialView as CalendarView) ? (initialView as CalendarView) : "month"
+  );
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()));
-  const [platformFilter, setPlatformFilter] = useState<CalendarPlatform | "all">("all");
-  const [statusFilter, setStatusFilter] = useState<CalendarStatus | "all">("all");
+  const [platformFilter, setPlatformFilter] = useState<CalendarPlatform | "all">(
+    () => (initialPlatform as CalendarPlatform) || "all"
+  );
+  const [statusFilter, setStatusFilter] = useState<CalendarStatus | "all">(
+    () => (initialStatus as CalendarStatus) || "all"
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const filtered = useMemo(

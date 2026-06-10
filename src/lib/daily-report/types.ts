@@ -90,11 +90,20 @@ export interface ProviderUsageEntry {
   connected: boolean;
 }
 
+/** Phase 28 — click targets that turn brief items into a control panel. */
+export interface BriefTarget {
+  targetRoute?: string;
+  targetTable?: string;
+  targetId?: string;
+  targetFilter?: string;
+  targetLabel?: string;
+}
+
 export interface ExecutiveSummaryStructured {
   whatHappened: string;
   biggestWin: string;
   biggestRisk: string;
-  needsAttention: string[];
+  needsAttention: (string | ({ text: string } & BriefTarget))[];
   aiError: string | null;
 }
 
@@ -122,7 +131,7 @@ export interface GrowthReport {
 
 export type ActionCategory = "urgent" | "growth" | "content" | "system";
 
-export interface ActionItemEntry {
+export interface ActionItemEntry extends BriefTarget {
   title: string;
   ownerAgent: AgentSlug;
   priority: CollaborationPriority;
@@ -138,7 +147,7 @@ export interface ActionPlan {
   system: ActionItemEntry[];
 }
 
-export interface FounderReviewItem {
+export interface FounderReviewItem extends BriefTarget {
   label: string;
   detail: string;
   kind: "approval" | "publish" | "outreach" | "high_risk";

@@ -88,20 +88,47 @@ export function buildExecutiveStructured(
     biggestRisk = `${growth.highSeverityAlerts} high-severity competitor alerts need a response decision.`;
   }
 
-  const needsAttention: string[] = [];
-  if (aiError) needsAttention.push(aiError);
+  const needsAttention: ExecutiveSummaryStructured["needsAttention"] = [];
+  if (aiError)
+    needsAttention.push({ text: aiError, targetRoute: "/integrations", targetLabel: "Open Integrations" });
   if (data.approval.pending.count > 0)
-    needsAttention.push(`${data.approval.pending.count} items waiting in the approval queue.`);
+    needsAttention.push({
+      text: `${data.approval.pending.count} items waiting in the approval queue.`,
+      targetRoute: "/approvals",
+      targetFilter: "status=pending",
+      targetLabel: "Open Approvals",
+    });
   if (data.xQueuePending.count > 0)
-    needsAttention.push(`${data.xQueuePending.count} X posts waiting for Sage/Gate review.`);
+    needsAttention.push({
+      text: `${data.xQueuePending.count} X posts waiting for Sage/Gate review.`,
+      targetRoute: "/x",
+      targetFilter: "queue=pending",
+      targetLabel: "Open X pipeline",
+    });
   if (data.xQueueReady.count > 0)
-    needsAttention.push(`${data.xQueueReady.count} X posts approved — one click from publishing.`);
+    needsAttention.push({
+      text: `${data.xQueueReady.count} X posts approved — one click from publishing.`,
+      targetRoute: "/calendar?platform=x&status=ready_to_publish",
+      targetLabel: "Open Calendar",
+    });
   if (content.missingAssets > 0)
-    needsAttention.push(`${content.missingAssets} calendar items need assets before they can ship.`);
+    needsAttention.push({
+      text: `${content.missingAssets} calendar items need assets before they can ship.`,
+      targetRoute: "/calendar?status=needs_asset",
+      targetLabel: "Open Calendar",
+    });
   if (data.batchHighRisk.count > 0)
-    needsAttention.push(`${data.batchHighRisk.count} high-risk items in the batch inbox need your explicit call.`);
+    needsAttention.push({
+      text: `${data.batchHighRisk.count} high-risk items in the batch inbox need your explicit call.`,
+      targetRoute: "/automation",
+      targetFilter: "risk=high",
+      targetLabel: "Open Automation",
+    });
   if (needsAttention.length === 0)
-    needsAttention.push("Nothing urgent. Review the growth moves below and pick one.");
+    needsAttention.push({
+      text: "Nothing urgent. Review the growth moves below and pick one.",
+      targetRoute: "/automation",
+    });
 
   return { whatHappened, biggestWin, biggestRisk, needsAttention: needsAttention.slice(0, 5), aiError };
 }
@@ -139,6 +166,8 @@ export function buildActionPlan(
       impactScore: 90,
       nextStep: "Update OPENAI_API_KEY in Vercel → Settings → Environment Variables, then redeploy.",
       category: "urgent",
+      targetRoute: "/integrations",
+      targetLabel: "Open Integrations",
     });
   }
   if (data.approval.pending.count > 0) {
@@ -149,6 +178,10 @@ export function buildActionPlan(
       impactScore: 85,
       nextStep: "Open /automation → Review Today's Work → approve all low-risk, decide the rest.",
       category: "urgent",
+      targetRoute: "/approvals",
+      targetTable: "approval_queue",
+      targetFilter: "status=pending",
+      targetLabel: "Open Approvals",
     });
   }
   if (data.xQueueReady.count > 0) {
@@ -159,6 +192,8 @@ export function buildActionPlan(
       impactScore: 80,
       nextStep: "Open /calendar, click each ready X post, hit Publish to X.",
       category: "urgent",
+      targetRoute: "/calendar?platform=x&status=ready_to_publish",
+      targetLabel: "Open Calendar",
     });
   }
   for (const wf of workflows.blocked) {
@@ -169,6 +204,8 @@ export function buildActionPlan(
       impactScore: 75,
       nextStep: wf.recommendedFix,
       category: "urgent",
+      targetRoute: "/agent-operations",
+      targetLabel: "Open Agent Operations",
     });
   }
 
@@ -181,6 +218,10 @@ export function buildActionPlan(
       impactScore: 80,
       nextStep: "Open /creators, sort by partnership score, approve outreach for the top 2.",
       category: "growth",
+      targetRoute: "/creators?priority=high",
+      targetTable: "creator_leads",
+      targetFilter: "priority=high",
+      targetLabel: "Open Creator CRM",
     });
   }
   if (growth.communityOpportunities > 0) {
@@ -191,6 +232,10 @@ export function buildActionPlan(
       impactScore: 70,
       nextStep: "Approve the prepared Roots reply drafts — high-urgency threads first.",
       category: "growth",
+      targetRoute: "/community?status=pending",
+      targetTable: "community_opportunities",
+      targetFilter: "status=pending",
+      targetLabel: "Open Community",
     });
   }
   if (growth.highSeverityAlerts > 0) {
@@ -201,6 +246,9 @@ export function buildActionPlan(
       impactScore: 72,
       nextStep: "Read the high-severity alerts on /competitors and pick one counter-move.",
       category: "growth",
+      targetRoute: "/competitors",
+      targetFilter: "severity=high",
+      targetLabel: "Open Competitors",
     });
   }
   if (growth.partnershipOpportunities > 0) {
@@ -211,6 +259,8 @@ export function buildActionPlan(
       impactScore: 68,
       nextStep: "Review Oak's drafted partnership concepts and approve the strongest one.",
       category: "growth",
+      targetRoute: "/oak",
+      targetLabel: "Open Oak",
     });
   }
 
@@ -223,6 +273,8 @@ export function buildActionPlan(
       impactScore: 78,
       nextStep: "Open /calendar → Assets needed today → use the asset prompts to generate or shoot them.",
       category: "content",
+      targetRoute: "/calendar?status=needs_asset",
+      targetLabel: "Open Calendar",
     });
   }
   if (content.readyToPublish > 0) {
@@ -233,6 +285,8 @@ export function buildActionPlan(
       impactScore: 82,
       nextStep: "Copy captions from the calendar drawer and post manually — then mark as posted.",
       category: "content",
+      targetRoute: "/calendar?status=ready_to_publish",
+      targetLabel: "Open Calendar",
     });
   }
   if (data.bloomAwaiting.count > 0) {
@@ -243,6 +297,8 @@ export function buildActionPlan(
       impactScore: 65,
       nextStep: "Trigger Sage from /agent-operations so scored content reaches the approval queue.",
       category: "content",
+      targetRoute: "/sage",
+      targetLabel: "Open Sage",
     });
   }
   if (content.topOpportunities.length > 0) {
@@ -253,6 +309,8 @@ export function buildActionPlan(
       impactScore: 60,
       nextStep: `Point Bloom at: "${content.topOpportunities[0]}".`,
       category: "content",
+      targetRoute: "/bloom",
+      targetLabel: "Open Bloom",
     });
   }
 
@@ -268,6 +326,8 @@ export function buildActionPlan(
           ? `Last error: ${p.lastErrorMessage}. Check the key/quota on /integrations and re-test.`
           : "Run Test Connection on /integrations and check the env vars.",
         category: "system",
+        targetRoute: "/integrations",
+        targetLabel: "Open Integrations",
       });
     }
   }
@@ -279,6 +339,8 @@ export function buildActionPlan(
       impactScore: 70,
       nextStep: "Run supabase/migrations/043 + 044 in the Supabase SQL Editor.",
       category: "system",
+      targetRoute: "/calendar",
+      targetLabel: "Open Calendar",
     });
   }
   if (!data.xData) {
@@ -289,30 +351,32 @@ export function buildActionPlan(
       impactScore: 65,
       nextStep: "Add X_BEARER_TOKEN in Vercel so analytics and the X pipeline go live.",
       category: "system",
+      targetRoute: "/integrations",
+      targetLabel: "Open Integrations",
     });
   }
 
   // Evergreen fillers keep each list at exactly 3 without inventing fake urgency
   return {
     urgent: pad(urgent, [
-      { title: "Review today's batch inbox", ownerAgent: "gate", priority: "medium", impactScore: 60, nextStep: "Open /automation and run Daily Automation to collect new work.", category: "urgent" },
-      { title: "Spot-check the content calendar", ownerAgent: "sprout", priority: "medium", impactScore: 55, nextStep: "Open /calendar week view — confirm the next 3 days look right.", category: "urgent" },
-      { title: "Scan agent failures", ownerAgent: "ivy", priority: "low", impactScore: 50, nextStep: "Check /agent-operations for failed runs in the last 24h.", category: "urgent" },
+      { title: "Review today's batch inbox", ownerAgent: "gate", priority: "medium", impactScore: 60, nextStep: "Open /automation and run Daily Automation to collect new work.", category: "urgent", targetRoute: "/automation", targetLabel: "Open Automation" },
+      { title: "Spot-check the content calendar", ownerAgent: "sprout", priority: "medium", impactScore: 55, nextStep: "Open /calendar week view — confirm the next 3 days look right.", category: "urgent", targetRoute: "/calendar?view=week", targetLabel: "Open Calendar" },
+      { title: "Scan agent failures", ownerAgent: "ivy", priority: "low", impactScore: 50, nextStep: "Check /agent-operations for failed runs in the last 24h.", category: "urgent", targetRoute: "/agent-operations", targetLabel: "Open Agent Operations" },
     ]),
     growth: pad(growthActions, [
-      { title: "Run Scout for fresh creator leads", ownerAgent: "scout", priority: "medium", impactScore: 62, nextStep: "Trigger Scout from /agent-operations and review tomorrow's list.", category: "growth" },
-      { title: "Mine Reddit for plant-parent pain points", ownerAgent: "roots", priority: "medium", impactScore: 58, nextStep: "Run Roots and skim the top community opportunities.", category: "growth" },
-      { title: "Refresh competitor watchlist", ownerAgent: "sentinel", priority: "low", impactScore: 50, nextStep: "Run Sentinel and check for new feature launches.", category: "growth" },
+      { title: "Run Scout for fresh creator leads", ownerAgent: "scout", priority: "medium", impactScore: 62, nextStep: "Trigger Scout from /agent-operations and review tomorrow's list.", category: "growth", targetRoute: "/creators", targetLabel: "Open Creator CRM" },
+      { title: "Mine Reddit for plant-parent pain points", ownerAgent: "roots", priority: "medium", impactScore: 58, nextStep: "Run Roots and skim the top community opportunities.", category: "growth", targetRoute: "/community", targetLabel: "Open Community" },
+      { title: "Refresh competitor watchlist", ownerAgent: "sentinel", priority: "low", impactScore: 50, nextStep: "Run Sentinel and check for new feature launches.", category: "growth", targetRoute: "/competitors", targetLabel: "Open Competitors" },
     ]),
     content: pad(contentActions, [
-      { title: "Generate tomorrow's content batch", ownerAgent: "bloom", priority: "medium", impactScore: 64, nextStep: "Run Bloom from /agent-operations — drafts auto-land on the calendar.", category: "content" },
-      { title: "Queue next week's X posts", ownerAgent: "sprout", priority: "medium", impactScore: 58, nextStep: "Approve drafts in the X queue so Sprout can slot best times.", category: "content" },
-      { title: "Review rejected content for patterns", ownerAgent: "sage", priority: "low", impactScore: 45, nextStep: "Skim /agents/rejected — tighten Bloom's brief if a pattern shows.", category: "content" },
+      { title: "Generate tomorrow's content batch", ownerAgent: "bloom", priority: "medium", impactScore: 64, nextStep: "Run Bloom from /agent-operations — drafts auto-land on the calendar.", category: "content", targetRoute: "/bloom", targetLabel: "Open Bloom" },
+      { title: "Queue next week's X posts", ownerAgent: "sprout", priority: "medium", impactScore: 58, nextStep: "Approve drafts in the X queue so Sprout can slot best times.", category: "content", targetRoute: "/calendar?platform=x&status=ready_to_publish", targetLabel: "Open Calendar" },
+      { title: "Review rejected content for patterns", ownerAgent: "sage", priority: "low", impactScore: 45, nextStep: "Skim /agents/rejected — tighten Bloom's brief if a pattern shows.", category: "content", targetRoute: "/agents/rejected", targetLabel: "Open Rejected Content" },
     ]),
     system: pad(system, [
-      { title: "Run a full integration health check", ownerAgent: "ivy", priority: "low", impactScore: 50, nextStep: "Click Test All Connections on /integrations.", category: "system" },
-      { title: "Verify cron schedules fired", ownerAgent: "ivy", priority: "low", impactScore: 48, nextStep: "Check /agent-operations run history for the overnight window.", category: "system" },
-      { title: "Confirm Supabase migrations are current", ownerAgent: "ivy", priority: "low", impactScore: 45, nextStep: "Compare supabase/MIGRATIONS.md against your SQL editor history.", category: "system" },
+      { title: "Run a full integration health check", ownerAgent: "ivy", priority: "low", impactScore: 50, nextStep: "Click Test All Connections on /integrations.", category: "system", targetRoute: "/integrations", targetLabel: "Open Integrations" },
+      { title: "Verify cron schedules fired", ownerAgent: "ivy", priority: "low", impactScore: 48, nextStep: "Check /agent-operations run history for the overnight window.", category: "system", targetRoute: "/agent-operations", targetLabel: "Open Agent Operations" },
+      { title: "Confirm Supabase migrations are current", ownerAgent: "ivy", priority: "low", impactScore: 45, nextStep: "Compare supabase/MIGRATIONS.md against your SQL editor history.", category: "system", targetRoute: "/integrations", targetLabel: "Open Integrations" },
     ]),
   };
 }
@@ -327,6 +391,10 @@ export function buildFounderReview(data: RawData): FounderReview {
       label: `${data.approval.pending.count} items need approval`,
       detail: "Approval queue — Sage-approved content waiting on your decision.",
       kind: "approval",
+      targetRoute: "/approvals",
+      targetTable: "approval_queue",
+      targetFilter: "status=pending",
+      targetLabel: "Open Approvals",
     });
   }
   if (data.xQueuePending.count > 0) {
@@ -334,6 +402,9 @@ export function buildFounderReview(data: RawData): FounderReview {
       label: `${data.xQueuePending.count} X posts in review`,
       detail: "Waiting in Sage/Gate review on the X pipeline.",
       kind: "approval",
+      targetRoute: "/x",
+      targetFilter: "queue=pending",
+      targetLabel: "Open X pipeline",
     });
   }
   if (data.calendarReady.count > 0) {
@@ -341,6 +412,8 @@ export function buildFounderReview(data: RawData): FounderReview {
       label: `${data.calendarReady.count} posts ready to publish`,
       detail: "Complete publishing packages on the calendar — copy/paste or one click.",
       kind: "publish",
+      targetRoute: "/calendar?status=ready_to_publish",
+      targetLabel: "Open Calendar",
     });
   }
   if (data.xQueueReady.count > 0) {
@@ -348,6 +421,8 @@ export function buildFounderReview(data: RawData): FounderReview {
       label: `${data.xQueueReady.count} X posts ready for the final click`,
       detail: "Fully approved — publish from the calendar drawer.",
       kind: "publish",
+      targetRoute: "/calendar?platform=x&status=ready_to_publish",
+      targetLabel: "Open Calendar",
     });
   }
   if (data.outreachPending.count > 0) {
@@ -355,6 +430,8 @@ export function buildFounderReview(data: RawData): FounderReview {
       label: `${data.outreachPending.count} creator outreach drafts awaiting approval`,
       detail: "No outreach is ever sent without your sign-off.",
       kind: "outreach",
+      targetRoute: "/creators?priority=high",
+      targetLabel: "Open Creator CRM",
     });
   }
   if (data.batchHighRisk.count > 0) {
@@ -362,6 +439,9 @@ export function buildFounderReview(data: RawData): FounderReview {
       label: `${data.batchHighRisk.count} high-risk items in the batch inbox`,
       detail: "Public replies, Reddit comments, or brand-sensitive content.",
       kind: "high_risk",
+      targetRoute: "/automation",
+      targetFilter: "risk=high",
+      targetLabel: "Open Automation",
     });
   }
   if (data.replyDrafts.count > 0) {
@@ -369,6 +449,8 @@ export function buildFounderReview(data: RawData): FounderReview {
       label: `${data.replyDrafts.count} community reply drafts pending`,
       detail: "Roots replies — high-urgency threads decay fast.",
       kind: "high_risk",
+      targetRoute: "/community?status=pending",
+      targetLabel: "Open Community",
     });
   }
 

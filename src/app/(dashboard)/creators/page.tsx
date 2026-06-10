@@ -16,7 +16,12 @@ async function loadCreatorCRM() {
   return { leads, partnerships, stats };
 }
 
-export default async function CreatorCRMPage() {
+export default async function CreatorCRMPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ priority?: string }>;
+}) {
+  const params = await searchParams;
   const { data, error, configured } = await fetchPageData(loadCreatorCRM);
 
   if (!configured) {
@@ -39,6 +44,7 @@ export default async function CreatorCRMPage() {
           leads={data.leads}
           partnerships={data.partnerships}
           stats={data.stats}
+          initialPriority={params.priority}
         />
       ) : (
         !error && (

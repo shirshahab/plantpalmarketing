@@ -3,6 +3,7 @@ import { isOpenAIConfigured } from "@/lib/openai/config";
 import { createServerClient } from "@/lib/supabase/server";
 import { generateMockCreators } from "@/lib/agents/scout/mock-creators";
 import { scoutDiscoverCreatorsOnX } from "@/lib/integrations/agent-integrations";
+import { recordHandoff } from "@/lib/collaboration/handoff";
 
 export interface ScoutRunResult {
   creatorsFound: number;
@@ -114,6 +115,22 @@ export async function runScoutAgent(): Promise<ScoutRunResult> {
         draft: `High-priority creator lead: ${c.handle}\nScore: ${c.partnershipScore}\nCategory: ${c.category}\nFollowers: ${c.followers.toLocaleString()}\n\nSuggested outreach: ${c.ideas[0]?.title ?? "Partnership collab"}`,
         status: "pending",
         source_id: lead.id,
+      });
+
+      // Phase 28: Scout actively hands the lead to Oak for partnership work
+      await recordHandoff({
+        fromAgent: "scout",
+        toAgent: "oak",
+        workflowName: "Scout → Oak",
+        triggerType: "creator_lead",
+        triggerId: lead.id,
+        taskType: "partnership_outreach",
+        taskDescription: `Build a partnership package for ${c.handle} (${c.name}) — score ${c.partnershipScore}, ${c.followers.toLocaleString()} followers on ${c.platform}. Draft outreach and send to Gate for approval.`,
+        priority: "high",
+        messageTitle: `New high-priority creator: ${c.handle}`,
+        messageBody: `Scout found ${c.name} (${c.handle}) on ${c.platform}.\nPartnership score: ${c.partnershipScore}\nCategory: ${c.category}\nSuggested angle: ${c.ideas[0]?.title ?? "Partnership collab"}\n\nGenerate an outreach idea and partnership package, then route to Gate.`,
+        activityDetail: `Scout handed ${c.handle} to Oak for partnership outreach`,
+        metadata: { lead_id: lead.id, platform: c.platform, score: c.partnershipScore },
       });
     }
   }

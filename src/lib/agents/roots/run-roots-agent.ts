@@ -1,6 +1,7 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { generateMockMentions } from "@/lib/agents/roots/mock-community";
 import { rootsMonitorXConversations } from "@/lib/integrations/agent-integrations";
+import { recordHandoff } from "@/lib/collaboration/handoff";
 
 export interface RootsRunResult {
   mentionsFound: number;
@@ -116,6 +117,40 @@ export async function runRootsAgent(): Promise<RootsRunResult> {
       status: "pending",
       source_id: draft.id,
     });
+
+    // Phase 28: Roots actively hands the content opportunity to Bloom
+    await recordHandoff({
+      fromAgent: "roots",
+      toAgent: "bloom",
+      workflowName: "Roots → Bloom",
+      triggerType: "community_opportunity",
+      triggerId: opp.id,
+      taskType: "content_from_community",
+      taskDescription: `Create platform-specific content answering: "${m.question || m.topic}". Opportunity score ${m.opportunityScore}. Add a calendar item and asset prompt, then send to Sage.`,
+      priority: m.urgencyScore >= 80 ? "high" : "medium",
+      messageTitle: `Community question worth content: ${m.topic}`,
+      messageBody: `Found on ${m.platform} from ${m.author}:\n"${m.content}"\n\nOpportunity score: ${m.opportunityScore}, urgency: ${m.urgencyScore}.\nDraft reply already prepared — turn this into platform content.`,
+      activityDetail: `Roots handed "${m.topic}" to Bloom for content production`,
+      metadata: { opportunity_id: opp.id, platform: m.platform, urgency: m.urgencyScore },
+    });
+
+    // High-risk public replies escalate to Gate explicitly
+    if (m.urgencyScore >= 80) {
+      await recordHandoff({
+        fromAgent: "roots",
+        toAgent: "gate",
+        workflowName: "Roots → Gate",
+        triggerType: "high_risk_reply",
+        triggerId: draft.id,
+        taskType: "review_public_reply",
+        taskDescription: `High-urgency public reply to ${m.author} on ${m.platform} needs founder review before posting.`,
+        priority: "high",
+        messageTitle: `High-risk reply awaiting review (${m.platform})`,
+        messageBody: `Reply draft for ${m.author}:\n\n${m.reply}\n\nOriginal: ${m.content}`,
+        activityDetail: `Roots escalated a high-urgency ${m.platform} reply to Gate`,
+        metadata: { draft_id: draft.id, urgency: m.urgencyScore },
+      });
+    }
   }
 
   if (approvalRows.length > 0) {

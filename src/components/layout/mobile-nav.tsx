@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Leaf, Menu, X } from "lucide-react";
-import { navItems } from "@/components/layout/nav-items";
+import { ChevronDown, Leaf, Menu, X } from "lucide-react";
+import { mainNavItems, navGroups } from "@/components/layout/nav-items";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { UserMenu } from "@/components/auth/user-menu";
 import { cn } from "@/lib/utils";
 
 export function MobileNav({ userEmail }: { userEmail?: string | null }) {
   const [open, setOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
 
   return (
@@ -52,7 +53,7 @@ export function MobileNav({ userEmail }: { userEmail?: string | null }) {
               </button>
             </div>
             <div className="space-y-0.5">
-              {navItems.map((item) => {
+              {mainNavItems.map((item) => {
                 const isActive =
                   item.href === "/"
                     ? pathname === "/"
@@ -74,6 +75,51 @@ export function MobileNav({ userEmail }: { userEmail?: string | null }) {
                     <Icon className="h-4 w-4" />
                     {item.label}
                   </Link>
+                );
+              })}
+
+              {navGroups.map((group) => {
+                const GroupIcon = group.icon;
+                const groupOpen = openGroups[group.label] ?? false;
+                return (
+                  <div key={group.label} className="pt-1">
+                    <button
+                      onClick={() =>
+                        setOpenGroups((prev) => ({ ...prev, [group.label]: !groupOpen }))
+                      }
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-brand-muted hover:bg-brand-bg"
+                    >
+                      <GroupIcon className="h-4 w-4" />
+                      <span className="flex-1 text-left">{group.label}</span>
+                      <ChevronDown
+                        className={cn("h-3.5 w-3.5 transition-transform", groupOpen && "rotate-180")}
+                      />
+                    </button>
+                    {groupOpen && (
+                      <div className="ml-3 space-y-0.5 border-l border-brand-border pl-2">
+                        {group.items.map((item) => {
+                          const isActive = pathname.startsWith(item.href);
+                          const Icon = item.icon;
+                          return (
+                            <Link
+                              key={`${group.label}-${item.href}`}
+                              href={item.href}
+                              onClick={() => setOpen(false)}
+                              className={cn(
+                                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium",
+                                isActive
+                                  ? "bg-brand-primary text-white"
+                                  : "text-brand-muted hover:bg-brand-bg"
+                              )}
+                            >
+                              <Icon className="h-4 w-4" />
+                              {item.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>

@@ -146,3 +146,167 @@ body {
 .hq-activity-bubble {
   animation: hq-bubble-pop 3s ease-in-out infinite;
 }
+
+/* ── Phase 28: signature mascot animations ─────────────────────────── */
+
+/* Scout — magnifying glass sweep */
+@keyframes hq-anim-inspect {
+  0%, 100% { transform: rotate(-8deg) translateY(0); }
+  35% { transform: rotate(10deg) translateY(1.5px); }
+  65% { transform: rotate(-4deg) translateY(-1px); }
+}
+.hq-anim-inspect { animation: hq-anim-inspect 2.6s ease-in-out infinite; }
+
+/* Leaves / crowns gently sway */
+@keyframes hq-anim-sway {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(5deg); }
+}
+.hq-anim-sway { animation: hq-anim-sway 3.2s ease-in-out infinite; }
+
+/* Roots & Echo — headphones pulse to the beat */
+@keyframes hq-anim-pulse-soft {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+.hq-anim-pulse-soft { animation: hq-anim-pulse-soft 1.6s ease-in-out infinite; }
+
+/* Sound waves fade in/out */
+@keyframes hq-anim-wave {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+.hq-anim-wave { animation: hq-anim-wave 1.6s ease-in-out infinite; }
+
+/* Bloom — rapid typing dots */
+@keyframes hq-anim-type {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+.hq-anim-type { animation: hq-anim-type 0.5s steps(2) infinite; }
+
+/* Bloom & Sprout — content card / envelope tossed upward */
+@keyframes hq-anim-card-toss {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  20% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(4px, -10px) rotate(10deg); opacity: 0; }
+}
+.hq-anim-card-toss { animation: hq-anim-card-toss 2.8s ease-out infinite; }
+
+/* Sage — approval stamp slams down */
+@keyframes hq-anim-stamp {
+  0%, 55%, 100% { transform: translateY(0) rotate(0deg); }
+  70% { transform: translateY(-4px) rotate(-8deg); }
+  82% { transform: translateY(2.5px) rotate(0deg); }
+  86% { transform: translateY(1px); }
+}
+.hq-anim-stamp { animation: hq-anim-stamp 2.4s ease-in-out infinite; }
+
+/* Status lights / checkmarks blink */
+@keyframes hq-anim-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+.hq-anim-blink { animation: hq-anim-blink 1.4s ease-in-out infinite; }
+
+/* Gate — barrier raises and lowers */
+@keyframes hq-anim-gate {
+  0%, 40%, 100% { transform: rotate(0deg); }
+  55%, 80% { transform: rotate(-55deg); }
+}
+.hq-anim-gate { animation: hq-anim-gate 4.2s ease-in-out infinite; }
+
+/* Sprout — megaphone announcement shake */
+@keyframes hq-anim-megaphone {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  68% { transform: rotate(-6deg); }
+  76% { transform: rotate(5deg); }
+  84% { transform: rotate(-3deg); }
+}
+.hq-anim-megaphone { animation: hq-anim-megaphone 3s ease-in-out infinite; }
+
+/* Sentinel — radar sweep */
+@keyframes hq-anim-radar {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.hq-anim-radar { animation: hq-anim-radar 2.4s linear infinite; }
+
+/* Oak & Fern — happy tail wag */
+@keyframes hq-anim-tail {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(6deg); }
+}
+.hq-anim-tail { animation: hq-anim-tail 1.8s ease-in-out infinite; }
+
+/* Oak — handshake card bounce */
+@keyframes hq-anim-handshake {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-2.5px) rotate(-4deg); }
+}
+.hq-anim-handshake { animation: hq-anim-handshake 2s ease-in-out infinite; }
+
+/* Ivy — organizing paper stack */
+@keyframes hq-anim-papers {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(1.5px, -2px) rotate(3deg); }
+}
+.hq-anim-papers { animation: hq-anim-papers 2.6s ease-in-out infinite; }
+
+/* Ivy — pointing at the command board */
+@keyframes hq-anim-point {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  75%, 90% { transform: rotate(-10deg); }
+}
+.hq-anim-point { animation: hq-anim-point 3.4s ease-in-out infinite; }
+
+/* Atlas — globe spins */
+@keyframes hq-anim-globe {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+}
+.hq-anim-globe { animation: hq-anim-globe 4s ease-in-out infinite; }
+
+/* Atlas — route draws itself across the chart */
+@keyframes hq-anim-route {
+  0% { stroke-dashoffset: 14; }
+  60%, 100% { stroke-dashoffset: 0; }
+}
+.hq-anim-route path { animation: hq-anim-route 3s ease-out infinite; }
+
+/* Echo — speech bubbles float toward the catcher */
+@keyframes hq-anim-bubble-1 {
+  0%, 100% { transform: translateY(0); opacity: 0.5; }
+  50% { transform: translateY(-3px); opacity: 1; }
+}
+.hq-anim-bubble-1 { animation: hq-anim-bubble-1 2.4s ease-in-out infinite; }
+@keyframes hq-anim-bubble-2 {
+  0%, 100% { transform: translateY(-2px); opacity: 1; }
+  50% { transform: translateY(2px); opacity: 0.5; }
+}
+.hq-anim-bubble-2 { animation: hq-anim-bubble-2 2.8s ease-in-out infinite; }
+
+/* Fern — experiment bubbles + sparks */
+@keyframes hq-anim-spark {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(-3px); opacity: 1; }
+}
+.hq-anim-spark { animation: hq-anim-spark 1.4s ease-in-out infinite; }
+@keyframes hq-anim-spark-2 {
+  0%, 100% { opacity: 0; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+.hq-anim-spark-2 { animation: hq-anim-spark-2 1.8s ease-in-out infinite; transform-origin: 17px 23px; }
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .hq-anim-inspect, .hq-anim-sway, .hq-anim-pulse-soft, .hq-anim-wave,
+  .hq-anim-type, .hq-anim-card-toss, .hq-anim-stamp, .hq-anim-blink,
+  .hq-anim-gate, .hq-anim-megaphone, .hq-anim-radar, .hq-anim-tail,
+  .hq-anim-handshake, .hq-anim-papers, .hq-anim-point, .hq-anim-globe,
+  .hq-anim-bubble-1, .hq-anim-bubble-2, .hq-anim-spark, .hq-anim-spark-2,
+  .hq-anim-route path {
+    animation: none;
+  }
+}

@@ -10,6 +10,7 @@ import {
   synthesizeWeeklyReport,
 } from "@/lib/agents/echo/feedback-synthesizer";
 import { createServerClient } from "@/lib/supabase/server";
+import { recordHandoff } from "@/lib/collaboration/handoff";
 import type { Json } from "@/lib/supabase/database.types";
 
 export interface EchoRunResult {
@@ -163,6 +164,40 @@ export async function runEchoAgent(): Promise<EchoRunResult> {
   }
 
   const topFeature = featureRequests[0];
+  const topLove = loveSignals[0];
+
+  // Phase 28: feedback insights route to Atlas (product/growth) and Bloom (content)
+  if (topFeature) {
+    await recordHandoff({
+      fromAgent: "echo",
+      toAgent: "atlas",
+      workflowName: "Echo → Atlas",
+      triggerType: "voc_insight",
+      taskType: "growth_insight",
+      taskDescription: `Top user request: ${topFeature.featureName} (${topFeature.frequency} users, ${topFeature.trend}). Fold into growth recommendations.`,
+      priority: topFeature.priority >= 70 ? "high" : "medium",
+      messageTitle: `VoC insight: ${topFeature.featureName}`,
+      messageBody: `${topFeature.description}\n\nDemand: ${topFeature.estimatedDemand}, trend: ${topFeature.trend}.\n${churnRisks.length} churn risks flagged today.`,
+      activityDetail: `Echo handed "${topFeature.featureName}" insight to Atlas`,
+      metadata: { frequency: topFeature.frequency },
+    });
+  }
+  if (topLove) {
+    await recordHandoff({
+      fromAgent: "echo",
+      toAgent: "bloom",
+      workflowName: "Echo → Bloom",
+      triggerType: "love_signal",
+      taskType: "content_from_feedback",
+      taskDescription: `Turn this user love into content: "${topLove.quote}" (${topLove.feature}). Marketing potential: ${topLove.marketingPotential}.`,
+      priority: "medium",
+      messageTitle: `Testimonial-ready quote: ${topLove.feature}`,
+      messageBody: `"${topLove.quote}" — ${topLove.source}\n\nUse as social proof in the next content batch.`,
+      activityDetail: `Echo handed a love signal to Bloom for content`,
+      metadata: { feature: topLove.feature },
+    });
+  }
+
   await supabase.from("agent_activity_log").insert({
     agent_id: "echo",
     action: "voc_scan",

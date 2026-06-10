@@ -3,7 +3,10 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { revalidateDashboard } from "@/lib/actions/shared";
 import { runDailyContentPipeline } from "@/lib/agents/run-pipeline";
-import { syncApprovalQueueItemToCalendar } from "@/lib/content-calendar/sync";
+import {
+  syncApprovalQueueItemToCalendar,
+  syncPipelineContentToCalendar,
+} from "@/lib/content-calendar/sync";
 import { isOpenAIConfigured } from "@/lib/openai/config";
 import type { PipelineStatus } from "@/lib/types";
 
@@ -51,8 +54,14 @@ export async function updatePipelineStatus(
         .update({ status: status === "approved" ? "approved" : "rejected" })
         .eq("source_id", id)
         .select("id");
-      for (const row of approvalRows ?? []) {
-        await syncApprovalQueueItemToCalendar(row.id, status === "approved");
+      if (approvalRows && approvalRows.length > 0) {
+        for (const row of approvalRows) {
+          await syncApprovalQueueItemToCalendar(row.id, status === "approved");
+        }
+      } else {
+        // No approval queue link — sync the pipeline row directly so the
+        // content calendar stays the source of truth
+        await syncPipelineContentToCalendar(id, status === "approved");
       }
     }
 

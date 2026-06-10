@@ -205,7 +205,7 @@ export function DailyReportPanel({
                     <p className="text-[10px] font-semibold uppercase text-amber-700">Needs your attention</p>
                     <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-brand-primary">
                       {report.executiveSummary.needsAttention.map((n, i) => (
-                        <li key={i}>{n}</li>
+                        <li key={i}>{typeof n === "string" ? n : n.text}</li>
                       ))}
                     </ul>
                   </div>

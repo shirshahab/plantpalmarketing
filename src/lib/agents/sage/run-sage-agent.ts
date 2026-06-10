@@ -3,6 +3,7 @@ import { mapBloomContentPiece } from "@/lib/supabase/mappers";
 import { createServerClient } from "@/lib/supabase/server";
 import { attachSageScoreToCalendar } from "@/lib/content-calendar/sync";
 import { recordAutomationRun } from "@/lib/automation/engine";
+import { recordHandoff } from "@/lib/collaboration/handoff";
 import type { BloomContentFormat } from "@/lib/types";
 
 export interface SageRunResult {
@@ -167,6 +168,40 @@ export async function runSageAgent(): Promise<SageRunResult> {
     detail: `Reviewed ${awaiting.length} pieces — ${approvedCount} approved (≥${SAGE_PASS_THRESHOLD}), ${rejectedCount} rejected`,
     metadata: { batch_id: batchRow.id, approved: approvedCount, rejected: rejectedCount },
   });
+
+  // Phase 28: approved work moves to Gate, weak work goes back to Bloom
+  if (approvedCount > 0) {
+    await recordHandoff({
+      fromAgent: "sage",
+      toAgent: "gate",
+      workflowName: "Sage → Gate",
+      triggerType: "scored_content",
+      triggerId: batchRow.id,
+      taskType: "approval_decision",
+      taskDescription: `${approvedCount} Sage-approved pieces are in the approval queue. Auto-approve low-risk internal items, hold high-risk for the founder, send approved to Sprout.`,
+      priority: "high",
+      messageTitle: `${approvedCount} pieces passed Creative Director review`,
+      messageBody: `Sage scored ${awaiting.length} pieces (avg ${avgAggregateScore}/100).\n${approvedCount} cleared the ${SAGE_PASS_THRESHOLD} threshold and are in the approval queue waiting for a Gate decision.`,
+      activityDetail: `Sage handed ${approvedCount} approved pieces to Gate`,
+      metadata: { batch_id: batchRow.id, avg_score: avgAggregateScore },
+    });
+  }
+  if (rejectedCount > 0) {
+    await recordHandoff({
+      fromAgent: "sage",
+      toAgent: "bloom",
+      workflowName: "Sage → Bloom",
+      triggerType: "content_rejected",
+      triggerId: batchRow.id,
+      taskType: "content_revision",
+      taskDescription: `${rejectedCount} pieces scored below ${SAGE_PASS_THRESHOLD} and need a rewrite. Check the Sage review notes (hook + CTA suggestions) before regenerating.`,
+      priority: "medium",
+      messageTitle: `${rejectedCount} pieces sent back for rework`,
+      messageBody: `Sage rejected ${rejectedCount} of ${awaiting.length} pieces this batch. Review the rejection reasons and creative suggestions in the Sage review records, then produce stronger versions.`,
+      activityDetail: `Sage sent ${rejectedCount} weak pieces back to Bloom`,
+      metadata: { batch_id: batchRow.id },
+    });
+  }
 
   await recordAutomationRun({
     ruleKey: "content_ideas",

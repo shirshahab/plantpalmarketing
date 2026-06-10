@@ -50,6 +50,7 @@ Apply each file in **SQL Editor** before deploying to Vercel. Filenames are pref
 44. `044_phase26_automation.sql`
 45. `045_phase26_discovery_items.sql`
 46. `046_phase27_executive_daily_report.sql`
+47. `047_phase28_pipeline_and_feedback.sql`
 
 ## If you already ran early migrations
 
@@ -65,6 +66,7 @@ Minimum repair set for current HQ features:
 - `044_phase26_automation.sql` — Automation rules, runs, publishing packages, batch approvals (`/automation`)
 - `045_phase26_discovery_items.sql` — fixes "Could not find the table public.discovery_items" (run after 042)
 - `046_phase27_executive_daily_report.sql` — creates `daily_reports`/`workflow_runs`/`growth_action_items` if missing (replaces needing 036 first) and adds structured executive sections (content/growth reports, action plan, founder review)
+- `047_phase28_pipeline_and_feedback.sql` — fixes "Could not find the table public.pipeline_content"; adds approval feedback columns to `approval_queue` (+ `revision_requested` status), `needs_revision` on `content_calendar`, and the `content_feedback` table (run after 042 + 043)
 
 ## After running
 

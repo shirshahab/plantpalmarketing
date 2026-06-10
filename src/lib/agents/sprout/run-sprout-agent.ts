@@ -6,6 +6,8 @@ import {
 import { createServerClient } from "@/lib/supabase/server";
 import { sproutSyncXEngagement } from "@/lib/integrations/agent-integrations";
 import { advanceXQueueStatus } from "@/lib/integrations/x-service";
+import { syncSproutScheduleToCalendar } from "@/lib/content-calendar/sync";
+import { recordHandoff } from "@/lib/collaboration/handoff";
 
 export interface SproutRunResult {
   queued: number;
@@ -48,21 +50,42 @@ export async function runSproutAgent(): Promise<SproutRunResult> {
 
     const slot = getBestPostingTime(platform);
 
-    const { error: insertError } = await supabase.from("sprout_scheduled_posts").insert({
-      bloom_piece_id: piece.id,
-      platform,
-      title: piece.title,
-      hook: piece.hook,
-      caption: piece.caption,
-      cta: piece.cta,
-      recommended_time_label: slot.label,
-      best_time_score: slot.score,
-      status: "waiting",
-      schedule_approved: false,
-      notes: "Queued by Sprout — schedule approval required before publish",
-    });
+    const { data: insertedPost, error: insertError } = await supabase
+      .from("sprout_scheduled_posts")
+      .insert({
+        bloom_piece_id: piece.id,
+        platform,
+        title: piece.title,
+        hook: piece.hook,
+        caption: piece.caption,
+        cta: piece.cta,
+        recommended_time_label: slot.label,
+        best_time_score: slot.score,
+        status: "waiting",
+        schedule_approved: false,
+        notes: "Queued by Sprout — schedule approval required before publish",
+      })
+      .select("id")
+      .single();
 
-    if (insertError) throw new Error(insertError.message);
+    if (insertError || !insertedPost) throw new Error(insertError?.message ?? "Failed to queue post");
+
+    // Phase 28: scheduling updates the calendar + creates the publishing package
+    await syncSproutScheduleToCalendar(insertedPost.id).catch(() => null);
+    await recordHandoff({
+      fromAgent: "gate",
+      toAgent: "sprout",
+      workflowName: "Gate → Sprout",
+      triggerType: "approved_content",
+      triggerId: insertedPost.id,
+      taskType: "schedule_post",
+      taskDescription: `Schedule "${piece.title}" for ${platform} — recommended slot: ${slot.label}.`,
+      priority: "medium",
+      messageTitle: `Approved content queued: ${piece.title}`,
+      messageBody: `${platform} post queued at the recommended time (${slot.label}, score ${slot.score}). Publishing package generated on the calendar item.`,
+      activityDetail: `Sprout queued "${piece.title}" for ${platform} (${slot.label})`,
+      metadata: { sprout_post_id: insertedPost.id, bloom_piece_id: piece.id },
+    });
 
     if (platform === "X") {
       const { data: xApproved } = await supabase

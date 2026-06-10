@@ -54,6 +54,19 @@ const WORKFLOW_STATUS_VARIANT: Record<string, "success" | "warning" | "danger" |
   idle: "default",
 };
 
+function ClickableRow({ route, children }: { route?: string; children: React.ReactNode }) {
+  const className =
+    "flex items-center justify-between gap-2 border-b border-brand-border/20 py-1.5 text-xs";
+  if (route) {
+    return (
+      <Link href={route} className={`${className} rounded-md transition-colors hover:bg-brand-bg`}>
+        {children}
+      </Link>
+    );
+  }
+  return <div className={className}>{children}</div>;
+}
+
 function gradeFor(score: number): { grade: string; variant: "success" | "warning" | "danger" } {
   if (score >= 85) return { grade: "A", variant: "success" };
   if (score >= 70) return { grade: "B", variant: "success" };
@@ -185,9 +198,24 @@ export function IvyExecutiveBrief({
                     <div className="rounded-xl border border-amber-200/60 bg-amber-50/50 p-3">
                       <p className="text-[10px] font-semibold uppercase text-amber-700">Needs your attention</p>
                       <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-brand-primary">
-                        {report.executiveSummary.needsAttention.map((n, i) => (
-                          <li key={i}>{n}</li>
-                        ))}
+                        {report.executiveSummary.needsAttention.map((n, i) => {
+                          const text = typeof n === "string" ? n : n.text;
+                          const route = typeof n === "string" ? null : n.targetRoute;
+                          return (
+                            <li key={i}>
+                              {route ? (
+                                <Link
+                                  href={route}
+                                  className="underline decoration-amber-400 decoration-dotted underline-offset-2 hover:text-amber-800"
+                                >
+                                  {text}
+                                </Link>
+                              ) : (
+                                text
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   </div>
@@ -520,18 +548,20 @@ export function IvyExecutiveBrief({
                   {report.founderReview.items.length > 0 ? (
                     <div className="mt-3 space-y-1.5">
                       {report.founderReview.items.map((item, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between gap-2 border-b border-brand-border/20 py-1.5 text-xs"
-                        >
+                        <ClickableRow key={i} route={item.targetRoute}>
                           <div>
                             <p className="font-semibold text-brand-primary">{item.label}</p>
                             <p className="text-brand-muted">{item.detail}</p>
+                            {item.targetRoute && (
+                              <p className="mt-0.5 text-[10px] font-medium text-violet-700">
+                                {item.targetLabel ?? "Open"} →
+                              </p>
+                            )}
                           </div>
                           <Badge variant={item.kind === "high_risk" ? "danger" : item.kind === "publish" ? "info" : "warning"}>
                             {item.kind.replace("_", " ")}
                           </Badge>
-                        </div>
+                        </ClickableRow>
                       ))}
                     </div>
                   ) : (
@@ -560,20 +590,40 @@ export function IvyExecutiveBrief({
                       <h4 className="text-sm font-semibold text-brand-primary">{group.title}</h4>
                     </CardHeader>
                     <CardContent className="space-y-2.5 pt-0">
-                      {group.items.map((a, i) => (
-                        <div key={i} className="rounded-lg border border-brand-border/30 p-2.5">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-xs font-semibold text-brand-primary">{a.title}</p>
-                            <Badge variant={a.priority === "urgent" ? "danger" : a.priority === "high" ? "warning" : "default"}>
-                              {a.priority}
-                            </Badge>
+                      {group.items.map((a, i) => {
+                        const inner = (
+                          <>
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-xs font-semibold text-brand-primary">{a.title}</p>
+                              <Badge variant={a.priority === "urgent" ? "danger" : a.priority === "high" ? "warning" : "default"}>
+                                {a.priority}
+                              </Badge>
+                            </div>
+                            <p className="mt-1 text-[11px] text-brand-muted">{a.nextStep}</p>
+                            <p className="mt-1 text-[10px] text-violet-700 capitalize">
+                              Owner: {a.ownerAgent} · Impact {a.impactScore}
+                            </p>
+                            {a.targetRoute && (
+                              <p className="mt-1 text-[10px] font-semibold text-brand-primary">
+                                {a.targetLabel ?? "Open"} →
+                              </p>
+                            )}
+                          </>
+                        );
+                        return a.targetRoute ? (
+                          <Link
+                            key={i}
+                            href={a.targetRoute}
+                            className="block rounded-lg border border-brand-border/30 p-2.5 transition-colors hover:border-brand-primary/40 hover:bg-brand-bg"
+                          >
+                            {inner}
+                          </Link>
+                        ) : (
+                          <div key={i} className="rounded-lg border border-brand-border/30 p-2.5">
+                            {inner}
                           </div>
-                          <p className="mt-1 text-[11px] text-brand-muted">{a.nextStep}</p>
-                          <p className="mt-1 text-[10px] text-violet-700 capitalize">
-                            Owner: {a.ownerAgent} · Impact {a.impactScore}
-                          </p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </CardContent>
                   </Card>
                 ))}

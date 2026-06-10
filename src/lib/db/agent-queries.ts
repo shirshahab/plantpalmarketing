@@ -55,7 +55,11 @@ export async function getPipelineContent(status?: PipelineStatus) {
   let query = supabase.from("pipeline_content").select("*").order("aggregate_score", { ascending: false });
   if (status) query = query.eq("status", status);
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Missing optional pipeline table must never hard-crash production pages
+    if (isMissingTableError(error)) return [];
+    throw new Error(error.message);
+  }
   return (data ?? []).map(mapPipelineContent);
 }
 
@@ -66,7 +70,10 @@ export async function getPipelineContentByBrief(briefId: string) {
     .select("*")
     .eq("brief_id", briefId)
     .order("aggregate_score", { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    throw new Error(error.message);
+  }
   return (data ?? []).map(mapPipelineContent);
 }
 
@@ -80,11 +87,12 @@ export async function getAgentStats() {
     supabase.from("pipeline_content").select("*", { count: "exact", head: true }).eq("status", "rejected"),
   ]);
 
+  // head:true count queries surface missing tables via .error — treat as zero
   return {
-    briefCount: briefs.count ?? 0,
-    pipelineCount: pipeline.count ?? 0,
-    pendingCount: pending.count ?? 0,
-    approvedCount: approved.count ?? 0,
-    rejectedCount: rejected.count ?? 0,
+    briefCount: briefs.error ? 0 : (briefs.count ?? 0),
+    pipelineCount: pipeline.error ? 0 : (pipeline.count ?? 0),
+    pendingCount: pending.error ? 0 : (pending.count ?? 0),
+    approvedCount: approved.error ? 0 : (approved.count ?? 0),
+    rejectedCount: rejected.error ? 0 : (rejected.count ?? 0),
   };
 }

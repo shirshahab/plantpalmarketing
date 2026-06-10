@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase/server";
+import { isMissingTableError } from "@/lib/integrations/db-safe";
 import { runDiscoveryAgent } from "@/lib/agents/discovery-agent";
 import { runContentAgent } from "@/lib/agents/content-agent";
 import { reviewAndRefineContent } from "@/lib/agents/creative-director-agent";
@@ -124,7 +125,14 @@ export async function runDailyContentPipeline(): Promise<PipelineRunResult> {
         )
         .select("id, platform, format, hook, caption, cta, status");
 
-      if (pipeError) throw new Error(pipeError.message);
+      if (pipeError) {
+        if (isMissingTableError(pipeError)) {
+          throw new Error(
+            "pipeline_content table not found — run supabase/migrations/047_phase28_pipeline_and_feedback.sql in the Supabase SQL Editor"
+          );
+        }
+        throw new Error(pipeError.message);
+      }
 
       const approvalRows = (inserted ?? [])
         .filter((row) => row.status !== "rejected")

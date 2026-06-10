@@ -2,13 +2,43 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Leaf, FileText } from "lucide-react";
-import { navItems } from "@/components/layout/nav-items";
+import { useState } from "react";
+import { ChevronDown, Leaf, FileText } from "lucide-react";
+import { mainNavItems, navGroups, type NavItem } from "@/components/layout/nav-items";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { cn } from "@/lib/utils";
 
+function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
+  const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+        isActive
+          ? "bg-brand-primary text-white shadow-sm"
+          : "text-brand-muted hover:bg-brand-bg hover:text-brand-primary"
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="truncate">{item.label}</span>
+    </Link>
+  );
+}
+
 export function Sidebar({ userEmail }: { userEmail?: string | null }) {
   const pathname = usePathname();
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    // Auto-expand the group containing the current page
+    const initial: Record<string, boolean> = {};
+    for (const group of navGroups) {
+      initial[group.label] = group.items.some(
+        (i) => i.href !== "/" && pathname.startsWith(i.href)
+      );
+    }
+    return initial;
+  });
 
   return (
     <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-brand-border bg-white lg:flex">
@@ -27,27 +57,35 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        {navItems.map((item) => {
-          const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
-          const Icon = item.icon;
+        {mainNavItems.map((item) => (
+          <NavLink key={item.href} item={item} pathname={pathname} />
+        ))}
 
+        {navGroups.map((group) => {
+          const GroupIcon = group.icon;
+          const open = openGroups[group.label] ?? false;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-brand-primary text-white shadow-sm"
-                  : "text-brand-muted hover:bg-brand-bg hover:text-brand-primary"
+            <div key={group.label} className="pt-1">
+              <button
+                onClick={() =>
+                  setOpenGroups((prev) => ({ ...prev, [group.label]: !open }))
+                }
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-brand-muted transition-colors hover:bg-brand-bg hover:text-brand-primary"
+              >
+                <GroupIcon className="h-4 w-4 shrink-0" />
+                <span className="flex-1 truncate text-left">{group.label}</span>
+                <ChevronDown
+                  className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")}
+                />
+              </button>
+              {open && (
+                <div className="ml-3 space-y-0.5 border-l border-brand-border pl-2">
+                  {group.items.map((item) => (
+                    <NavLink key={`${group.label}-${item.href}`} item={item} pathname={pathname} />
+                  ))}
+                </div>
               )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              <span className="truncate">{item.label}</span>
-            </Link>
+            </div>
           );
         })}
       </nav>

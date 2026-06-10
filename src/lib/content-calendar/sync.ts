@@ -577,6 +577,74 @@ export async function syncXQueueItemToCalendar(
   return calendarId;
 }
 
+/**
+ * Phase 28 — legacy pipeline_content rows sync into content_calendar so the
+ * calendar stays the source of truth for everything publishable.
+ */
+export async function syncPipelineContentToCalendar(
+  pipelineId: string,
+  approved: boolean
+): Promise<string | null> {
+  try {
+    const supabase = createServerClient();
+    const { data: row, error } = await supabase
+      .from("pipeline_content")
+      .select("*")
+      .eq("id", pipelineId)
+      .maybeSingle();
+    if (error || !row) return null;
+
+    const platform = mapToCalendarPlatform(row.platform, row.format);
+    const content: SourceContent = {
+      title: row.hook.slice(0, 80) || `${row.platform} ${row.format}`,
+      hook: row.hook,
+      caption: row.caption,
+      cta: row.cta,
+    };
+    const status: CalendarStatus = !approved
+      ? "rejected"
+      : platform === "x"
+        ? "approved"
+        : "ready_to_publish";
+
+    const calendarId = await upsertCalendarItem({
+      title: content.title,
+      platform,
+      contentType: row.format,
+      caption: row.caption,
+      hook: row.hook,
+      cta: row.cta,
+      status,
+      approvalStatus: approved ? "approved" : "rejected",
+      sourceAgent: "sage",
+      sourceTable: "pipeline_content",
+      sourceId: row.id,
+      copyText: [row.hook, row.caption, row.cta].filter(Boolean).join("\n\n"),
+      metadata: {
+        ...buildPlatformInstructions(platform, content),
+        aggregateScore: row.aggregate_score,
+        directorNotes: row.director_notes,
+        approvalHistory: [
+          { stage: "creative_director", status: approved ? "approved" : "rejected", at: new Date().toISOString() },
+        ],
+      },
+    });
+
+    if (calendarId && approved) {
+      await buildPublishingPackageForCalendarItem(calendarId);
+      await logActivity(
+        "gate",
+        "calendar_item_added",
+        `Pipeline content approved — ${PLATFORM_LABELS[platform]} post added to the calendar.`,
+        { calendar_item_id: calendarId, pipeline_id: row.id }
+      );
+    }
+    return calendarId;
+  } catch {
+    return null;
+  }
+}
+
 /** Sprout queued/scheduled a post → mark the linked calendar item scheduled. */
 export async function syncSproutScheduleToCalendar(
   sproutPostId: string,
