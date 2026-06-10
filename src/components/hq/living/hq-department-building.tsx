@@ -91,10 +91,12 @@ export function HQDepartmentBuilding({
   zone,
   agentCount,
   isHighlighted,
+  highlightRole,
 }: {
   zone: GardenZone;
   agentCount: number;
   isHighlighted?: boolean;
+  highlightRole?: "source" | "target" | null;
 }) {
   const building = DEPARTMENT_BUILDINGS[zone.id];
 
@@ -107,15 +109,25 @@ export function HQDepartmentBuilding({
         width: `${zone.width}%`,
         height: `${zone.height}%`,
       }}
-      animate={isHighlighted ? { scale: [1, 1.02, 1] } : { scale: 1 }}
-      transition={{ duration: 2, repeat: isHighlighted ? Infinity : 0 }}
+      animate={isHighlighted || highlightRole ? { scale: [1, 1.02, 1] } : { scale: 1 }}
+      transition={{ duration: 2, repeat: isHighlighted || highlightRole ? Infinity : 0 }}
     >
       <div
-        className="flex h-full w-full flex-col items-center justify-center rounded-3xl border-2 px-1 py-2 text-center shadow-sm backdrop-blur-[2px] transition-shadow"
+        className="flex h-full w-full flex-col items-center justify-center rounded-[1.75rem] border-2 px-1 py-2 text-center shadow-[0_4px_14px_rgba(45,106,79,0.12)] backdrop-blur-[2px] transition-shadow"
         style={{
-          borderColor: `${zone.accent}${isHighlighted ? "88" : "33"}`,
-          backgroundColor: `${zone.color}aa`,
-          boxShadow: isHighlighted ? `0 0 24px ${zone.accent}33` : undefined,
+          borderColor:
+            highlightRole === "target"
+              ? "#d97706"
+              : highlightRole === "source"
+                ? `${zone.accent}99`
+                : `${zone.accent}${isHighlighted ? "99" : "40"}`,
+          backgroundColor: `${zone.color}cc`,
+          boxShadow:
+            highlightRole === "target"
+              ? "0 0 32px rgba(217,119,6,0.35), 0 6px 16px rgba(45,106,79,0.15)"
+              : isHighlighted || highlightRole === "source"
+                ? `0 0 28px ${zone.accent}44, 0 6px 16px rgba(45,106,79,0.15)`
+                : `0 4px 14px rgba(45,106,79,0.1)`,
         }}
       >
         <BuildingArt style={building.style} accent={zone.accent} />

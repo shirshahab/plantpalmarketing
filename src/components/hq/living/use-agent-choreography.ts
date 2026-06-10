@@ -1,18 +1,25 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import type { AgentId } from "@/lib/hq/types";
-import type { AgentSlug, CollaborationPriority } from "@/lib/types";
-import { AGENT_SLUG_LABELS } from "@/lib/agents/agent-slugs";
-import { getPersonality } from "@/lib/hq/agent-personalities";
+import type { ActivityItem, AgentId, HQAgent } from "@/lib/hq/types";
+import { hqIdToSlug } from "@/lib/agents/agent-slugs";
+import type { AgentSlug, AgentTask, CollaborationPriority } from "@/lib/types";
+import {
+  pickNextWorkflowEvent,
+  workflowToVisual,
+  type ActiveWorkflowVisual,
+  type WorkflowChoreography,
+} from "@/lib/hq/activity-to-choreography";
+import { applyIdleTick, resetAgentToStation } from "@/lib/hq/agent-idle-motion";
 import {
   buildInitialMotions,
   DEMO_CHOREOGRAPHY,
-  motionFromMessage,
   type AgentMotion,
   type ChoreographyStep,
 } from "@/lib/hq/hq-movement-choreography";
-import { AGENT_WORLD_POSITIONS } from "@/lib/hq/hq-world-layout";
+
+const DEMO_IDLE_MS = 3 * 60 * 1000;
+const IDLE_TICK_MS = 4500;
 
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
@@ -28,152 +35,233 @@ export interface HandoffBurst {
   y: number;
 }
 
-export function useAgentChoreography(
-  messageLines: { from: AgentSlug; to: AgentSlug; priority: CollaborationPriority; id: string }[] = []
-) {
+function processedKey(workflow: WorkflowChoreography): string {
+  if (workflow.triggerType === "collab_message") return `msg:${workflow.triggerId}`;
+  if (workflow.triggerType === "activity") return `activity:${workflow.triggerId}`;
+  if (workflow.triggerType === "agent_event") return workflow.triggerId;
+  if (workflow.triggerType === "task") return `task:${workflow.triggerId}`;
+  return `demo:${workflow.triggerId}`;
+}
+
+export function useAgentChoreography({
+  messageLines = [],
+  activityItems = [],
+  agents = [],
+  tasks = [],
+  liveDataAvailable = true,
+  onWorkflowStarted,
+}: {
+  messageLines?: { from: AgentSlug; to: AgentSlug; priority: CollaborationPriority; id: string }[];
+  activityItems?: ActivityItem[];
+  agents?: HQAgent[];
+  tasks?: AgentTask[];
+  liveDataAvailable?: boolean;
+  onWorkflowStarted?: (workflow: WorkflowChoreography) => void;
+}) {
   const [motions, setMotions] = useState<Record<AgentId, AgentMotion>>(buildInitialMotions);
   const [currentStep, setCurrentStep] = useState<ChoreographyStep | null>(null);
-  const [stepIndex, setStepIndex] = useState(0);
+  const [activeWorkflow, setActiveWorkflow] = useState<ActiveWorkflowVisual | null>(null);
   const [activeWalk, setActiveWalk] = useState<{ from: AgentSlug; to: AgentSlug } | null>(null);
   const [handoffBurst, setHandoffBurst] = useState<HandoffBurst | null>(null);
-  const processedMessages = useRef(new Set<string>());
-  const demoPaused = useRef(false);
+  const [demoStepIndex, setDemoStepIndex] = useState(0);
+
+  const processed = useRef(new Set<string>());
   const busyRef = useRef(false);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const lastRealEventAt = useRef(Date.now());
+  const activityHeadId = useRef<string | null>(null);
+  const idleTick = useRef(0);
+  const activeWalkerId = useRef<AgentId | null>(null);
 
-  const runStep = useCallback((step: ChoreographyStep, onComplete?: () => void) => {
-    cleanupRef.current?.();
-    busyRef.current = true;
-    setCurrentStep(step);
+  const markRealEvent = useCallback(() => {
+    lastRealEventAt.current = Date.now();
+  }, []);
 
-    const start = performance.now();
-    const fromX = step.from.x;
-    const fromY = step.from.y;
-    const toX = step.to.x;
-    const toY = step.to.y;
+  const runStep = useCallback(
+    (workflow: WorkflowChoreography, onComplete?: () => void) => {
+      const step = workflow.step;
+      cleanupRef.current?.();
+      busyRef.current = true;
+      activeWalkerId.current = step.agentId;
+      setCurrentStep(step);
+      setActiveWorkflow(workflowToVisual(workflow));
+      setActiveWalk({
+        from: hqIdToSlug(workflow.sourceAgentId),
+        to: hqIdToSlug(workflow.targetAgentId),
+      });
 
-    setMotions((prev) => ({
-      ...prev,
-      [step.agentId]: {
-        ...prev[step.agentId],
-        state: step.state,
-        facing: toX >= fromX ? "right" : "left",
-        actionLabel: step.label,
-      },
-    }));
+      if (workflow.triggerType !== "demo") {
+        markRealEvent();
+        onWorkflowStarted?.(workflow);
+      }
 
-    let frame: number;
-    function animate(now: number) {
-      const elapsed = now - start;
-      const t = Math.min(1, elapsed / step.durationMs);
-      const eased = easeInOut(t);
+      const samePosition = step.from.x === step.to.x && step.from.y === step.to.y;
+      const start = performance.now();
 
       setMotions((prev) => ({
         ...prev,
         [step.agentId]: {
           ...prev[step.agentId],
-          position: {
-            x: lerp(fromX, toX, eased),
-            y: lerp(fromY, toY, eased),
-          },
-          state: t < 1 ? step.state : step.state === "handoff" ? "handoff" : "working",
-          facing: toX >= fromX ? "right" : "left",
-          actionLabel: t < 1 ? step.label : step.state === "handoff" ? step.label : undefined,
+          state: samePosition ? "working" : step.state,
+          facing: step.to.x >= step.from.x ? "right" : "left",
+          actionLabel: step.label,
         },
       }));
 
-      if (t < 1) {
-        frame = requestAnimationFrame(animate);
-      }
-    }
-
-    frame = requestAnimationFrame(animate);
-
-    const totalTime = step.durationMs + (step.pauseMs ?? 800);
-    const timer = setTimeout(() => {
-      cancelAnimationFrame(frame);
-      busyRef.current = false;
-      setCurrentStep(null);
-      onComplete?.();
-    }, totalTime);
-
-    const cleanup = () => {
-      clearTimeout(timer);
-      cancelAnimationFrame(frame);
-    };
-    cleanupRef.current = cleanup;
-    return cleanup;
-  }, []);
-
-  const runMessageHandoff = useCallback(
-    (from: AgentSlug, to: AgentSlug) => {
-      const walk = motionFromMessage(from, to);
-      if (!walk) return;
-
-      const fromPos = AGENT_WORLD_POSITIONS[walk.walker]?.home;
-      if (!fromPos) return;
-
-      demoPaused.current = true;
-      setActiveWalk({ from, to });
-
-      const fromName = AGENT_SLUG_LABELS[from];
-      const toName = AGENT_SLUG_LABELS[to];
-      const personality = getPersonality(walk.walker);
-
-      const step: ChoreographyStep = {
-        agentId: walk.walker,
-        from: fromPos,
-        to: walk.destination,
-        durationMs: 3500,
-        state: "handoff",
-        label: `${fromName} → ${toName}: ${personality.handoffQuip}`,
-        pauseMs: 2200,
-      };
-
       setHandoffBurst({
-        label: `${fromName} → ${toName}`,
-        x: walk.destination.x,
-        y: walk.destination.y - 6,
+        label: workflow.pathLabel,
+        x: step.to.x,
+        y: step.to.y - 5,
       });
-
       const burstTimer = setTimeout(() => setHandoffBurst(null), 4000);
 
-      runStep(step, () => {
-        demoPaused.current = false;
-        setActiveWalk(null);
+      if (samePosition) {
+        const timer = setTimeout(() => {
+          busyRef.current = false;
+          activeWalkerId.current = null;
+          setCurrentStep(null);
+          setActiveWorkflow(null);
+          setActiveWalk(null);
+          setMotions((prev) => resetAgentToStation(prev, step.agentId));
+          onComplete?.();
+        }, step.pauseMs ?? 2000);
+        cleanupRef.current = () => {
+          clearTimeout(timer);
+          clearTimeout(burstTimer);
+        };
+        return cleanupRef.current;
+      }
+
+      let frame: number;
+      function animate(now: number) {
+        const elapsed = now - start;
+        const t = Math.min(1, elapsed / step.durationMs);
+        const eased = easeInOut(t);
+
         setMotions((prev) => ({
           ...prev,
-          [walk.walker]: {
-            ...prev[walk.walker],
-            position: { ...fromPos },
-            state: "working",
-            actionLabel: undefined,
+          [step.agentId]: {
+            ...prev[step.agentId],
+            position: {
+              x: lerp(step.from.x, step.to.x, eased),
+              y: lerp(step.from.y, step.to.y, eased),
+            },
+            state: t < 1 ? step.state : step.state === "handoff" ? "handoff" : "working",
+            facing: step.to.x >= step.from.x ? "right" : "left",
+            actionLabel: t < 1 ? step.label : step.state === "handoff" ? step.label : undefined,
           },
         }));
-        setStepIndex((i) => (i + 1) % DEMO_CHOREOGRAPHY.length);
-      });
 
-      return () => clearTimeout(burstTimer);
+        if (t < 1) frame = requestAnimationFrame(animate);
+      }
+
+      frame = requestAnimationFrame(animate);
+
+      const totalTime = step.durationMs + (step.pauseMs ?? 800);
+      const timer = setTimeout(() => {
+        cancelAnimationFrame(frame);
+        busyRef.current = false;
+        activeWalkerId.current = null;
+        setCurrentStep(null);
+        setActiveWorkflow(null);
+        setActiveWalk(null);
+        setMotions((prev) => resetAgentToStation(prev, step.agentId));
+        onComplete?.();
+      }, totalTime);
+
+      cleanupRef.current = () => {
+        clearTimeout(timer);
+        clearTimeout(burstTimer);
+        cancelAnimationFrame(frame);
+      };
+      return cleanupRef.current;
     },
-    [runStep]
+    [markRealEvent, onWorkflowStarted]
   );
 
-  useEffect(() => {
-    if (busyRef.current || demoPaused.current) return;
-    const pending = messageLines.find((line) => !processedMessages.current.has(line.id));
-    if (!pending) return;
-    processedMessages.current.add(pending.id);
-    runMessageHandoff(pending.from, pending.to);
-  }, [messageLines, runMessageHandoff, stepIndex]);
+  const tryRunNextRealEvent = useCallback(() => {
+    if (busyRef.current) return false;
 
-  useEffect(() => {
-    if (busyRef.current || demoPaused.current) return;
-    const step = DEMO_CHOREOGRAPHY[stepIndex];
-    if (!step) return;
-    return runStep(step, () => {
-      setStepIndex((i) => (i + 1) % DEMO_CHOREOGRAPHY.length);
+    const head = activityItems[0]?.id ?? null;
+    if (head !== activityHeadId.current) {
+      activityHeadId.current = head;
+    }
+
+    const workflow = pickNextWorkflowEvent({
+      messageLines,
+      activity: activityItems,
+      agents,
+      tasks,
+      processed: processed.current,
+      activityHeadId: activityHeadId.current,
     });
-  }, [stepIndex, runStep]);
 
-  return { motions, currentStep, activeWalk, handoffBurst };
+    if (!workflow) return false;
+
+    processed.current.add(processedKey(workflow));
+    runStep(workflow);
+    return true;
+  }, [activityItems, agents, messageLines, runStep, tasks]);
+
+  const tryRunDemo = useCallback(() => {
+    if (busyRef.current) return;
+    if (liveDataAvailable && Date.now() - lastRealEventAt.current < DEMO_IDLE_MS) return;
+
+    const step = DEMO_CHOREOGRAPHY[demoStepIndex];
+    if (!step) return;
+
+    const workflow: WorkflowChoreography = {
+      step,
+      sourceAgentId: step.agentId,
+      targetAgentId: step.agentId,
+      sourceZoneId: "executive_garden",
+      targetZoneId: "executive_garden",
+      workflowName: `demo_${demoStepIndex}`,
+      pathLabel: "Demo stroll",
+      feedLabel: step.label,
+      triggerType: "demo",
+      triggerId: `demo-${demoStepIndex}-${Date.now()}`,
+    };
+
+    processed.current.add(processedKey(workflow));
+    runStep(workflow, () => {
+      setDemoStepIndex((i) => (i + 1) % DEMO_CHOREOGRAPHY.length);
+    });
+  }, [demoStepIndex, liveDataAvailable, runStep]);
+
+  useEffect(() => {
+    if (busyRef.current) return;
+    tryRunNextRealEvent();
+  }, [tryRunNextRealEvent, activityItems, messageLines, agents, tasks]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (busyRef.current) return;
+      if (tryRunNextRealEvent()) return;
+      tryRunDemo();
+    }, 2500);
+    return () => clearInterval(id);
+  }, [tryRunNextRealEvent, tryRunDemo]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (busyRef.current) return;
+      idleTick.current += 1;
+      setMotions((prev) => applyIdleTick(prev, activeWalkerId.current, idleTick.current));
+    }, IDLE_TICK_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    return () => cleanupRef.current?.();
+  }, []);
+
+  return {
+    motions,
+    currentStep,
+    activeWalk,
+    activeWorkflow,
+    handoffBurst,
+    isDemoDominant: !liveDataAvailable || Date.now() - lastRealEventAt.current >= DEMO_IDLE_MS,
+  };
 }

@@ -2656,6 +2656,47 @@ export interface Database {
           updated_at?: string;
         }
       >;
+      hq_workflow_events: TableDef<
+        {
+          id: string;
+          workflow_name: string;
+          source_agent: string;
+          target_agent: string;
+          trigger_type: string;
+          trigger_id: string;
+          status: string;
+          started_at: string;
+          completed_at: string | null;
+          metadata: Json;
+          created_at: string;
+        },
+        {
+          id?: string;
+          workflow_name: string;
+          source_agent: string;
+          target_agent: string;
+          trigger_type: string;
+          trigger_id?: string;
+          status?: string;
+          started_at?: string;
+          completed_at?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          workflow_name?: string;
+          source_agent?: string;
+          target_agent?: string;
+          trigger_type?: string;
+          trigger_id?: string;
+          status?: string;
+          started_at?: string;
+          completed_at?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        }
+      >;
       agent_schedules: TableDef<
         {
           id: string;

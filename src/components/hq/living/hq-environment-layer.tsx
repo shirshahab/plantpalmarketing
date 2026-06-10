@@ -2,24 +2,102 @@
 
 import { motion } from "framer-motion";
 import type { DayPhase, Season } from "@/lib/hq/world-time";
+import type { HQWeatherState } from "@/lib/hq/hq-weather";
 
-export function HQEnvironmentLayer({ phase, season }: { phase: DayPhase; season: Season }) {
-  const showFireflies = phase === "night" || phase === "dusk";
-  const showBirds = phase === "dawn" || phase === "day";
+export function HQEnvironmentLayer({
+  phase,
+  season,
+  weather,
+}: {
+  phase: DayPhase;
+  season: Season;
+  weather: HQWeatherState;
+}) {
+  const showFireflies = (phase === "night" || phase === "dusk") && weather.condition !== "rain" && weather.condition !== "storm";
+  const showBirds =
+    (phase === "dawn" || phase === "day") &&
+    weather.condition !== "rain" &&
+    weather.condition !== "storm" &&
+    weather.condition !== "snow";
   const petalColor = season === "spring" ? "#f9a8d4" : season === "autumn" ? "#fb923c" : "#fde047";
+  const showRain = weather.condition === "rain" || weather.condition === "drizzle" || weather.condition === "storm";
+  const showSnow = weather.condition === "snow";
+  const rainCount = Math.round(18 * weather.particleDensity);
+  const snowCount = Math.round(14 * weather.particleDensity);
+  const cloudCount = weather.condition === "storm" ? 5 : weather.condition === "clouds" || weather.condition === "mist" ? 4 : 3;
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden" aria-hidden>
+      {/* Sun rays on clear days */}
+      {weather.condition === "clear" && phase === "day" && (
+        <motion.div
+          className="absolute left-[20%] top-[2%] h-24 w-24 rounded-full bg-yellow-200/30 blur-2xl"
+          animate={{ opacity: [0.4, 0.65, 0.4], scale: [1, 1.08, 1] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+      )}
+
       {/* Clouds */}
-      {[12, 45, 78].map((left, i) => (
+      {Array.from({ length: cloudCount }).map((_, i) => (
         <motion.div
           key={`cloud-${i}`}
-          className="hq-cloud absolute top-[6%] h-6 w-14 rounded-full bg-white/50 sm:h-8 sm:w-20"
-          style={{ left: `${left}%` }}
-          animate={{ x: [0, 30, 0], opacity: phase === "night" ? [0.1, 0.15, 0.1] : [0.45, 0.6, 0.45] }}
-          transition={{ duration: 28 + i * 6, repeat: Infinity, ease: "easeInOut" }}
+          className="hq-cloud absolute top-[5%] h-6 w-14 rounded-full bg-white/50 sm:h-8 sm:w-20"
+          style={{
+            left: `${10 + i * 18}%`,
+            opacity: weather.cloudOpacity * (phase === "night" ? 0.35 : 1),
+          }}
+          animate={{
+            x: [0, 20 + weather.windIntensity * 24, 0],
+            opacity: [
+              weather.cloudOpacity * 0.6,
+              weather.cloudOpacity,
+              weather.cloudOpacity * 0.6,
+            ],
+          }}
+          transition={{ duration: 24 + i * 5, repeat: Infinity, ease: "easeInOut" }}
         />
       ))}
+
+      {/* Rain */}
+      {showRain &&
+        Array.from({ length: rainCount }).map((_, i) => (
+          <motion.div
+            key={`rain-${i}`}
+            className="absolute h-3 w-px rounded-full bg-sky-400/70"
+            style={{ left: `${(i * 13) % 100}%`, top: "-4%" }}
+            animate={{
+              y: ["0%", "108%"],
+              x: [0, 6 + weather.windIntensity * 10],
+              opacity: [0, 0.7, 0],
+            }}
+            transition={{
+              duration: 0.6 + (i % 4) * 0.12,
+              repeat: Infinity,
+              delay: (i % 7) * 0.08,
+              ease: "linear",
+            }}
+          />
+        ))}
+
+      {/* Snow */}
+      {showSnow &&
+        Array.from({ length: snowCount }).map((_, i) => (
+          <motion.div
+            key={`snow-${i}`}
+            className="absolute h-1 w-1 rounded-full bg-white/90"
+            style={{ left: `${(i * 11) % 100}%`, top: "-3%" }}
+            animate={{
+              y: ["0%", "105%"],
+              x: [0, (i % 2 === 0 ? 8 : -8) * weather.windIntensity],
+            }}
+            transition={{
+              duration: 4 + (i % 5),
+              repeat: Infinity,
+              delay: i * 0.2,
+              ease: "linear",
+            }}
+          />
+        ))}
 
       {/* Birds */}
       {showBirds &&
@@ -43,29 +121,31 @@ export function HQEnvironmentLayer({ phase, season }: { phase: DayPhase; season:
         transition={{ duration: 4, repeat: Infinity }}
       />
 
-      {/* Season petals / snow */}
-      {Array.from({ length: season === "winter" ? 8 : 10 }).map((_, i) => (
-        <motion.div
-          key={`particle-${i}`}
-          className="absolute h-1 w-1 rounded-full"
-          style={{
-            left: `${(i * 17) % 100}%`,
-            backgroundColor: season === "winter" ? "#fff" : petalColor,
-            opacity: 0.5,
-          }}
-          animate={{
-            y: ["-5%", "105%"],
-            x: [0, (i % 2 === 0 ? 12 : -12), 0],
-            rotate: [0, 180],
-          }}
-          transition={{
-            duration: 8 + (i % 5),
-            repeat: Infinity,
-            delay: i * 0.7,
-            ease: "linear",
-          }}
-        />
-      ))}
+      {/* Season petals (when not snowing) */}
+      {!showSnow &&
+        season !== "winter" &&
+        Array.from({ length: 8 }).map((_, i) => (
+          <motion.div
+            key={`particle-${i}`}
+            className="absolute h-1 w-1 rounded-full"
+            style={{
+              left: `${(i * 17) % 100}%`,
+              backgroundColor: petalColor,
+              opacity: 0.45,
+            }}
+            animate={{
+              y: ["-5%", "105%"],
+              x: [0, (i % 2 === 0 ? 12 : -12), 0],
+              rotate: [0, 180],
+            }}
+            transition={{
+              duration: 8 + (i % 5),
+              repeat: Infinity,
+              delay: i * 0.7,
+              ease: "linear",
+            }}
+          />
+        ))}
 
       {/* Fireflies at night */}
       {showFireflies &&
@@ -79,7 +159,7 @@ export function HQEnvironmentLayer({ phase, season }: { phase: DayPhase; season:
           />
         ))}
 
-      {/* Swaying trees at edges */}
+      {/* Swaying trees — wind-reactive */}
       {[
         { x: 4, y: 18 },
         { x: 94, y: 16 },
@@ -90,8 +170,8 @@ export function HQEnvironmentLayer({ phase, season }: { phase: DayPhase; season:
           key={`tree-${i}`}
           className="absolute"
           style={{ left: `${t.x}%`, top: `${t.y}%` }}
-          animate={{ rotate: [-2, 2, -2] }}
-          transition={{ duration: 3 + i * 0.5, repeat: Infinity, ease: "easeInOut" }}
+          animate={{ rotate: [-2 - weather.windIntensity * 3, 2 + weather.windIntensity * 3, -2 - weather.windIntensity * 3] }}
+          transition={{ duration: 3 + i * 0.5 - weather.windIntensity, repeat: Infinity, ease: "easeInOut" }}
         >
           <svg width="24" height="32" viewBox="0 0 24 32" className="opacity-50" aria-hidden>
             <rect x="10" y="18" width="4" height="12" fill="#92400e" />

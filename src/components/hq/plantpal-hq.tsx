@@ -1,15 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Activity, Leaf } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { HQLivingWorld } from "@/components/hq/living/hq-living-world";
 import { HQLivingAgentDrawer } from "@/components/hq/living/hq-living-agent-drawer";
-import { ActivityFeed } from "@/components/hq/activity-feed";
 import { ActivityDetailDrawer } from "@/components/hq/agent-detail-drawer";
 import { approveCommunityReply, rejectCommunityReply } from "@/lib/actions/roots-agent";
+import { recordHQWorkflowEvent } from "@/lib/actions/hq-workflow";
+import {
+  activityToWorkflow,
+  buildFeedConfirmationItem,
+  getLiveActionLabel,
+  shouldConfirmFeedItem,
+  type WorkflowChoreography,
+} from "@/lib/hq/activity-to-choreography";
 import type { ActivityItem, AgentId, HQAgent } from "@/lib/hq/types";
+import type { HQWeatherState } from "@/lib/hq/hq-weather";
 import type {
   AgentDecision,
   AgentMemory,
@@ -30,6 +36,8 @@ export function PlantPalHQ({
   collaborationTasks = [],
   agentMemories = [],
   agentDecisions = [],
+  weather,
+  liveDataAvailable = true,
 }: {
   initialAgents: HQAgent[];
   initialActivity: ActivityItem[];
@@ -39,6 +47,8 @@ export function PlantPalHQ({
   collaborationTasks?: AgentTask[];
   agentMemories?: AgentMemory[];
   agentDecisions?: AgentDecision[];
+  weather: HQWeatherState;
+  liveDataAvailable?: boolean;
 }) {
   const router = useRouter();
   const [agents] = useState<HQAgent[]>(initialAgents);
@@ -46,7 +56,7 @@ export function PlantPalHQ({
   const [selectedAgentId, setSelectedAgentId] = useState<AgentId | null>(null);
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>(null);
-  const [mobilePanel, setMobilePanel] = useState<"garden" | "activity">("garden");
+  const [workflowLabel, setWorkflowLabel] = useState<string | null>(null);
 
   const selectedAgent = useMemo(
     () => agents.find((a) => a.id === selectedAgentId) ?? null,
@@ -56,6 +66,30 @@ export function PlantPalHQ({
   const selectedActivity = useMemo(
     () => activity.find((a) => a.id === selectedActivityId) ?? null,
     [activity, selectedActivityId]
+  );
+
+  const liveActionLabel = useMemo(
+    () => getLiveActionLabel(activity, workflowLabel),
+    [activity, workflowLabel]
+  );
+
+  const handleWorkflowStarted = useCallback(
+    (workflow: WorkflowChoreography) => {
+      if (workflow.triggerType === "demo") return;
+
+      setWorkflowLabel(workflow.feedLabel);
+
+      if (shouldConfirmFeedItem(activity, workflow)) {
+        const item = buildFeedConfirmationItem(workflow);
+        setActivity((prev) => {
+          if (prev.some((p) => p.id === item.id)) return prev;
+          return [item, ...prev];
+        });
+      }
+
+      void recordHQWorkflowEvent(workflow);
+    },
+    [activity]
   );
 
   function openAgentDrawer(id: AgentId) {
@@ -115,6 +149,8 @@ export function PlantPalHQ({
       status: "approved",
     };
     setActivity((prev) => [item, ...prev]);
+    const wf = activityToWorkflow(item);
+    if (wf) setWorkflowLabel(wf.feedLabel);
   }
 
   function handleEdit(id: string) {
@@ -135,63 +171,24 @@ export function PlantPalHQ({
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-8rem)] flex-col gap-3 lg:h-[calc(100vh-7rem)] lg:min-h-[680px] lg:flex-row lg:gap-4">
-      <div className="flex gap-1 rounded-2xl border border-brand-border/50 bg-white/80 p-1 lg:hidden">
-        <button
-          type="button"
-          onClick={() => setMobilePanel("garden")}
-          className={cn(
-            "flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition",
-            mobilePanel === "garden" ? "bg-brand-primary text-white" : "text-brand-muted"
-          )}
-        >
-          <Leaf className="h-4 w-4" />
-          Garden
-        </button>
-        <button
-          type="button"
-          onClick={() => setMobilePanel("activity")}
-          className={cn(
-            "flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition",
-            mobilePanel === "activity" ? "bg-brand-primary text-white" : "text-brand-muted"
-          )}
-        >
-          <Activity className="h-4 w-4" />
-          Activity
-        </button>
-      </div>
-
-      <div
-        className={cn(
-          "min-h-[52dvh] flex-1 lg:min-h-0 lg:block lg:basis-[62%]",
-          mobilePanel === "garden" ? "block" : "hidden"
-        )}
-      >
-        <HQLivingWorld
-          agents={agents}
-          selectedId={selectedAgentId}
-          onSelectAgent={openAgentDrawer}
-          messageLines={messageLines}
-          collaborationStats={collaborationStats}
-          onDailyReportGenerated={handleDailyReportGenerated}
-        />
-      </div>
-
-      <div
-        className={cn(
-          "min-h-[52dvh] lg:min-h-0 lg:block lg:basis-[38%]",
-          mobilePanel === "activity" ? "block" : "hidden lg:block"
-        )}
-      >
-        <ActivityFeed
-          items={activity}
-          selectedId={selectedActivityId}
-          onSelect={openActivityDrawer}
-          onApprove={handleApprove}
-          onEdit={handleEdit}
-          onReject={handleReject}
-        />
-      </div>
+    <div className="relative h-[calc(100dvh-7.5rem)] min-h-[480px] w-full lg:h-[calc(100vh-6.5rem)] lg:min-h-[600px]">
+      <HQLivingWorld
+        agents={agents}
+        activity={activity}
+        selectedId={selectedAgentId}
+        onSelectAgent={openAgentDrawer}
+        onSelectActivity={openActivityDrawer}
+        onApproveActivity={handleApprove}
+        onRejectActivity={handleReject}
+        messageLines={messageLines}
+        collaborationTasks={collaborationTasks}
+        collaborationStats={collaborationStats}
+        weather={weather}
+        liveDataAvailable={liveDataAvailable}
+        liveActionLabel={liveActionLabel}
+        onWorkflowStarted={handleWorkflowStarted}
+        onDailyReportGenerated={handleDailyReportGenerated}
+      />
 
       {drawerMode === "agent" && (
         <HQLivingAgentDrawer

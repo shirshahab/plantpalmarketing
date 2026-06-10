@@ -9,6 +9,9 @@ import { getHQAgentData } from "@/lib/db/scout-roots-queries";
 import { getAgentDecisions, getAgentMemories } from "@/lib/db/agent-brain-queries";
 import { probeHQLiveData } from "@/lib/db/hq-debug";
 import { isNextBuildPhase } from "@/lib/build-phase";
+import { defaultHQWeatherState, weatherSnapshotToHQState } from "@/lib/hq/hq-weather";
+import { isOpenWeatherConfigured } from "@/lib/integrations/config";
+import { fetchCurrentWeather } from "@/lib/integrations/providers/openweather-provider";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { AgentDecision, AgentMemory, AgentMessage, AgentSlug, AgentTask, CollaborationPriority } from "@/lib/types";
 
@@ -36,6 +39,17 @@ export default async function PlantPalHQPage() {
   let agentDecisions: AgentDecision[] = [];
   let hqLoadError: string | null = null;
   let hqDebugSummary: string | null = null;
+  let weather = defaultHQWeatherState();
+
+  if (!skipLiveFetch && isOpenWeatherConfigured()) {
+    try {
+      const city = process.env.HQ_WEATHER_CITY?.trim() || "Pasadena";
+      const snap = await fetchCurrentWeather(city, "hq_world");
+      weather = weatherSnapshotToHQState(snap);
+    } catch (e) {
+      console.error("[HQ] weather fetch failed — using simulated skies:", e);
+    }
+  }
 
   if (configured && !skipLiveFetch) {
     try {
@@ -70,7 +84,7 @@ export default async function PlantPalHQPage() {
   }
 
   return (
-    <div className="-mx-4 -my-6 sm:-mx-6 lg:-my-8">
+    <div className="-mx-4 -my-6 sm:-mx-6 lg:-mx-8 lg:-my-8">
       {!configured && (
         <div className="mb-4 px-4 sm:px-6">
           <ConfigBanner />
@@ -104,6 +118,8 @@ export default async function PlantPalHQPage() {
         collaborationTasks={collaborationTasks}
         agentMemories={agentMemories}
         agentDecisions={agentDecisions}
+        weather={weather}
+        liveDataAvailable={configured && liveData}
       />
     </div>
   );

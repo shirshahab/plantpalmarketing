@@ -4,6 +4,7 @@ import { slugToHqId } from "@/lib/agents/agent-slugs";
 import { AGENT_WORLD_POSITIONS, type WorldPoint } from "@/lib/hq/hq-world-layout";
 
 export type AgentMotionState = "idle" | "walking" | "working" | "handoff";
+export type IdleVariant = "desk" | "glance" | "micro_loop" | "bounce" | "water" | "read";
 
 export interface AgentMotion {
   agentId: AgentId;
@@ -11,6 +12,7 @@ export interface AgentMotion {
   state: AgentMotionState;
   facing: "left" | "right";
   actionLabel?: string;
+  idleVariant?: IdleVariant;
 }
 
 export interface ChoreographyStep {
@@ -112,6 +114,7 @@ export function buildInitialMotions(): Record<AgentId, AgentMotion> {
       position: { ...config.home },
       state: "working",
       facing: "right",
+      idleVariant: "desk",
     };
   }
   return motions;

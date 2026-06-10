@@ -4,30 +4,64 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { AgentCharacter } from "@/components/hq/agent-character";
 import { HQRichHoverCard } from "@/components/hq/living/hq-rich-hover-card";
+import { HQActivityBubble } from "@/components/hq/living/hq-activity-bubble";
 import { getPersonality } from "@/lib/hq/agent-personalities";
+import type { AgentActivityBubble } from "@/lib/hq/agent-activity-bubbles";
 import type { HQAgent } from "@/lib/hq/types";
 import type { AgentMotion } from "@/lib/hq/hq-movement-choreography";
 import { cn } from "@/lib/utils";
+
+function idleAnimation(variant: AgentMotion["idleVariant"], facing: AgentMotion["facing"]) {
+  switch (variant) {
+    case "bounce":
+      return { y: [0, -4, 0], scale: [1, 1.04, 1] };
+    case "water":
+      return { y: [0, -2, 0], rotate: facing === "left" ? [-4, 4, -4] : [4, -4, 4] };
+    case "glance":
+      return { x: [0, facing === "left" ? -2 : 2, 0], y: [0, -1, 0] };
+    case "read":
+      return { y: [0, -1, 0], scale: [1, 1.02, 1] };
+    case "micro_loop":
+      return { y: [0, -2, 0] };
+    case "desk":
+    default:
+      return { y: [0, -2, 0], scale: [1, 1.02, 1] };
+  }
+}
 
 export function HQWalkingAgent({
   agent,
   motion: agentMotion,
   isSelected,
   onSelect,
+  activityBubble,
 }: {
   agent: HQAgent;
   motion: AgentMotion;
   isSelected: boolean;
   onSelect: () => void;
+  activityBubble?: AgentActivityBubble | null;
 }) {
   const [hovered, setHovered] = useState(false);
   const personality = getPersonality(agent.id);
   const working = agentMotion.state === "working";
   const handoff = agentMotion.state === "handoff";
   const walking = agentMotion.state === "walking";
-  const bubbleLabel =
+  const idle = agentMotion.state === "idle";
+  const motionBubble =
     agentMotion.actionLabel ??
     (handoff ? personality.handoffQuip : walking ? personality.walkQuip : working ? personality.workingQuip : null);
+  const showMotionBubble = (walking || handoff) && motionBubble;
+  const showActivityBubble = !showMotionBubble && activityBubble && !hovered;
+
+  const bodyAnimation =
+    walking || handoff
+      ? { y: [0, -3, 0], rotate: agentMotion.facing === "left" ? [0, -2, 0] : [0, 2, 0] }
+      : idle || working
+        ? idleAnimation(agentMotion.idleVariant ?? "desk", agentMotion.facing)
+        : { y: 0 };
+
+  const bodyDuration = walking || handoff ? 0.4 : agentMotion.idleVariant === "bounce" ? 1.8 : 2.6;
 
   return (
     <motion.button
@@ -48,8 +82,9 @@ export function HQWalkingAgent({
     >
       <div className="relative">
         <HQRichHoverCard agent={agent} visible={hovered && !isSelected} />
+        <HQActivityBubble bubble={activityBubble ?? null} visible={!!showActivityBubble} />
 
-        {(walking || handoff) && bubbleLabel && (
+        {showMotionBubble && (
           <motion.div
             className={cn(
               "absolute -top-7 left-1/2 z-20 max-w-[9rem] -translate-x-1/2 rounded-2xl px-2 py-1 text-center text-[8px] font-medium shadow-sm sm:max-w-[11rem] sm:text-[9px]",
@@ -58,7 +93,7 @@ export function HQWalkingAgent({
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            {bubbleLabel}
+            {motionBubble}
           </motion.div>
         )}
 
@@ -69,28 +104,23 @@ export function HQWalkingAgent({
         )}
 
         <motion.div
-          animate={
-            walking || handoff
-              ? { y: [0, -3, 0], rotate: agentMotion.facing === "left" ? [0, -2, 0] : [0, 2, 0] }
-              : working
-                ? { y: [0, -2, 0] }
-                : { y: 0 }
-          }
+          animate={bodyAnimation}
           transition={{
-            duration: walking || handoff ? 0.4 : 2,
-            repeat: walking || handoff || working ? Infinity : 0,
+            duration: bodyDuration,
+            repeat: walking || handoff || idle || working ? Infinity : 0,
             ease: "easeInOut",
           }}
           className={cn(
             "rounded-2xl border-2 bg-white/90 p-0.5 shadow-lg backdrop-blur-sm transition-shadow",
             isSelected && "ring-2 ring-brand-accent shadow-xl",
             walking && "border-sky-300/60",
-            handoff && "border-amber-300/80 ring-2 ring-amber-200/50"
+            handoff && "border-amber-300/80 ring-2 ring-amber-200/50",
+            idle && agentMotion.idleVariant === "water" && "border-sky-200/50"
           )}
           style={{ borderColor: isSelected ? agent.accent : `${agent.accent}55` }}
         >
           <div style={{ transform: agentMotion.facing === "left" ? "scaleX(-1)" : undefined }}>
-            <AgentCharacter agent={agent} floatDelay="" isActive={isSelected || walking} />
+            <AgentCharacter agent={agent} floatDelay="" isActive={isSelected || walking || handoff} />
           </div>
         </motion.div>
 

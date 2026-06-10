@@ -137,3 +137,12 @@ body {
   background: inherit;
   opacity: 0.85;
 }
+
+@keyframes hq-bubble-pop {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+.hq-activity-bubble {
+  animation: hq-bubble-pop 3s ease-in-out infinite;
+}
