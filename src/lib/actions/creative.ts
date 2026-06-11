@@ -7,6 +7,7 @@ import { generateCreativeVariants } from "@/lib/creative/creative-engine";
 import { generateImageWithProvider } from "@/lib/integrations/providers/image-generation-provider";
 import { rememberLesson } from "@/lib/agents/memory-hints";
 import { recordHandoff } from "@/lib/collaboration/handoff";
+import { createCompanyOutput, recordCompanyDecision } from "@/lib/company-os/company-os";
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -116,6 +117,18 @@ export async function generateProjectVariants(projectId: string): Promise<Result
 
     await supabase.from("creative_projects").update({ status: "in_review" }).eq("id", projectId);
 
+    // Phase 31A — register the creative package as a company output
+    await createCompanyOutput({
+      agentId: "fern",
+      outputType: "creative_package",
+      title: project.title,
+      summary: `${variants.length} ${project.project_type} variants ready for review`,
+      sourceTable: "creative_projects",
+      sourceId: projectId,
+      status: "pending_approval",
+      approvalRequired: true,
+    });
+
     revalidatePath("/creative");
     return {
       ok: true,
@@ -194,6 +207,16 @@ export async function reviewCreativeAsset(
     if (decision === "approve") {
       await supabase.from("creative_projects").update({ status: "approved" }).eq("id", asset.project_id);
     }
+
+    // Phase 31A — founder creative decision lands in Company OS
+    await recordCompanyDecision({
+      decisionType: "creative_review",
+      decisionMaker: "founder",
+      decision,
+      reason: `${asset.asset_type} variant ${decision}d`,
+      feedback: feedback || "",
+      impactScore: decision === "approve" ? 65 : 45,
+    });
 
     if (decision === "regenerate") {
       const { data: project } = await supabase

@@ -60,6 +60,15 @@ function Section({
   );
 }
 
+function OsStat({ label, value, alert }: { label: string; value: number; alert?: boolean }) {
+  return (
+    <div className="rounded-xl border border-brand-border p-3">
+      <p className={`text-xl font-semibold ${alert ? "text-amber-600" : "text-brand-primary"}`}>{value}</p>
+      <p className="text-xs text-brand-muted">{label}</p>
+    </div>
+  );
+}
+
 export default async function FounderPage() {
   const { data, error, configured } = await fetchPageData(getFounderModeData);
 
@@ -88,6 +97,35 @@ export default async function FounderPage() {
               <Link href="/agents/daily-brief" className="mt-2 inline-block text-xs font-medium text-brand-accent hover:underline">
                 Read the full Ivy brief →
               </Link>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-5">
+              <div className="flex items-center justify-between">
+                <h3 className="font-heading font-semibold text-brand-primary">Company OS</h3>
+                <Link href="/company-os" className="text-xs font-medium text-brand-accent hover:underline">
+                  Full operating view →
+                </Link>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <OsStat label="Health score" value={data.companyOs.healthScore} />
+                <OsStat label="Started today" value={data.companyOs.workflowsStartedToday} />
+                <OsStat label="Completed today" value={data.companyOs.workflowsCompletedToday} />
+                <OsStat label="Active workflows" value={data.companyOs.activeWorkflows} />
+                <OsStat label="Blocked" value={data.companyOs.blockedWorkflows} alert={data.companyOs.blockedWorkflows > 0} />
+                <OsStat label="Decisions needed" value={data.companyOs.decisionsNeeded} alert={data.companyOs.decisionsNeeded > 0} />
+              </div>
+              {data.companyOs.biggestBottleneck && (
+                <p className="mt-3 text-xs text-amber-700">
+                  Biggest bottleneck: {data.companyOs.biggestBottleneck.description}
+                </p>
+              )}
+              {data.companyOs.highestImpactOutput && (
+                <p className="mt-1 text-xs text-brand-muted">
+                  Top output today: &quot;{data.companyOs.highestImpactOutput.title}&quot; by {data.companyOs.highestImpactOutput.agentId}
+                </p>
+              )}
             </CardContent>
           </Card>
 

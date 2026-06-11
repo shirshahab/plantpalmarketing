@@ -6,6 +6,7 @@ import {
   type IvyAgentContext,
 } from "@/lib/agents/ivy/brief-synthesizer";
 import { createServerClient } from "@/lib/supabase/server";
+import { getCompanyOperatingSummary } from "@/lib/company-os/company-os";
 import type { Json } from "@/lib/supabase/database.types";
 
 export interface IvyRunResult {
@@ -121,6 +122,49 @@ export async function runIvyAgent(): Promise<IvyRunResult> {
   const recommendations = synthesizeRecommendations(ctx);
   const alerts = synthesizeAlerts(ctx);
   const daily = synthesizeDailyBrief(ctx, recommendations);
+
+  // Phase 31A — Ivy pulls from Company OS first. The brief leads with the
+  // operating picture: what moved, what's stuck, what needs the founder.
+  const companyOs = await getCompanyOperatingSummary();
+  const hasCompanyOsData =
+    companyOs.workflowsStartedToday > 0 ||
+    companyOs.activeWorkflows > 0 ||
+    companyOs.workflowsCompletedToday > 0 ||
+    companyOs.blockedWorkflows > 0;
+
+  if (hasCompanyOsData) {
+    const osParts = [
+      `Company OS: ${companyOs.workflowsStartedToday} workflows started today, ${companyOs.workflowsCompletedToday} completed, ${companyOs.activeWorkflows} active, ${companyOs.blockedWorkflows} blocked.`,
+    ];
+    if (companyOs.decisionsNeeded > 0) {
+      osParts.push(`${companyOs.decisionsNeeded} outputs waiting on founder decisions.`);
+    }
+    if (companyOs.biggestBottleneck) {
+      osParts.push(`Biggest bottleneck: ${companyOs.biggestBottleneck.description} (${companyOs.biggestBottleneck.agentId}).`);
+    }
+    if (companyOs.highestImpactOutput) {
+      osParts.push(`Top output: "${companyOs.highestImpactOutput.title}" by ${companyOs.highestImpactOutput.agentId}.`);
+    }
+    if (companyOs.agentProductivity[0]) {
+      osParts.push(`Most productive agent: ${companyOs.agentProductivity[0].agentId} (${companyOs.agentProductivity[0].stepsCompleted} steps).`);
+    }
+    daily.executiveSummary = `${osParts.join(" ")} ${daily.executiveSummary}`;
+    daily.sections = {
+      ...daily.sections,
+      companyOs: {
+        workflowsStartedToday: companyOs.workflowsStartedToday,
+        workflowsCompletedToday: companyOs.workflowsCompletedToday,
+        activeWorkflows: companyOs.activeWorkflows,
+        blockedWorkflows: companyOs.blockedWorkflows,
+        decisionsNeeded: companyOs.decisionsNeeded,
+        outputsToday: companyOs.outputsToday,
+        healthScore: companyOs.healthScore,
+        biggestBottleneck: companyOs.biggestBottleneck?.description ?? "",
+        highestImpactOutput: companyOs.highestImpactOutput?.title ?? "",
+        agentProductivity: companyOs.agentProductivity.slice(0, 5),
+      },
+    } as typeof daily.sections;
+  }
 
   await supabase.from("ivy_recommendations").delete().eq("brief_date", today);
   await supabase.from("ivy_alerts").delete().eq("brief_date", today);

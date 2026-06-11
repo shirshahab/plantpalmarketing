@@ -12,6 +12,7 @@ import {
 import { inferGrowthStage } from "@/lib/agents/atlas/decision-engine";
 import { createServerClient } from "@/lib/supabase/server";
 import { recordHandoff } from "@/lib/collaboration/handoff";
+import { detectCompanyBottlenecks } from "@/lib/company-os/company-os";
 import type { Json } from "@/lib/supabase/database.types";
 
 export interface AtlasRunResult {
@@ -253,6 +254,9 @@ export async function runAtlasAgent(): Promise<AtlasRunResult> {
     });
   }
 
+  // Phase 31A — Atlas scans Company OS for slow workflows, blocked work, and approval backlog
+  const companyBottlenecks = await detectCompanyBottlenecks();
+
   await supabase.from("agent_activity_log").insert({
     agent_id: "atlas",
     action: "growth_brief",
@@ -263,6 +267,7 @@ export async function runAtlasAgent(): Promise<AtlasRunResult> {
       recommendations: recommendations.length,
       experiments: experiments.length,
       bottlenecks: bottlenecks.length,
+      company_os_bottlenecks: companyBottlenecks,
     },
   });
 

@@ -21,6 +21,8 @@ import { useWorldTime } from "@/components/hq/living/use-world-time";
 import { useWorldViewport } from "@/components/hq/living/use-world-viewport";
 import { useAmbientSound } from "@/components/hq/living/use-ambient-sound";
 import { useHQWeather } from "@/components/hq/living/use-hq-weather";
+import { useCompanyOsPulse } from "@/components/hq/living/use-company-os-pulse";
+import { HQCompanyOsPulse } from "@/components/hq/living/hq-company-os-pulse";
 import { HQAgentHealthCards } from "@/components/hq/living/hq-agent-health-cards";
 import { DailyReportGenerateButton } from "@/components/daily-report/daily-report-generate-button";
 import type { HQAgentScheduleHealth } from "@/lib/agent-worker/types";
@@ -68,6 +70,7 @@ export function HQLivingWorld({
   const worldTime = useWorldTime();
   const viewport = useWorldViewport();
   const { weather: liveWeather } = useHQWeather(weather);
+  const companyOsPulse = useCompanyOsPulse();
   const { enabled: soundEnabled, toggle: toggleSound } = useAmbientSound(liveWeather, worldTime.phase);
   const { motions, currentStep, activeWalk, activeWorkflow, handoffBurst } = useAgentChoreography({
     messageLines,
@@ -195,6 +198,8 @@ export function HQLivingWorld({
               }
             />
           ))}
+
+          <HQCompanyOsPulse pulse={companyOsPulse} />
 
           {agents.map((agent) => {
             const motion = motions[agent.id];

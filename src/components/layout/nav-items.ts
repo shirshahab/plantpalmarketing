@@ -52,6 +52,7 @@ export interface NavGroup {
 export const mainNavItems: NavItem[] = [
   { href: "/", label: "PlantPal HQ", icon: LayoutDashboard },
   { href: "/founder", label: "Founder Mode", icon: Crown },
+  { href: "/company-os", label: "Company OS", icon: Workflow },
   { href: "/agents/daily-brief", label: "Ivy Executive Brief", icon: Bot },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/automation", label: "Automation", icon: Zap },

@@ -1,5 +1,6 @@
 import { createServerClient } from "@/lib/supabase";
 import { mapAgentHealth } from "@/lib/supabase/mappers";
+import { getCompanyOperatingSummary, type CompanyOperatingSummary } from "@/lib/company-os/company-os";
 
 export interface FounderListItem {
   id: string;
@@ -18,6 +19,7 @@ export interface FounderModeData {
   pipeline: { label: string; count: number }[];
   agentHealth: { agentId: string; status: string; lastError: string }[];
   recommendedActions: FounderListItem[];
+  companyOs: CompanyOperatingSummary;
 }
 
 type AnyClient = ReturnType<typeof createServerClient>;
@@ -183,6 +185,9 @@ export async function getFounderModeData(): Promise<FounderModeData> {
     }),
   ]);
 
+  // Phase 31A — Company OS is the main source of truth for the founder
+  const companyOs = await getCompanyOperatingSummary();
+
   return {
     executiveSummary,
     approvalsNeeded,
@@ -193,5 +198,6 @@ export async function getFounderModeData(): Promise<FounderModeData> {
     pipeline,
     agentHealth,
     recommendedActions,
+    companyOs,
   };
 }

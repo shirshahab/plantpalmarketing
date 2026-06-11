@@ -918,6 +918,224 @@ export interface Database {
           updated_at?: string;
         }
       >;
+      company_workflows: TableDef<
+        {
+          id: string;
+          workflow_type: string;
+          workflow_name: string;
+          status: string;
+          priority: string;
+          source_agent: string;
+          current_agent: string;
+          next_agent: string;
+          trigger_id: string;
+          started_at: string;
+          completed_at: string | null;
+          blocked_at: string | null;
+          blocker_reason: string;
+          outcome: string;
+          impact_score: number;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          workflow_type?: string;
+          workflow_name?: string;
+          status?: string;
+          priority?: string;
+          source_agent?: string;
+          current_agent?: string;
+          next_agent?: string;
+          trigger_id?: string;
+          started_at?: string;
+          completed_at?: string | null;
+          blocked_at?: string | null;
+          blocker_reason?: string;
+          outcome?: string;
+          impact_score?: number;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          workflow_name?: string;
+          status?: string;
+          priority?: string;
+          current_agent?: string;
+          next_agent?: string;
+          completed_at?: string | null;
+          blocked_at?: string | null;
+          blocker_reason?: string;
+          outcome?: string;
+          impact_score?: number;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      workflow_steps: TableDef<
+        {
+          id: string;
+          workflow_id: string;
+          step_order: number;
+          step_name: string;
+          agent_id: string;
+          status: string;
+          started_at: string;
+          completed_at: string | null;
+          input_summary: string;
+          output_summary: string;
+          blocker_reason: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          workflow_id: string;
+          step_order?: number;
+          step_name?: string;
+          agent_id?: string;
+          status?: string;
+          started_at?: string;
+          completed_at?: string | null;
+          input_summary?: string;
+          output_summary?: string;
+          blocker_reason?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          step_name?: string;
+          status?: string;
+          completed_at?: string | null;
+          input_summary?: string;
+          output_summary?: string;
+          blocker_reason?: string;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      company_outputs: TableDef<
+        {
+          id: string;
+          workflow_id: string | null;
+          agent_id: string;
+          output_type: string;
+          title: string;
+          summary: string;
+          source_table: string;
+          source_id: string;
+          target_table: string;
+          target_id: string;
+          status: string;
+          risk_level: string;
+          approval_required: boolean;
+          published_url: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          workflow_id?: string | null;
+          agent_id?: string;
+          output_type?: string;
+          title?: string;
+          summary?: string;
+          source_table?: string;
+          source_id?: string;
+          target_table?: string;
+          target_id?: string;
+          status?: string;
+          risk_level?: string;
+          approval_required?: boolean;
+          published_url?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          status?: string;
+          risk_level?: string;
+          approval_required?: boolean;
+          published_url?: string;
+          target_table?: string;
+          target_id?: string;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      company_decisions: TableDef<
+        {
+          id: string;
+          workflow_id: string | null;
+          decision_type: string;
+          decision_maker: string;
+          decision: string;
+          reason: string;
+          feedback: string;
+          impact_score: number;
+          created_at: string;
+        },
+        {
+          id?: string;
+          workflow_id?: string | null;
+          decision_type?: string;
+          decision_maker?: string;
+          decision?: string;
+          reason?: string;
+          feedback?: string;
+          impact_score?: number;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          decision?: string;
+          reason?: string;
+          feedback?: string;
+          impact_score?: number;
+        }
+      >;
+      company_bottlenecks: TableDef<
+        {
+          id: string;
+          workflow_id: string | null;
+          agent_id: string;
+          bottleneck_type: string;
+          description: string;
+          severity: string;
+          recommended_fix: string;
+          status: string;
+          created_at: string;
+          resolved_at: string | null;
+        },
+        {
+          id?: string;
+          workflow_id?: string | null;
+          agent_id?: string;
+          bottleneck_type?: string;
+          description?: string;
+          severity?: string;
+          recommended_fix?: string;
+          status?: string;
+          created_at?: string;
+          resolved_at?: string | null;
+        },
+        {
+          id?: string;
+          description?: string;
+          severity?: string;
+          recommended_fix?: string;
+          status?: string;
+          resolved_at?: string | null;
+        }
+      >;
       analytics_events: TableDef<
         {
           id: string;

@@ -7,6 +7,7 @@ import { buildSchemaMarkup, countDraftWords, generateBlogDraft, renderBlogHtml }
 import { checkBrandVoice } from "@/lib/seo/voice-checker";
 import { upsertCalendarItem } from "@/lib/content-calendar/sync";
 import { recordHandoff } from "@/lib/collaboration/handoff";
+import { createCompanyOutput, recordCompanyDecision } from "@/lib/company-os/company-os";
 import type { Json } from "@/lib/supabase/database.types";
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
@@ -134,6 +135,19 @@ export async function writeBlogDraft(keywordId: string): Promise<Result> {
       activityDetail: voice.passed
         ? `Bloom drafted SEO blog "${draft.headline}" — passed voice check, sent to Gate`
         : `Bloom drafted "${draft.headline}" — voice check failed (${voice.violations.map((v) => v.rule).join(", ")})`,
+    });
+
+    // Phase 31A — register the draft as a company output
+    await createCompanyOutput({
+      agentId: "bloom",
+      outputType: "seo_blog_post",
+      title: draft.headline,
+      summary: `${wordCount} words, voice score ${voice.score}/100, keyword "${kw.keyword}"`,
+      sourceTable: "seo_blog_posts",
+      sourceId: post.id,
+      status: voice.passed ? "pending_approval" : "needs_rework",
+      riskLevel: "low",
+      approvalRequired: true,
     });
 
     revalidatePath("/seo");
@@ -279,6 +293,14 @@ export async function approveBlogPost(postId: string): Promise<Result> {
       activityDetail: `Gate approved SEO blog "${post.headline}" — handed to Sprout for publishing`,
     });
 
+    await recordCompanyDecision({
+      decisionType: "blog_approval",
+      decisionMaker: "founder",
+      decision: "approved",
+      reason: `Approved "${post.headline}" for publishing`,
+      impactScore: 70,
+    });
+
     // Optional auto-publish path (off by default)
     if (post.risk_level === "low" && (await isAutoPublishEnabled())) {
       const publishResult = await publishBlogToCms(postId);
@@ -305,6 +327,15 @@ export async function rejectBlogPost(postId: string, reason: string): Promise<Re
       .update({ status: "rejected", review_feedback: reason || "Rejected by founder" })
       .eq("id", postId);
     if (error) return { ok: false, error: error.message };
+
+    await recordCompanyDecision({
+      decisionType: "blog_approval",
+      decisionMaker: "founder",
+      decision: "rejected",
+      reason: reason || "Rejected by founder",
+      impactScore: 40,
+    });
+
     revalidatePath("/blog-pipeline");
     return { ok: true };
   } catch (e) {

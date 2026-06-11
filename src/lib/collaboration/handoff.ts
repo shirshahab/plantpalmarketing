@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase/server";
+import { captureHandoffInCompanyOs } from "@/lib/company-os/company-os";
 
 export interface HandoffInput {
   /** Agent that finished its part of the work. */
@@ -82,4 +83,16 @@ export async function recordHandoff(input: HandoffInput): Promise<void> {
 
   const results = await Promise.allSettled(writes);
   void results; // individual failures (missing tables) are intentionally ignored
+
+  // 5. Phase 31A — Company OS capture. Every handoff becomes a workflow step,
+  // so all existing agents feed the operating layer with zero changes.
+  await captureHandoffInCompanyOs({
+    fromAgent: input.fromAgent,
+    toAgent: input.toAgent,
+    workflowName: input.workflowName,
+    triggerType: input.triggerType,
+    triggerId: input.triggerId,
+    taskDescription: input.taskDescription,
+    priority,
+  });
 }

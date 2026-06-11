@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
 import { syncApprovalQueueItemToCalendar } from "@/lib/content-calendar/sync";
+import { recordCompanyDecision } from "@/lib/company-os/company-os";
 import type { ApprovalFeedbackInput } from "@/lib/approvals/feedback-categories";
 
 type Result = { ok: true; status: string } | { ok: false; error: string };
@@ -121,6 +122,16 @@ export async function submitApprovalDecision(input: ApprovalFeedbackInput): Prom
     if (isApprove || isReject) {
       await syncApprovalQueueItemToCalendar(input.id, isApprove);
     }
+
+    // Phase 31A — every founder decision lands in Company OS
+    await recordCompanyDecision({
+      decisionType: "approval",
+      decisionMaker: "founder",
+      decision: status,
+      reason: category,
+      feedback: note,
+      impactScore: isApprove ? 60 : 50,
+    });
 
     if (sendBackAgent) {
       const summary = item.draft.slice(0, 120);
