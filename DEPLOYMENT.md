@@ -124,6 +124,9 @@ Copy `.env.local.example` as reference. Set the **same keys** in Vercel.
 | `APP_PASSWORD` | Vercel → Production | **Founder login password** — server-only |
 | `CRON_SECRET` | Vercel → Production | Random 32+ char string — server-only |
 | `OPENAI_API_KEY` | Vercel → Production | Required for AI agents & daily report |
+| `OPENAI_IMAGE_MODEL` | Vercel → Production | Set to `gpt-image-1` (`dall-e-3` no longer exists) |
+| `VIDEO_PROVIDER` | Vercel → Production | `manual` (default) or `openai` for real video generation |
+| `OPENAI_VIDEO_MODEL` | Vercel → Production | `sora-2` — only needed when `VIDEO_PROVIDER=openai` |
 
 Generate secrets locally (writes to `.secrets.generated.txt`, gitignored):
 
@@ -262,6 +265,7 @@ Use this before and after go-live.
 - [ ] `APP_PASSWORD` chosen (strong, unique)
 - [ ] `CRON_SECRET` generated (32+ random chars)
 - [ ] `OPENAI_API_KEY` set in Vercel
+- [ ] `OPENAI_IMAGE_MODEL=gpt-image-1` set in Vercel (image generation)
 - [ ] Supabase URL + anon key set in Vercel
 
 ### Vercel project
