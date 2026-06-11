@@ -168,7 +168,9 @@ export async function generateVideoFromPackage(videoId: string): Promise<Result>
       .filter(Boolean)
       .join("\n\n");
 
-    const job = await generateVideo(prompt, { seconds: "8", size: "720x1280" });
+    // Vertical 9:16 defaults — provider maps to the closest supported size
+    // (720x1280 for sora-2, 1024x1792 for sora-2-pro; max duration 12s).
+    const job = await generateVideo(prompt, { seconds: "8" });
     if (!job.ok || !job.jobId) {
       const updated = await updateVideoRow(videoId, {
         status: "failed",
