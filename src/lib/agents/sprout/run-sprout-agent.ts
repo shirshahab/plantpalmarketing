@@ -12,11 +12,58 @@ import { recordHandoff } from "@/lib/collaboration/handoff";
 export interface SproutRunResult {
   queued: number;
   skipped: number;
+  packagesBuilt: number;
+  scheduledDue: number;
+}
+
+/**
+ * Phase 31 — runs every 30 minutes. Flips scheduled calendar items whose time
+ * arrived to ready_to_publish and builds missing publishing packages.
+ */
+async function processCalendarQueue(
+  supabase: ReturnType<typeof createServerClient>
+): Promise<{ packagesBuilt: number; scheduledDue: number }> {
+  const result = { packagesBuilt: 0, scheduledDue: 0 };
+  try {
+    const { data: items, error } = await supabase
+      .from("content_calendar")
+      .select("id, status, scheduled_for, metadata")
+      .in("status", ["approved", "scheduled", "ready_to_publish"])
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error || !items) return result;
+
+    const now = Date.now();
+    for (const item of items) {
+      if (item.status === "scheduled" && item.scheduled_for && new Date(item.scheduled_for).getTime() <= now) {
+        result.scheduledDue += 1;
+        await supabase.from("content_calendar").update({ status: "ready_to_publish" }).eq("id", item.id);
+      }
+
+      const meta = (item.metadata && typeof item.metadata === "object" ? item.metadata : {}) as Record<string, unknown>;
+      if (!meta.publishing_package_id) {
+        const { buildPublishingPackageForCalendarItem } = await import("@/lib/automation/publishing-packages");
+        const packageId = await buildPublishingPackageForCalendarItem(item.id);
+        if (packageId) {
+          result.packagesBuilt += 1;
+          await supabase
+            .from("content_calendar")
+            .update({ metadata: { ...meta, publishing_package_id: packageId } })
+            .eq("id", item.id);
+        }
+      }
+    }
+  } catch {
+    // calendar queue work is best-effort
+  }
+  return result;
 }
 
 export async function runSproutAgent(): Promise<SproutRunResult> {
   const supabase = createServerClient();
   await sproutSyncXEngagement().catch(() => []);
+
+  const calendarWork = await processCalendarQueue(supabase);
 
   const { data: approved, error } = await supabase
     .from("bloom_content_pieces")
@@ -114,7 +161,7 @@ export async function runSproutAgent(): Promise<SproutRunResult> {
     });
   }
 
-  return { queued, skipped };
+  return { queued, skipped, ...calendarWork };
 }
 
 export function buildScheduledAtFromRecommendation(

@@ -2,9 +2,10 @@ import type { AgentSlug } from "@/lib/types";
 
 export type SchedulableAgent =
   | "scout" | "roots" | "sentinel" | "bloom" | "sage"
-  | "oak" | "ivy" | "atlas" | "fern" | "echo";
+  | "oak" | "ivy" | "atlas" | "fern" | "echo"
+  | "sprout" | "gate";
 
-export type AgentFrequencyType = "interval_hours" | "daily_at" | "on_content";
+export type AgentFrequencyType = "interval_hours" | "interval_minutes" | "daily_at" | "on_content";
 export type AgentRunStatus = "running" | "success" | "failed" | "skipped";
 export type AgentHealthStatus = "running" | "sleeping" | "healthy" | "degraded" | "failed";
 export type AgentRunTrigger = "scheduled" | "manual" | "cron" | "content_event";
@@ -72,16 +73,18 @@ export interface SchedulerBatchResult {
 }
 
 export const SCHEDULE_LABELS: Record<SchedulableAgent, string> = {
-  scout: "Every 6 hours",
+  scout: "Every 2 hours",
   roots: "Every hour",
   sentinel: "Every 4 hours",
-  bloom: "Every morning (8:00 AM UTC)",
-  sage: "Every 30 min when content needs review",
+  bloom: "Event-driven + every 4 hours",
+  sage: "Event-driven (content review)",
+  gate: "Event-driven (approvals)",
+  sprout: "Every 30 minutes",
   oak: "Every morning (9:00 AM UTC)",
-  atlas: "Every morning (7:00 AM UTC)",
-  ivy: "Every morning (7:30 AM UTC)",
+  atlas: "Every 6 hours",
+  ivy: "Daily at 8:00 AM UTC",
   echo: "Every 6 hours",
-  fern: "Every morning (8:30 AM UTC)",
+  fern: "Event-driven (creative work)",
 };
 
 /** Phase 24 — autonomous Vercel Cron agents */
@@ -100,8 +103,8 @@ export const PHASE24_SCHEDULED_AGENTS: SchedulableAgent[] = [
 
 export const SCHEDULABLE_AGENTS: SchedulableAgent[] = [
   ...PHASE24_SCHEDULED_AGENTS,
-  "oak",
-  "fern",
+  "sprout",
+  "gate",
 ];
 
 export interface AgentScheduleStats {

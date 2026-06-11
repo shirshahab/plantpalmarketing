@@ -18,6 +18,12 @@ export function computeNextRunAt(schedule: {
     return (next > now ? next : new Date(now.getTime() + schedule.intervalHours * 60 * 60 * 1000)).toISOString();
   }
 
+  if (schedule.frequencyType === "interval_minutes" && schedule.intervalMinutes) {
+    const base = schedule.lastRunAt ? new Date(schedule.lastRunAt) : now;
+    const next = new Date(base.getTime() + schedule.intervalMinutes * 60 * 1000);
+    return (next > now ? next : new Date(now.getTime() + schedule.intervalMinutes * 60 * 1000)).toISOString();
+  }
+
   if (schedule.frequencyType === "daily_at") {
     const hour = schedule.dailyAtHour ?? 8;
     const minute = schedule.dailyAtMinute ?? 0;
@@ -27,7 +33,7 @@ export function computeNextRunAt(schedule: {
     return next.toISOString();
   }
 
-  // on_content — Sage polls every interval_minutes when content needs review
+  // on_content — event-driven agents poll every interval_minutes when work exists
   const pollMinutes = schedule.intervalMinutes ?? 30;
   const base = schedule.lastRunAt ? new Date(schedule.lastRunAt) : now;
   const next = new Date(base.getTime() + pollMinutes * 60 * 1000);
@@ -51,6 +57,38 @@ export async function sageHasPendingContent(): Promise<boolean> {
   }
 }
 
+/** Fern is event-driven: runs when approved calendar items need creative work. */
+export async function fernHasPendingCreativeWork(): Promise<boolean> {
+  try {
+    const supabase = createServerClient();
+    const { count, error } = await supabase
+      .from("creative_projects")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["queued", "generating"]);
+    if (error) {
+      if (isMissingTableError(error)) return false;
+      throw new Error(error.message);
+    }
+    return (count ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Per-agent event checks for on_content schedules. */
+async function hasEventWork(agentId: string): Promise<boolean> {
+  if (agentId === "sage") return sageHasPendingContent();
+  if (agentId === "fern") {
+    // Fern runs on creative work OR falls back to its daily growth synth
+    return true;
+  }
+  if (agentId === "gate") {
+    const { gateHasPendingWork } = await import("@/lib/agents/gate/run-gate-agent");
+    return gateHasPendingWork();
+  }
+  return true;
+}
+
 export async function isAgentDue(
   schedule: AgentSchedule,
   now = new Date()
@@ -58,10 +96,10 @@ export async function isAgentDue(
   if (!schedule.enabled) return { due: false, reason: "disabled" };
 
   if (schedule.frequencyType === "on_content") {
-    const hasContent = await sageHasPendingContent();
-    if (!hasContent) return { due: false, reason: "no_pending_content" };
+    const hasWork = await hasEventWork(schedule.agentId);
+    if (!hasWork) return { due: false, reason: "no_pending_content" };
     if (schedule.nextRunAt && new Date(schedule.nextRunAt) > now) {
-      return { due: false, reason: "sage_cooldown" };
+      return { due: false, reason: "event_cooldown" };
     }
     return { due: true, reason: "pending_content" };
   }
@@ -88,7 +126,7 @@ export async function getDueAgents(
   return { due, waiting };
 }
 
-/** Morning batch order: discovery → content → review → partnerships → growth */
+/** Batch order: discovery → content → review → approvals → publishing → growth */
 export const RUN_ORDER: SchedulableAgent[] = [
   "scout",
   "roots",
@@ -96,6 +134,8 @@ export const RUN_ORDER: SchedulableAgent[] = [
   "echo",
   "bloom",
   "sage",
+  "gate",
+  "sprout",
   "oak",
   "atlas",
   "fern",

@@ -51,14 +51,16 @@ export interface NavGroup {
 /** Founder-priority operating pages — always visible at the top. */
 export const mainNavItems: NavItem[] = [
   { href: "/", label: "PlantPal HQ", icon: LayoutDashboard },
+  { href: "/founder", label: "Founder Mode", icon: Crown },
   { href: "/agents/daily-brief", label: "Ivy Executive Brief", icon: Bot },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/automation", label: "Automation", icon: Zap },
   { href: "/approvals", label: "Approvals / Founder Inbox", icon: CheckSquare },
   { href: "/reddit", label: "Reddit", icon: MessageSquare },
-  { href: "/seo", label: "SEO Blog", icon: Search },
+  { href: "/seo", label: "SEO Factory", icon: Search },
+  { href: "/creative", label: "Creative Department", icon: Image },
   { href: "/content", label: "Content Studio", icon: Sparkles },
-  { href: "/x", label: "Analytics", icon: BarChart3 },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/integrations", label: "Integrations", icon: Plug },
   { href: "/agent-operations", label: "Settings & Operations", icon: Server },
 ];
@@ -88,6 +90,8 @@ export const moreNavGroup: NavGroup = {
   label: "More",
   icon: GitBranch,
   items: [
+    { href: "/automation/schedules", label: "Agent Schedules", icon: Zap },
+    { href: "/launch", label: "Launch Readiness", icon: Rocket },
     { href: "/daily-report", label: "Daily Report", icon: FileBarChart },
     { href: "/collaboration", label: "Agent Collaboration", icon: GitBranch },
     { href: "/agent-brain", label: "Agent Brain (AI)", icon: Brain },

@@ -55,6 +55,8 @@ export interface RedditLogRow {
   publishedUrl: string;
   errorMessage: string;
   rateLimitRemaining: number | null;
+  upvotes: number;
+  engagementNote: string;
   createdAt: string;
 }
 
@@ -151,6 +153,8 @@ export async function getRedditPageData(): Promise<RedditPageData> {
       publishedUrl: row.published_url,
       errorMessage: row.error_message,
       rateLimitRemaining: row.rate_limit_remaining,
+      upvotes: row.upvotes ?? 0,
+      engagementNote: row.engagement_note ?? "",
       createdAt: row.created_at,
     })),
     safetyRules,

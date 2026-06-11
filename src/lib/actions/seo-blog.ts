@@ -390,6 +390,116 @@ export async function publishBlogToCms(postId: string): Promise<Result> {
   }
 }
 
+/**
+ * Phase 31 Step 6 — SEO Factory batch. Drafts up to `count` posts from the
+ * keyword queue (target: 5-10/day). Each draft goes through the voice check
+ * and lands in the pipeline for Gate approval. Nothing publishes itself.
+ */
+export async function runSeoFactoryBatch(count: number): Promise<Result> {
+  const batchSize = Math.min(10, Math.max(1, count));
+  try {
+    const supabase = createServerClient();
+    const { data: keywords, error } = await supabase
+      .from("seo_blog_keywords")
+      .select("id, keyword")
+      .in("status", ["new", "queued"])
+      .order("priority_score", { ascending: false })
+      .limit(batchSize);
+    if (error) {
+      if (isMissingTableError(error)) return { ok: false, error: MIGRATION_HINT };
+      return { ok: false, error: error.message };
+    }
+    if (!keywords || keywords.length === 0) {
+      return { ok: false, error: "No queued keywords left. Add more on /seo or promote topics." };
+    }
+
+    let drafted = 0;
+    let failed = 0;
+    const notes: string[] = [];
+    for (const kw of keywords) {
+      const result = await writeBlogDraft(kw.id);
+      if (result.ok) drafted += 1;
+      else {
+        failed += 1;
+        notes.push(`${kw.keyword}: ${result.error}`);
+      }
+    }
+
+    revalidatePath("/seo");
+    revalidatePath("/blog-pipeline");
+    return {
+      ok: true,
+      message: `Factory run complete — ${drafted} drafted${failed > 0 ? `, ${failed} failed (${notes[0]})` : ""}. Review them on /blog-pipeline.`,
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Factory run failed" };
+  }
+}
+
+/** Promote a topic from the idea bank into the keyword queue. */
+export async function promoteSeoTopic(topicId: string): Promise<Result> {
+  try {
+    const supabase = createServerClient();
+    const { data: topic, error } = await supabase
+      .from("seo_topics")
+      .select("*")
+      .eq("id", topicId)
+      .maybeSingle();
+    if (error || !topic) {
+      return { ok: false, error: error && isMissingTableError(error) ? MIGRATION_HINT : (error?.message ?? "Topic not found") };
+    }
+
+    const { data: keyword, error: kwError } = await supabase
+      .from("seo_blog_keywords")
+      .insert({
+        keyword: topic.topic,
+        topic_cluster: topic.cluster_name,
+        source: topic.source,
+        search_volume_estimate: topic.search_volume_estimate,
+        priority_score: 70,
+        search_demand_notes: topic.question || topic.competition_note,
+        status: "queued",
+      })
+      .select("id")
+      .single();
+    if (kwError) {
+      if (kwError.message.includes("duplicate")) return { ok: false, error: "Keyword already in the queue" };
+      return { ok: false, error: kwError.message };
+    }
+
+    await supabase.from("seo_topics").update({ status: "queued", keyword_id: keyword.id }).eq("id", topicId);
+    revalidatePath("/seo");
+    return { ok: true, message: "Topic promoted to the keyword queue" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Promote failed" };
+  }
+}
+
+/** Add a topic idea to the bank (Roots/Sentinel/manual). */
+export async function addSeoTopic(topic: string, clusterName: string, question: string): Promise<Result> {
+  const cleaned = topic.trim().toLowerCase();
+  if (cleaned.length < 3) return { ok: false, error: "Topic too short" };
+  try {
+    const supabase = createServerClient();
+    const { error } = await supabase.from("seo_topics").insert({
+      topic: cleaned,
+      question: question.trim(),
+      cluster_name: clusterName.trim() || "plant care",
+      source: "manual",
+      status: "idea",
+    });
+    if (error) {
+      if (isMissingTableError(error)) return { ok: false, error: MIGRATION_HINT };
+      if (error.message.includes("duplicate")) return { ok: false, error: "Topic already exists" };
+      return { ok: false, error: error.message };
+    }
+    revalidatePath("/seo");
+    return { ok: true, message: "Topic added to the bank" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to add topic" };
+  }
+}
+
 /** Manual workflow: founder pasted the post into the site and saves the URL. */
 export async function markBlogPublished(postId: string, publishedUrl: string): Promise<Result> {
   try {

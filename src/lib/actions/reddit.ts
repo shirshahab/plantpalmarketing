@@ -297,3 +297,23 @@ export async function approveAndPostRedditReply(draftId: string): Promise<Result
     return { ok: false, error: e instanceof Error ? e.message : "Post failed" };
   }
 }
+
+/** Phase 31 Step 7 — track engagement (upvotes, notes) on posted replies. */
+export async function updateRedditEngagement(
+  logId: string,
+  upvotes: number,
+  note: string
+): Promise<Result> {
+  try {
+    const supabase = createServerClient();
+    const { error } = await supabase
+      .from("reddit_publish_logs")
+      .update({ upvotes: Math.max(0, Math.round(upvotes)), engagement_note: note.trim() })
+      .eq("id", logId);
+    if (error) return { ok: false, error: error.message };
+    revalidatePath("/reddit");
+    return { ok: true, message: "Engagement saved" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to save engagement" };
+  }
+}

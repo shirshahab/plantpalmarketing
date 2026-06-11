@@ -853,6 +853,9 @@ export interface Database {
           published_url: string;
           error_message: string;
           rate_limit_remaining: number | null;
+          upvotes: number;
+          engagement_note: string;
+          reply_url: string;
           metadata: Json;
           created_at: string;
         },
@@ -868,6 +871,9 @@ export interface Database {
           published_url?: string;
           error_message?: string;
           rate_limit_remaining?: number | null;
+          upvotes?: number;
+          engagement_note?: string;
+          reply_url?: string;
           metadata?: Json;
           created_at?: string;
         },
@@ -876,6 +882,9 @@ export interface Database {
           status?: string;
           published_url?: string;
           error_message?: string;
+          upvotes?: number;
+          engagement_note?: string;
+          reply_url?: string;
         }
       >;
       reddit_safety_rules: TableDef<
@@ -906,6 +915,377 @@ export interface Database {
           rule_value?: string;
           enabled?: boolean;
           notes?: string;
+          updated_at?: string;
+        }
+      >;
+      analytics_events: TableDef<
+        {
+          id: string;
+          event_type: string;
+          source: string;
+          event_key: string;
+          value: number;
+          metadata: Json;
+          occurred_at: string;
+          created_at: string;
+        },
+        {
+          id?: string;
+          event_type?: string;
+          source?: string;
+          event_key?: string;
+          value?: number;
+          metadata?: Json;
+          occurred_at?: string;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          value?: number;
+          metadata?: Json;
+        }
+      >;
+      analytics_snapshots: TableDef<
+        {
+          id: string;
+          snapshot_date: string;
+          category: string;
+          metrics: Json;
+          created_at: string;
+        },
+        {
+          id?: string;
+          snapshot_date?: string;
+          category?: string;
+          metrics?: Json;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          metrics?: Json;
+        }
+      >;
+      analytics_metrics: TableDef<
+        {
+          id: string;
+          metric_key: string;
+          label: string;
+          category: string;
+          value: number;
+          previous_value: number;
+          unit: string;
+          source: string;
+          connection_status: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          metric_key: string;
+          label?: string;
+          category?: string;
+          value?: number;
+          previous_value?: number;
+          unit?: string;
+          source?: string;
+          connection_status?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          label?: string;
+          category?: string;
+          value?: number;
+          previous_value?: number;
+          unit?: string;
+          source?: string;
+          connection_status?: string;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      creative_projects: TableDef<
+        {
+          id: string;
+          title: string;
+          brief: string;
+          project_type: string;
+          calendar_item_id: string | null;
+          source_table: string;
+          source_id: string | null;
+          platform: string;
+          status: string;
+          variants_requested: number;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          title?: string;
+          brief?: string;
+          project_type?: string;
+          calendar_item_id?: string | null;
+          source_table?: string;
+          source_id?: string | null;
+          platform?: string;
+          status?: string;
+          variants_requested?: number;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          title?: string;
+          brief?: string;
+          project_type?: string;
+          calendar_item_id?: string | null;
+          platform?: string;
+          status?: string;
+          variants_requested?: number;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      creative_assets: TableDef<
+        {
+          id: string;
+          project_id: string;
+          variant_number: number;
+          asset_type: string;
+          prompt: string;
+          concept: string;
+          asset_url: string;
+          thumbnail_url: string;
+          status: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          project_id: string;
+          variant_number?: number;
+          asset_type?: string;
+          prompt?: string;
+          concept?: string;
+          asset_url?: string;
+          thumbnail_url?: string;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          variant_number?: number;
+          asset_type?: string;
+          prompt?: string;
+          concept?: string;
+          asset_url?: string;
+          thumbnail_url?: string;
+          status?: string;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      creative_reviews: TableDef<
+        {
+          id: string;
+          project_id: string | null;
+          asset_id: string | null;
+          decision: string;
+          feedback: string;
+          reviewer: string;
+          created_at: string;
+        },
+        {
+          id?: string;
+          project_id?: string | null;
+          asset_id?: string | null;
+          decision?: string;
+          feedback?: string;
+          reviewer?: string;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          decision?: string;
+          feedback?: string;
+        }
+      >;
+      seo_clusters: TableDef<
+        {
+          id: string;
+          name: string;
+          description: string;
+          target_posts: number;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          name: string;
+          description?: string;
+          target_posts?: number;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          name?: string;
+          description?: string;
+          target_posts?: number;
+          updated_at?: string;
+        }
+      >;
+      seo_topics: TableDef<
+        {
+          id: string;
+          topic: string;
+          question: string;
+          cluster_name: string;
+          source: string;
+          search_volume_estimate: number;
+          competition_note: string;
+          status: string;
+          keyword_id: string | null;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          topic: string;
+          question?: string;
+          cluster_name?: string;
+          source?: string;
+          search_volume_estimate?: number;
+          competition_note?: string;
+          status?: string;
+          keyword_id?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          topic?: string;
+          question?: string;
+          cluster_name?: string;
+          source?: string;
+          search_volume_estimate?: number;
+          competition_note?: string;
+          status?: string;
+          keyword_id?: string | null;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      seo_rank_tracking: TableDef<
+        {
+          id: string;
+          post_id: string | null;
+          keyword: string;
+          position: number | null;
+          url: string;
+          search_engine: string;
+          source: string;
+          checked_at: string;
+          created_at: string;
+        },
+        {
+          id?: string;
+          post_id?: string | null;
+          keyword: string;
+          position?: number | null;
+          url?: string;
+          search_engine?: string;
+          source?: string;
+          checked_at?: string;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          position?: number | null;
+          url?: string;
+          checked_at?: string;
+        }
+      >;
+      agent_scorecards: TableDef<
+        {
+          id: string;
+          agent_id: string;
+          period: string;
+          period_start: string;
+          metric_label: string;
+          metric_value: number;
+          score: number;
+          rank: number;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          agent_id: string;
+          period?: string;
+          period_start?: string;
+          metric_label?: string;
+          metric_value?: number;
+          score?: number;
+          rank?: number;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          metric_label?: string;
+          metric_value?: number;
+          score?: number;
+          rank?: number;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      launch_checklist: TableDef<
+        {
+          id: string;
+          item_key: string;
+          label: string;
+          category: string;
+          status: string;
+          score_weight: number;
+          notes: string;
+          last_checked_at: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          item_key: string;
+          label?: string;
+          category?: string;
+          status?: string;
+          score_weight?: number;
+          notes?: string;
+          last_checked_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          label?: string;
+          category?: string;
+          status?: string;
+          score_weight?: number;
+          notes?: string;
+          last_checked_at?: string | null;
           updated_at?: string;
         }
       >;

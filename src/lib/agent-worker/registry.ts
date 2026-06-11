@@ -8,6 +8,8 @@ import { runIvyAgent } from "@/lib/agents/ivy/run-ivy-agent";
 import { runAtlasAgent } from "@/lib/agents/atlas/run-atlas-agent";
 import { runEchoAgent } from "@/lib/agents/echo/run-echo-agent";
 import { runFernAgent } from "@/lib/agents/fern/run-fern-agent";
+import { runSproutAgent } from "@/lib/agents/sprout/run-sprout-agent";
+import { runGateAgent } from "@/lib/agents/gate/run-gate-agent";
 import type { SchedulableAgent } from "@/lib/agent-worker/types";
 
 export type AgentRunnerResult = Record<string, unknown>;
@@ -65,5 +67,13 @@ export const AGENT_RUNNER_REGISTRY: Record<SchedulableAgent, AgentRunnerEntry> =
   fern: {
     run: () => asRecord(runFernAgent),
     countItems: (r) => sumFields(r, ["opportunitiesCount", "experimentsCount", "forecastsCount"]),
+  },
+  sprout: {
+    run: () => asRecord(runSproutAgent),
+    countItems: (r) => sumFields(r, ["queued", "packagesBuilt", "scheduledDue"]),
+  },
+  gate: {
+    run: () => asRecord(runGateAgent),
+    countItems: (r) => sumFields(r, ["itemsRiskScored"]),
   },
 };

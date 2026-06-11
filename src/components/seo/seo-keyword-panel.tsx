@@ -4,13 +4,16 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { addSeoKeyword, writeBlogDraft } from "@/lib/actions/seo-blog";
-import type { SeoBlogPost, SeoKeyword, SeoPublishLog } from "@/lib/db/seo-queries";
+import { addSeoKeyword, addSeoTopic, promoteSeoTopic, runSeoFactoryBatch, writeBlogDraft } from "@/lib/actions/seo-blog";
+import type { SeoBlogPost, SeoCluster, SeoKeyword, SeoPublishLog, SeoRankRow, SeoTopic } from "@/lib/db/seo-queries";
 
 interface Props {
   keywords: SeoKeyword[];
   posts: SeoBlogPost[];
   logs: SeoPublishLog[];
+  topics?: SeoTopic[];
+  clusters?: SeoCluster[];
+  rankRows?: SeoRankRow[];
   stats: {
     totalKeywords: number;
     drafted: number;
@@ -29,7 +32,41 @@ const KEYWORD_STATUS_STYLE: Record<string, string> = {
   skipped: "bg-gray-100 text-gray-500",
 };
 
-export function SeoKeywordPanel({ keywords, posts, logs, stats }: Props) {
+function TopicForm({ onMessage }: { onMessage: (m: string) => void }) {
+  const [pending, startTransition] = useTransition();
+  const [topic, setTopic] = useState("");
+  const [cluster, setCluster] = useState("plant care");
+
+  function handleAdd() {
+    startTransition(async () => {
+      const result = await addSeoTopic(topic, cluster, "");
+      onMessage(result.ok ? (result.message ?? "Added") : (result as { error: string }).error);
+      if (result.ok) setTopic("");
+    });
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      <input
+        value={topic}
+        onChange={(e) => setTopic(e.target.value)}
+        placeholder="New topic idea"
+        className="min-w-[180px] flex-1 rounded-lg border border-brand-border px-3 py-2 text-sm"
+      />
+      <input
+        value={cluster}
+        onChange={(e) => setCluster(e.target.value)}
+        placeholder="Cluster"
+        className="w-32 rounded-lg border border-brand-border px-3 py-2 text-sm"
+      />
+      <Button size="sm" variant="secondary" onClick={handleAdd} disabled={pending || topic.trim().length < 3}>
+        Add
+      </Button>
+    </div>
+  );
+}
+
+export function SeoKeywordPanel({ keywords, posts, logs, topics = [], clusters = [], rankRows = [], stats }: Props) {
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -65,6 +102,25 @@ export function SeoKeywordPanel({ keywords, posts, logs, stats }: Props) {
     });
   }
 
+  function handleFactory(count: number) {
+    setBusyId("factory");
+    setMessage(`SEO Factory running — drafting up to ${count} posts. This takes a while...`);
+    startTransition(async () => {
+      const result = await runSeoFactoryBatch(count);
+      setMessage(result.ok ? (result.message ?? "Factory done") : result.error);
+      setBusyId(null);
+    });
+  }
+
+  function handlePromote(topicId: string) {
+    setBusyId(topicId);
+    startTransition(async () => {
+      const result = await promoteSeoTopic(topicId);
+      setMessage(result.ok ? (result.message ?? "Promoted") : result.error);
+      setBusyId(null);
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -83,6 +139,28 @@ export function SeoKeywordPanel({ keywords, posts, logs, stats }: Props) {
           {message}
         </div>
       )}
+
+      {/* SEO Factory */}
+      <Card>
+        <CardContent className="py-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="font-heading font-semibold text-brand-primary">SEO Factory</h3>
+              <p className="mt-0.5 text-xs text-brand-muted">
+                Batch-draft from the keyword queue. Target: 5-10 voice-checked drafts a day. Gate still approves everything.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => handleFactory(5)} disabled={pending}>
+                {busyId === "factory" ? "Factory running..." : "Draft 5 posts"}
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => handleFactory(10)} disabled={pending}>
+                Draft 10
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Keyword list */}
       <Card>
@@ -164,6 +242,78 @@ export function SeoKeywordPanel({ keywords, posts, logs, stats }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Topic bank + clusters */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardContent className="py-5">
+            <h3 className="font-heading font-semibold text-brand-primary">Topic bank</h3>
+            <p className="mt-1 text-xs text-brand-muted">
+              Ideas from Roots, Sentinel, and SerpAPI. Promote the good ones into the keyword queue.
+            </p>
+            <TopicForm onMessage={setMessage} />
+            {topics.length === 0 ? (
+              <p className="mt-3 text-sm text-brand-muted">No topics banked yet.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {topics.slice(0, 12).map((t) => (
+                  <li key={t.id} className="flex items-center justify-between gap-2 rounded-xl border border-brand-border p-2.5">
+                    <div>
+                      <p className="text-sm font-medium text-brand-primary">{t.topic}</p>
+                      <p className="text-xs text-brand-muted">
+                        {t.clusterName} · {t.source} · {t.status}
+                      </p>
+                    </div>
+                    {t.status === "idea" && (
+                      <Button size="sm" variant="secondary" onClick={() => handlePromote(t.id)} disabled={pending}>
+                        {busyId === t.id ? "..." : "Promote"}
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="py-5">
+            <h3 className="font-heading font-semibold text-brand-primary">Clusters & rank tracking</h3>
+            {clusters.length > 0 && (
+              <ul className="mt-3 space-y-1.5 text-sm">
+                {clusters.map((c) => {
+                  const clusterPosts = posts.filter((p) => keywords.find((k) => k.id === p.keywordId)?.topicCluster === c.name);
+                  return (
+                    <li key={c.id} className="flex items-center justify-between text-brand-muted">
+                      <span className="font-medium text-brand-primary">{c.name}</span>
+                      <span className="text-xs">
+                        {clusterPosts.length}/{c.targetPosts} posts
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <div className="mt-4 border-t border-brand-border pt-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-brand-muted">Rank tracking</p>
+              {rankRows.length === 0 ? (
+                <p className="mt-2 text-sm text-brand-muted">
+                  Not Connected Yet — rankings appear here once SerpAPI checks run against published URLs.
+                </p>
+              ) : (
+                <ul className="mt-2 space-y-1 text-sm text-brand-muted">
+                  {rankRows.slice(0, 8).map((r) => (
+                    <li key={r.id} className="flex items-center justify-between">
+                      <span>{r.keyword}</span>
+                      <span className="text-xs">{r.position ? `#${r.position}` : "unranked"}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Backlink tracker */}
       <Card>

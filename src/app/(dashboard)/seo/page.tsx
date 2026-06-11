@@ -31,6 +31,9 @@ export default async function SeoPage() {
           keywords={data.keywords}
           posts={data.posts}
           logs={data.logs}
+          topics={data.topics}
+          clusters={data.clusters}
+          rankRows={data.rankRows}
           stats={data.stats}
         />
       )}

@@ -115,6 +115,78 @@ export function HQTerrainLayer() {
         )}
         <rect x="-0.25" y="-0.95" width="1.1" height="0.8" rx="0.15" fill="#f3c9dd" />
       </g>
+
+      {/* Phase 31 HQ 2.0 — radar room (Sentinel) with sweeping scan */}
+      <g transform="translate(87, 28)" opacity="0.85">
+        <circle cx="0" cy="0" r="3" fill="#0f172a" stroke="#1e293b" strokeWidth="0.25" />
+        <circle cx="0" cy="0" r="2.2" fill="none" stroke="#22c55e" strokeWidth="0.12" opacity="0.5" />
+        <circle cx="0" cy="0" r="1.3" fill="none" stroke="#22c55e" strokeWidth="0.1" opacity="0.4" />
+        <line x1="0" y1="0" x2="0" y2="-2.6" stroke="#4ade80" strokeWidth="0.22" strokeLinecap="round">
+          <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="6s" repeatCount="indefinite" />
+        </line>
+        <circle cx="1.2" cy="-0.8" r="0.22" fill="#4ade80">
+          <animate attributeName="opacity" values="0;1;0" dur="6s" repeatCount="indefinite" />
+        </circle>
+      </g>
+
+      {/* Conference room — table with chairs near the plaza */}
+      <g transform="translate(38, 30)" opacity="0.8">
+        <ellipse cx="0" cy="0" rx="3" ry="1.6" fill="#c9a877" stroke="#a8854f" strokeWidth="0.2" />
+        <ellipse cx="0" cy="-0.2" rx="2.2" ry="1" fill="#dbc191" opacity="0.7" />
+        {[
+          { x: -3.6, y: 0 },
+          { x: 3.6, y: 0 },
+          { x: -1.8, y: -1.9 },
+          { x: 1.8, y: -1.9 },
+          { x: -1.8, y: 1.9 },
+          { x: 1.8, y: 1.9 },
+        ].map((c, i) => (
+          <circle key={i} cx={c.x} cy={c.y} r="0.55" fill="#8a6d44" opacity="0.7" />
+        ))}
+      </g>
+
+      {/* Content cards traveling Bloom → plaza → Gate (the pipeline, visibly moving) */}
+      <g opacity="0.9">
+        <rect x="-1" y="-0.7" width="2" height="1.4" rx="0.25" fill="#fffdf7" stroke="#74c365" strokeWidth="0.18">
+          <animateMotion dur="9s" repeatCount="indefinite" path="M 28 50 Q 39 44 50 46 Q 61 48 70 46" />
+        </rect>
+        <rect x="-1" y="-0.7" width="2" height="1.4" rx="0.25" fill="#fdf3f8" stroke="#d48ab0" strokeWidth="0.18">
+          <animateMotion dur="9s" begin="4.5s" repeatCount="indefinite" path="M 28 50 Q 39 44 50 46 Q 61 48 70 46" />
+        </rect>
+      </g>
+
+      {/* Approval envelope traveling Gate → Sprout (publishing run) */}
+      <g opacity="0.9">
+        <g>
+          <rect x="-1.1" y="-0.75" width="2.2" height="1.5" rx="0.2" fill="#fff8e8" stroke="#d4a847" strokeWidth="0.18" />
+          <path d="M -1.1 -0.75 L 0 0.2 L 1.1 -0.75" fill="none" stroke="#d4a847" strokeWidth="0.15" />
+          <animateMotion dur="11s" repeatCount="indefinite" path="M 70 46 Q 76 56 70 66 Q 60 74 48 72" />
+        </g>
+      </g>
+
+      {/* Growing plants — sprouts that breathe near the plaza */}
+      {[
+        { x: 44, y: 52, dur: "5s" },
+        { x: 56, y: 52, dur: "6.5s" },
+        { x: 50, y: 54, dur: "5.8s" },
+      ].map((p, i) => (
+        <g key={i} transform={`translate(${p.x}, ${p.y})`} opacity="0.8">
+          <line x1="0" y1="0" x2="0" y2="-1.2" stroke="#2d6a4f" strokeWidth="0.18" />
+          <ellipse cx="-0.5" cy="-1" rx="0.5" ry="0.3" fill="#74c365" transform="rotate(-30 -0.5 -1)">
+            <animate attributeName="ry" values="0.3;0.42;0.3" dur={p.dur} repeatCount="indefinite" />
+          </ellipse>
+          <ellipse cx="0.5" cy="-1.2" rx="0.5" ry="0.3" fill="#95d68a" transform="rotate(30 0.5 -1.2)">
+            <animate attributeName="ry" values="0.3;0.45;0.3" dur={p.dur} repeatCount="indefinite" />
+          </ellipse>
+        </g>
+      ))}
+
+      {/* Video room screen flicker — the review session is live */}
+      <g transform="translate(13, 70)">
+        <rect x="-3.5" y="-2.1" width="7" height="4" rx="0.4" fill="#93c5fd" opacity="0.08">
+          <animate attributeName="opacity" values="0.04;0.14;0.04" dur="3.5s" repeatCount="indefinite" />
+        </rect>
+      </g>
     </svg>
   );
 }

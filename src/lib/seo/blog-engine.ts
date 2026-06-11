@@ -1,5 +1,6 @@
 import { callOpenAIJson } from "@/lib/openai/client";
 import { isOpenAIConfigured } from "@/lib/openai/config";
+import { buildMemoryPromptBlock } from "@/lib/agents/memory-hints";
 
 export interface BlogDraft {
   headline: string;
@@ -83,9 +84,11 @@ export async function generateBlogDraft(keyword: string, demandNotes: string): P
   aiUsed: boolean;
 }> {
   if (isOpenAIConfigured()) {
+    // Phase 31 Step 2 — Bloom and Sage memories steer the draft
+    const memoryBlock = await buildMemoryPromptBlock(["bloom", "sage"]);
     const draft = await callOpenAIJson<BlogDraft>(
       VOICE_SYSTEM_PROMPT,
-      `Write the blog post for the search keyword: "${keyword}".\nSearch demand notes: ${demandNotes || "none"}.\nRemember: 500-900 words, funny, direct, zero em dashes.`,
+      `Write the blog post for the search keyword: "${keyword}".\nSearch demand notes: ${demandNotes || "none"}.\nRemember: 500-900 words, funny, direct, zero em dashes.${memoryBlock}`,
       0.9
     );
     return {

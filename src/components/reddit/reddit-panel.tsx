@@ -13,8 +13,53 @@ import {
   rejectRedditDraft,
   scanRedditOpportunities,
   updateRedditDraft,
+  updateRedditEngagement,
 } from "@/lib/actions/reddit";
 import type { RedditPageData } from "@/lib/db/reddit-queries";
+
+function EngagementEditor({ logId, upvotes, note }: { logId: string; upvotes: number; note: string }) {
+  const [pending, startTransition] = useTransition();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(upvotes));
+  const [noteValue, setNoteValue] = useState(note);
+
+  if (!editing) {
+    return (
+      <button onClick={() => setEditing(true)} className="rounded-full bg-orange-50 px-2 py-0.5 text-orange-700 hover:bg-orange-100">
+        ▲ {upvotes}{note ? ` · ${note.slice(0, 30)}` : ""}
+      </button>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
+        className="w-14 rounded border border-brand-border px-1.5 py-0.5 text-xs"
+        placeholder="upvotes"
+      />
+      <input
+        value={noteValue}
+        onChange={(e) => setNoteValue(e.target.value)}
+        className="w-32 rounded border border-brand-border px-1.5 py-0.5 text-xs"
+        placeholder="engagement note"
+      />
+      <button
+        disabled={pending}
+        onClick={() =>
+          startTransition(async () => {
+            await updateRedditEngagement(logId, Number(value) || 0, noteValue);
+            setEditing(false);
+          })
+        }
+        className="rounded bg-brand-primary px-1.5 py-0.5 text-white"
+      >
+        Save
+      </button>
+    </span>
+  );
+}
 
 const STATUS_VARIANTS: Record<string, "success" | "warning" | "danger" | "info" | "muted"> = {
   connected: "success",
@@ -258,11 +303,19 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
             ) : (
               <div className="mt-3 space-y-1.5">
                 {data.logs.map((log) => (
-                  <div key={log.id} className="flex items-center gap-2 text-xs text-brand-muted">
+                  <div key={log.id} className="flex flex-wrap items-center gap-2 text-xs text-brand-muted">
                     <Badge variant={log.status === "success" ? "success" : log.status === "blocked" ? "warning" : "danger"}>
                       {log.status}
                     </Badge>
                     <span>{log.action}{log.subreddit ? ` · r/${log.subreddit}` : ""}</span>
+                    {log.action === "post_reply" && log.status === "success" && (
+                      <EngagementEditor logId={log.id} upvotes={log.upvotes} note={log.engagementNote} />
+                    )}
+                    {log.publishedUrl && (
+                      <a href={log.publishedUrl} target="_blank" rel="noopener noreferrer" className="text-brand-accent hover:underline">
+                        reply ↗
+                      </a>
+                    )}
                     {log.errorMessage && <span className="truncate text-red-600">{log.errorMessage.slice(0, 60)}</span>}
                   </div>
                 ))}
