@@ -23,4 +23,10 @@ export interface StoredVideoResult {
   videoUrl?: string;
   thumbnailUrl?: string;
   error?: string;
+  /**
+   * True when the video generated successfully and was downloaded from the
+   * provider, but the storage upload failed. The video is still retrievable
+   * via the direct-download proxy — never hide a successful generation.
+   */
+  storageFailed?: boolean;
 }

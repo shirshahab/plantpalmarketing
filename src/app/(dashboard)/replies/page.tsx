@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ConfigBanner } from "@/components/ui/config-banner";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { ApprovalActions } from "@/components/shared/approval-actions";
+import { SourceLinks } from "@/components/shared/source-links";
 import { DeleteButton } from "@/components/shared/delete-button";
 import { fetchPageData } from "@/lib/db/fetch-page-data";
 import { getReplyDrafts } from "@/lib/db/queries";
@@ -59,6 +60,17 @@ export default async function SocialReplyDraftsPage() {
                       <p className="text-xs font-semibold text-brand-sage">Original post</p>
                       <p className="mt-1 text-sm text-brand-muted">{reply.originalPost}</p>
                     </div>
+                    <SourceLinks
+                      sourceUrl={reply.sourceUrl}
+                      sourceAuthor={reply.sourceAuthor}
+                      sourceAuthorUrl={reply.sourceAuthorUrl}
+                      sourcePlatform={reply.sourcePlatform}
+                      sourceTitle={reply.sourceTitle}
+                      sourceSubreddit={reply.sourceSubreddit}
+                      sourceCreatedAt={reply.sourceCreatedAt}
+                      engagement={reply.engagement}
+                      dataSource={reply.dataSource}
+                    />
                     <div className="mt-3 rounded-xl border border-brand-border p-3">
                       <p className="text-xs font-semibold text-brand-primary">Draft reply</p>
                       <p className="mt-1 text-sm leading-relaxed">{reply.draft}</p>

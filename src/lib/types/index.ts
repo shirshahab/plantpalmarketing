@@ -273,7 +273,20 @@ export interface CommunityMention {
   createdAt: string;
 }
 
-export interface CommunityOpportunity {
+/** Phase 34 — full source attribution carried by opportunities and replies. */
+export interface SourceInfo {
+  sourceUrl: string;
+  sourceAuthor: string;
+  sourceAuthorUrl: string;
+  sourcePlatform: string;
+  sourceTitle: string;
+  sourceSubreddit: string;
+  sourceCreatedAt: string | null;
+  engagement: Record<string, number>;
+  dataSource: string;
+}
+
+export interface CommunityOpportunity extends SourceInfo {
   id: string;
   platform: Platform;
   author: string;
@@ -291,7 +304,7 @@ export interface CommunityOpportunity {
   updatedAt?: string;
 }
 
-export interface CommunityReplyDraft {
+export interface CommunityReplyDraft extends SourceInfo {
   id: string;
   opportunityId?: string | null;
   platform: Platform | string;
@@ -1203,7 +1216,7 @@ export interface AgentActivityLog {
   createdAt: string;
 }
 
-export interface ReplyDraft {
+export interface ReplyDraft extends SourceInfo {
   id: string;
   platform: Platform;
   originalPost: string;

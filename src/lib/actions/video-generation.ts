@@ -241,6 +241,26 @@ export async function checkVideoGenerationStatus(videoId: string): Promise<Resul
 
     const stored = await downloadAndStoreVideo(jobId);
     if (!stored.ok || !stored.videoUrl) {
+      if (stored.storageFailed) {
+        // Generation succeeded — never hide it. Mark the video as generated
+        // and let the founder download it directly through the proxy route.
+        await updateVideoRow(videoId, {
+          status: "generated",
+          error_message: stored.error ?? "Storage upload failed — direct download available",
+          metadata: {
+            ...meta,
+            directDownloadOnly: true,
+            lastError: stored.error ?? "",
+            lastErrorAt: new Date().toISOString(),
+          } as Json,
+        });
+        revalidatePath("/video");
+        return {
+          ok: true,
+          message:
+            "Video generated! Storage upload failed, so use the Download generated video button (link valid ~1 hour).",
+        };
+      }
       await updateVideoRow(videoId, {
         error_message: stored.error ?? "Download failed",
         metadata: { ...meta, lastError: stored.error ?? "", lastErrorAt: new Date().toISOString() } as Json,
@@ -253,7 +273,7 @@ export async function checkVideoGenerationStatus(videoId: string): Promise<Resul
       video_url: stored.videoUrl,
       ...(stored.thumbnailUrl ? { thumbnail_url: stored.thumbnailUrl } : {}),
       error_message: "",
-      metadata: { ...meta, generatedAt: new Date().toISOString(), lastError: "" } as Json,
+      metadata: { ...meta, generatedAt: new Date().toISOString(), lastError: "", directDownloadOnly: false } as Json,
     });
     if (!updated.ok) return { ok: false, error: updated.error ?? "Update failed" };
 

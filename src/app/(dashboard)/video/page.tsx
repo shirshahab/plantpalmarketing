@@ -1,4 +1,5 @@
 import { Clapperboard } from "lucide-react";
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +37,10 @@ export default async function VideoScriptsPage() {
       >
         {providerStatus.canGenerate
           ? `Video generation: ${providerStatus.message}. Generated videos land in the review queue below.`
-          : `Video generation: ${providerStatus.message}. Packages are still fully usable — attach the final video URL manually.`}
+          : `Video generation: ${providerStatus.message}. Packages are still fully usable — attach the final video URL manually.`}{" "}
+        <Link href="/admin/video-diagnostics" className="font-medium underline">
+          Run diagnostics
+        </Link>
       </div>
       {error && <ErrorBanner message={error} />}
 

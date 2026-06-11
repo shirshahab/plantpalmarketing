@@ -6,26 +6,19 @@ import {
   Eye,
   FileBarChart,
   FileText,
-  Flower2,
   GitBranch,
   Brain,
   Rocket,
-  Sprout,
-  TreeDeciduous,
   Crown,
   Telescope,
-  Handshake,
   Image,
   LayoutDashboard,
-  MessageCircleHeart,
   MessageSquare,
   Radar,
   Search,
   Server,
   Sparkles,
   Star,
-  ThumbsDown,
-  ThumbsUp,
   Users,
   Video,
   Workflow,
@@ -48,77 +41,82 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-/** Founder-priority operating pages — always visible at the top. */
-export const mainNavItems: NavItem[] = [
-  { href: "/", label: "PlantPal HQ", icon: LayoutDashboard },
-  { href: "/founder", label: "Founder Mode", icon: Crown },
-  { href: "/company-os", label: "Company OS", icon: Workflow },
-  { href: "/agents/daily-brief", label: "Ivy Executive Brief", icon: Bot },
+export type NavEntry = NavItem | NavGroup;
+
+export function isNavGroup(entry: NavEntry): entry is NavGroup {
+  return "items" in entry;
+}
+
+/**
+ * Phase 34 — six top-level destinations only.
+ * HQ · Content · Approvals · Calendar · Analytics · Settings
+ * Everything else lives as a sub-page inside one of the groups.
+ */
+export const navMenu: NavEntry[] = [
+  { href: "/", label: "HQ", icon: LayoutDashboard },
+  {
+    label: "Content",
+    icon: Sparkles,
+    items: [
+      { href: "/creative", label: "Creative", icon: Image },
+      { href: "/seo", label: "SEO", icon: Search },
+      { href: "/reddit", label: "Reddit", icon: MessageSquare },
+      { href: "/content", label: "Studio", icon: Sparkles },
+      { href: "/agents/pipeline", label: "Pipeline", icon: Workflow },
+      { href: "/images", label: "Image Studio", icon: Image },
+      { href: "/video", label: "Video Studio", icon: Video },
+      { href: "/blog-pipeline", label: "Blog Pipeline", icon: FileText },
+      { href: "/social", label: "Social Posts", icon: FileText },
+      { href: "/replies", label: "Reply Drafts", icon: MessageSquare },
+      { href: "/community", label: "Community", icon: Eye },
+      { href: "/creators", label: "Creators", icon: Telescope },
+    ],
+  },
+  { href: "/approvals", label: "Approvals", icon: CheckSquare },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/automation", label: "Automation", icon: Zap },
-  { href: "/approvals", label: "Approvals / Founder Inbox", icon: CheckSquare },
-  { href: "/reddit", label: "Reddit", icon: MessageSquare },
-  { href: "/seo", label: "SEO Factory", icon: Search },
-  { href: "/creative", label: "Creative Department", icon: Image },
-  { href: "/content", label: "Content Studio", icon: Sparkles },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/integrations", label: "Integrations", icon: Plug },
-  { href: "/agent-operations", label: "Settings & Operations", icon: Server },
+  {
+    label: "Analytics",
+    icon: BarChart3,
+    items: [
+      { href: "/analytics", label: "Overview", icon: BarChart3 },
+      { href: "/founder", label: "Founder Mode", icon: Crown },
+      { href: "/company-os", label: "Company OS", icon: Workflow },
+      { href: "/agents/daily-brief", label: "Ivy Executive Brief", icon: Bot },
+      { href: "/daily-report", label: "Daily Report", icon: FileBarChart },
+      { href: "/agents/scores", label: "Content Scores", icon: Star },
+      { href: "/competitors", label: "Competitors", icon: Radar },
+      { href: "/launch", label: "Launch Readiness", icon: Rocket },
+      { href: "/x", label: "X Dashboard", icon: Twitter },
+    ],
+  },
+  {
+    label: "Settings",
+    icon: Server,
+    items: [
+      { href: "/agents", label: "Agents", icon: Users },
+      { href: "/integrations", label: "Integrations", icon: Plug },
+      { href: "/agent-operations", label: "Operations", icon: Server },
+      { href: "/automation/schedules", label: "Schedules", icon: Zap },
+      { href: "/automation", label: "Automation", icon: Zap },
+      { href: "/collaboration", label: "Collaboration", icon: GitBranch },
+      { href: "/agent-brain", label: "Agent Brain", icon: Brain },
+      { href: "/admin/setup-health", label: "Setup Health", icon: Server },
+      { href: "/admin/video-diagnostics", label: "Video Diagnostics", icon: Video },
+    ],
+  },
 ];
 
-/** Every agent page lives under one collapsible "Agents" group. */
-export const agentNavGroup: NavGroup = {
-  label: "Agents",
-  icon: Users,
-  items: [
-    { href: "/creators", label: "Scout — Creator CRM", icon: Telescope },
-    { href: "/community", label: "Roots — Community", icon: Eye },
-    { href: "/bloom", label: "Bloom — Content Production", icon: Flower2 },
-    { href: "/sage", label: "Sage — Creative Director", icon: Star },
-    { href: "/approvals", label: "Gate — Approvals", icon: CheckSquare },
-    { href: "/sprout", label: "Sprout — Publishing", icon: Rocket },
-    { href: "/competitors", label: "Sentinel — Competitors", icon: Radar },
-    { href: "/oak", label: "Oak — Partnerships", icon: TreeDeciduous },
-    { href: "/ivy", label: "Ivy — Chief of Staff", icon: Crown },
-    { href: "/atlas", label: "Atlas — Head of Growth", icon: Sprout },
-    { href: "/echo", label: "Echo — Voice of Customer", icon: MessageCircleHeart },
-    { href: "/fern", label: "Fern — Visual Designer", icon: Sprout },
-  ],
-};
+/** Legacy exports — derived from the new six-item menu. */
+export const mainNavItems: NavItem[] = navMenu.filter(
+  (entry): entry is NavItem => !isNavGroup(entry)
+);
 
-/** Secondary workspaces stay reachable without crowding the main nav. */
-export const moreNavGroup: NavGroup = {
-  label: "More",
-  icon: GitBranch,
-  items: [
-    { href: "/automation/schedules", label: "Agent Schedules", icon: Zap },
-    { href: "/launch", label: "Launch Readiness", icon: Rocket },
-    { href: "/daily-report", label: "Daily Report", icon: FileBarChart },
-    { href: "/collaboration", label: "Agent Collaboration", icon: GitBranch },
-    { href: "/agent-brain", label: "Agent Brain (AI)", icon: Brain },
-    { href: "/agents/pipeline", label: "Content Pipeline", icon: Workflow },
-    { href: "/agents/scores", label: "Content Scores", icon: Star },
-    { href: "/agents/approved", label: "Approved Content", icon: ThumbsUp },
-    { href: "/agents/rejected", label: "Rejected Content", icon: ThumbsDown },
-    { href: "/blog-pipeline", label: "Blog Pipeline", icon: FileText },
-    { href: "/seo/export", label: "Website Blog Export", icon: FileText },
-    { href: "/social", label: "Social Posts", icon: FileText },
-    { href: "/images", label: "Image Asset Studio", icon: Image },
-    { href: "/video", label: "Video Studio", icon: Video },
-    { href: "/replies", label: "Social Reply Drafts", icon: MessageSquare },
-    { href: "/x", label: "X Dashboard", icon: Twitter },
-    { href: "/partnerships", label: "Partnership Tracker (Legacy)", icon: Handshake },
-    { href: "/executive", label: "Executive Dashboard (Legacy)", icon: BarChart3 },
-  ],
-};
-
-export const navGroups: NavGroup[] = [agentNavGroup, moreNavGroup];
+export const navGroups: NavGroup[] = navMenu.filter(isNavGroup);
 
 /** Flat list kept for any legacy consumers. */
 export const navItems = [
   ...mainNavItems,
-  ...agentNavGroup.items,
-  ...moreNavGroup.items,
+  ...navGroups.flatMap((group) => group.items),
 ] as const;
 
 export const contentFormats = [

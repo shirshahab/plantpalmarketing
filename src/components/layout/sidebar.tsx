@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ChevronDown, Leaf, FileText } from "lucide-react";
-import { mainNavItems, navGroups, type NavItem } from "@/components/layout/nav-items";
+import { isNavGroup, navMenu, type NavItem } from "@/components/layout/nav-items";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { cn } from "@/lib/utils";
 
@@ -32,8 +32,9 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     // Auto-expand the group containing the current page
     const initial: Record<string, boolean> = {};
-    for (const group of navGroups) {
-      initial[group.label] = group.items.some(
+    for (const entry of navMenu) {
+      if (!isNavGroup(entry)) continue;
+      initial[entry.label] = entry.items.some(
         (i) => i.href !== "/" && pathname.startsWith(i.href)
       );
     }
@@ -57,31 +58,30 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        {mainNavItems.map((item) => (
-          <NavLink key={item.href} item={item} pathname={pathname} />
-        ))}
-
-        {navGroups.map((group) => {
-          const GroupIcon = group.icon;
-          const open = openGroups[group.label] ?? false;
+        {navMenu.map((entry) => {
+          if (!isNavGroup(entry)) {
+            return <NavLink key={entry.href} item={entry} pathname={pathname} />;
+          }
+          const GroupIcon = entry.icon;
+          const open = openGroups[entry.label] ?? false;
           return (
-            <div key={group.label} className="pt-1">
+            <div key={entry.label} className="pt-1">
               <button
                 onClick={() =>
-                  setOpenGroups((prev) => ({ ...prev, [group.label]: !open }))
+                  setOpenGroups((prev) => ({ ...prev, [entry.label]: !open }))
                 }
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-brand-muted transition-colors hover:bg-brand-bg hover:text-brand-primary"
               >
                 <GroupIcon className="h-4 w-4 shrink-0" />
-                <span className="flex-1 truncate text-left">{group.label}</span>
+                <span className="flex-1 truncate text-left">{entry.label}</span>
                 <ChevronDown
                   className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")}
                 />
               </button>
               {open && (
                 <div className="ml-3 space-y-0.5 border-l border-brand-border pl-2">
-                  {group.items.map((item) => (
-                    <NavLink key={`${group.label}-${item.href}`} item={item} pathname={pathname} />
+                  {entry.items.map((item) => (
+                    <NavLink key={`${entry.label}-${item.href}`} item={item} pathname={pathname} />
                   ))}
                 </div>
               )}

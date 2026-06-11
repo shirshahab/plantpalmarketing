@@ -118,6 +118,7 @@ import type {
   CommunityMention,
   CommunityOpportunity,
   CommunityReplyDraft,
+  SourceInfo,
   CompetitorAlert,
   CompetitorDailyBrief,
   CompetitorIntelAlert,
@@ -242,6 +243,43 @@ function parseStringArray(value: unknown): string[] {
   return value.map(String);
 }
 
+/**
+ * Phase 34 — maps optional source attribution columns (migration 056).
+ * Rows without a real source URL are treated as demo data.
+ */
+function mapSourceInfo(row: {
+  source_url?: string;
+  source_author?: string;
+  source_author_url?: string;
+  source_platform?: string;
+  source_title?: string;
+  source_subreddit?: string;
+  source_created_at?: string | null;
+  engagement?: unknown;
+  data_source?: string;
+  platform?: string;
+  author?: string;
+}): SourceInfo {
+  const engagement: Record<string, number> = {};
+  if (row.engagement && typeof row.engagement === "object" && !Array.isArray(row.engagement)) {
+    for (const [key, value] of Object.entries(row.engagement as Record<string, unknown>)) {
+      if (typeof value === "number") engagement[key] = value;
+    }
+  }
+  const sourceUrl = row.source_url ?? "";
+  return {
+    sourceUrl,
+    sourceAuthor: row.source_author || row.author || "",
+    sourceAuthorUrl: row.source_author_url ?? "",
+    sourcePlatform: row.source_platform || row.platform || "",
+    sourceTitle: row.source_title ?? "",
+    sourceSubreddit: row.source_subreddit ?? "",
+    sourceCreatedAt: row.source_created_at ?? null,
+    engagement,
+    dataSource: row.data_source || (sourceUrl ? "live_api" : "demo"),
+  };
+}
+
 export function mapCommunityOpportunity(
   row: Database["public"]["Tables"]["community_opportunities"]["Row"]
 ): CommunityOpportunity {
@@ -261,6 +299,7 @@ export function mapCommunityOpportunity(
     status: row.status as Status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    ...mapSourceInfo(row),
   };
 }
 
@@ -339,6 +378,7 @@ export function mapCommunityReplyDraft(
     status: row.status as Status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    ...mapSourceInfo(row),
   };
 }
 
@@ -958,6 +998,7 @@ export function mapReplyDraft(row: Database["public"]["Tables"]["reply_drafts"][
     status: row.status as Status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    ...mapSourceInfo(row),
   };
 }
 

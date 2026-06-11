@@ -148,8 +148,9 @@ export async function downloadAndStoreOpenAIVideo(jobId: string): Promise<Stored
     if (!videoUrl) {
       return {
         ok: false,
+        storageFailed: true,
         error:
-          "Video generated but storage upload failed — finish setup (see /admin/setup-health), then check status again within 1 hour.",
+          "Video generated successfully, but the storage upload failed. Use the direct download link, or fix storage (see /admin/video-diagnostics) and check status again.",
       };
     }
 

@@ -9,6 +9,7 @@ import {
 } from "@/lib/integrations/providers/image-generation-provider";
 import { upsertCalendarItem } from "@/lib/content-calendar/sync";
 import { recordHandoff } from "@/lib/collaboration/handoff";
+import { buildCampaignContext, getCampaignContext } from "@/lib/assets/campaign-context";
 import type { Json } from "@/lib/supabase/database.types";
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
@@ -50,14 +51,27 @@ export async function prepareAssetForPrompt(promptId: string): Promise<Result> {
     if (existingError && isMissingTableError(existingError)) return { ok: false, error: MIGRATION_HINT };
     if (existing) return { ok: true, message: "Asset package already exists" };
 
+    // Phase 34 — store full campaign context so the founder sees WHY the
+    // image exists before approving, and the calendar item is publish-ready.
+    const campaign = buildCampaignContext({
+      title: prompt.title,
+      category: prompt.category,
+      style: prompt.style,
+    });
+
     const { error } = await supabase.from("generated_assets").insert({
       prompt_id: promptId,
-      platform: prompt.category === "app_screenshot" ? "x" : "instagram",
+      platform: campaign.platform,
       asset_type: "image",
       prompt: prompt.prompt,
       status: "pending_generation",
       generation_provider: isImageGenerationConfigured() ? "openai" : "none",
-      metadata: { title: prompt.title, category: prompt.category, style: prompt.style } as Json,
+      metadata: {
+        title: prompt.title,
+        category: prompt.category,
+        style: prompt.style,
+        campaign,
+      } as unknown as Json,
     });
     if (error) {
       return { ok: false, error: isMissingTableError(error) ? MIGRATION_HINT : error.message };
@@ -222,17 +236,34 @@ export async function attachAssetToCalendar(assetId: string): Promise<Result> {
     const meta = (asset.metadata as Record<string, unknown>) ?? {};
     const title = String(meta.title ?? "Generated visual asset");
 
+    // Phase 34 — calendar items must be fully publish-ready: caption,
+    // hashtags, CTA, platform, campaign objective and posting notes included.
+    const campaign = getCampaignContext(meta);
+    const hashtags = campaign.hashtags.join(" ");
+    const fullCaption = `${campaign.caption}\n\n${campaign.cta}\n\n${hashtags}`.trim();
+
     let calendarId = asset.calendar_item_id;
     if (calendarId) {
       await supabase
         .from("content_calendar")
-        .update({ asset_url: asset.image_url, asset_type: "image", asset_prompt: asset.prompt })
+        .update({
+          asset_url: asset.image_url,
+          asset_type: "image",
+          asset_prompt: asset.prompt,
+          caption: fullCaption,
+          cta: campaign.cta,
+          notes: `${campaign.objective}\n\n${campaign.postingNotes}`,
+        })
         .eq("id", calendarId);
     } else {
       calendarId = await upsertCalendarItem({
         title,
-        platform: (asset.platform || "instagram") as never,
+        platform: (campaign.platform || asset.platform || "instagram") as never,
         contentType: "image_post",
+        caption: fullCaption,
+        hook: campaign.caption,
+        cta: campaign.cta,
+        copyText: fullCaption,
         assetUrl: asset.image_url,
         assetType: "image",
         assetPrompt: asset.prompt,
@@ -241,7 +272,15 @@ export async function attachAssetToCalendar(assetId: string): Promise<Result> {
         sourceAgent: "fern",
         sourceTable: "generated_assets",
         sourceId: asset.id,
-        metadata: { generationProvider: asset.generation_provider, placeholder: meta.placeholder === true },
+        notes: `${campaign.objective}\n\n${campaign.postingNotes}`,
+        metadata: {
+          generationProvider: asset.generation_provider,
+          placeholder: meta.placeholder === true,
+          campaign: campaign as unknown as Record<string, unknown>,
+          hashtags: campaign.hashtags,
+          objective: campaign.objective,
+          targetAudience: campaign.targetAudience,
+        },
       });
     }
 

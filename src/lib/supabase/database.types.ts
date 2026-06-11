@@ -13,6 +13,22 @@ type TableDef<Row, Insert, Update> = {
   Relationships: [];
 };
 
+/**
+ * Phase 34 — source attribution columns (migration 056).
+ * Optional so reads stay graceful before the migration is applied.
+ */
+type SourceColumns = {
+  source_url?: string;
+  source_author?: string;
+  source_author_url?: string;
+  source_platform?: string;
+  source_title?: string;
+  source_subreddit?: string;
+  source_created_at?: string | null;
+  engagement?: Json;
+  data_source?: string;
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -220,7 +236,7 @@ export interface Database {
           status: string;
           created_at: string;
           updated_at: string;
-        },
+        } & SourceColumns,
         {
           id?: string;
           platform: string;
@@ -237,7 +253,7 @@ export interface Database {
           status?: string;
           created_at?: string;
           updated_at?: string;
-        },
+        } & SourceColumns,
         {
           id?: string;
           platform?: string;
@@ -254,7 +270,7 @@ export interface Database {
           status?: string;
           created_at?: string;
           updated_at?: string;
-        }
+        } & SourceColumns
       >;
       reply_drafts: TableDef<
         {
@@ -265,7 +281,7 @@ export interface Database {
           status: string;
           created_at: string;
           updated_at: string;
-        },
+        } & SourceColumns,
         {
           id?: string;
           platform: string;
@@ -274,7 +290,7 @@ export interface Database {
           status?: string;
           created_at?: string;
           updated_at?: string;
-        },
+        } & SourceColumns,
         {
           id?: string;
           platform?: string;
@@ -283,7 +299,7 @@ export interface Database {
           status?: string;
           created_at?: string;
           updated_at?: string;
-        }
+        } & SourceColumns
       >;
       creators: TableDef<
         {
@@ -2252,7 +2268,7 @@ export interface Database {
           status: string;
           created_at: string;
           updated_at: string;
-        },
+        } & SourceColumns,
         {
           id?: string;
           opportunity_id?: string | null;
@@ -2263,7 +2279,7 @@ export interface Database {
           status?: string;
           created_at?: string;
           updated_at?: string;
-        },
+        } & SourceColumns,
         {
           id?: string;
           opportunity_id?: string | null;
@@ -2274,7 +2290,7 @@ export interface Database {
           status?: string;
           created_at?: string;
           updated_at?: string;
-        }
+        } & SourceColumns
       >;
       agent_activity_log: TableDef<
         {

@@ -64,6 +64,26 @@ body {
   to { opacity: 1; transform: translateX(0); }
 }
 
+/* Phase 34 — live activity ticker (single-line auto-scroll) */
+@keyframes hq-ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.hq-ticker-track {
+  animation: hq-ticker-scroll 38s linear infinite;
+}
+
+.hq-ticker-track:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hq-ticker-track {
+    animation: none;
+  }
+}
+
 .hq-float {
   animation: hq-float 3s ease-in-out infinite;
 }

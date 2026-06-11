@@ -13,6 +13,7 @@ import {
   attachAssetToCalendar,
 } from "@/lib/actions/asset-generation";
 import { FEEDBACK_CATEGORIES } from "@/lib/approvals/feedback-categories";
+import { getCampaignContext } from "@/lib/assets/campaign-context";
 import type { GeneratedAsset } from "@/lib/db/asset-queries";
 
 const STATUS_BADGES: Record<string, { label: string; variant: "success" | "warning" | "danger" | "info" | "muted" }> = {
@@ -123,6 +124,11 @@ export function ImageAssetPanel({
         </p>
       )}
 
+      {/* Phase 34 — campaign context: WHY this image exists, shown before approval */}
+      {asset.status !== "pending_generation" && (
+        <CampaignContextBlock metadata={asset.metadata} prompt={asset.prompt} />
+      )}
+
       {/* Actions */}
       <div className="mt-3 flex flex-wrap gap-2">
         {(asset.status === "pending_generation" || asset.status === "needs_revision") && (
@@ -211,6 +217,59 @@ export function ImageAssetPanel({
       )}
 
       {message && <p className="mt-2 text-xs text-brand-muted">{message}</p>}
+    </div>
+  );
+}
+
+/**
+ * Phase 34 — image approval context. The founder sees campaign objective,
+ * platform, audience, caption, hashtags, CTA, asset prompt and approval
+ * reason before deciding.
+ */
+function CampaignContextBlock({
+  metadata,
+  prompt,
+}: {
+  metadata: Record<string, unknown>;
+  prompt: string;
+}) {
+  const [open, setOpen] = useState(true);
+  const campaign = getCampaignContext(metadata);
+
+  return (
+    <div className="mt-2 rounded-lg border border-brand-border/60 bg-brand-bg/40 p-2.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between text-left"
+      >
+        <span className="text-[11px] font-bold uppercase tracking-wide text-brand-sage">
+          Why this image exists
+        </span>
+        <span className="text-[10px] text-brand-muted">{open ? "Hide" : "Show"}</span>
+      </button>
+      {open && (
+        <dl className="mt-2 space-y-1.5 text-xs">
+          <ContextRow label="Campaign objective" value={campaign.objective} />
+          <ContextRow label="Platform" value={campaign.platform} />
+          <ContextRow label="Target audience" value={campaign.targetAudience} />
+          <ContextRow label="Caption" value={campaign.caption} />
+          <ContextRow label="Hashtags" value={campaign.hashtags.join(" ")} />
+          <ContextRow label="CTA" value={campaign.cta} />
+          <ContextRow label="Asset prompt" value={prompt} clamp />
+          <ContextRow label="Approval reason" value={campaign.approvalReason} />
+        </dl>
+      )}
+    </div>
+  );
+}
+
+function ContextRow({ label, value, clamp }: { label: string; value: string; clamp?: boolean }) {
+  if (!value) return null;
+  return (
+    <div>
+      <dt className="text-[10px] font-semibold uppercase tracking-wide text-brand-muted">{label}</dt>
+      <dd className={clamp ? "line-clamp-2 text-brand-primary" : "text-brand-primary"}>{value}</dd>
     </div>
   );
 }

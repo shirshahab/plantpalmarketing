@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Check, Clapperboard, Copy, Link2, Package, RefreshCw, Send, Sparkles, Video, X } from "lucide-react";
+import { CalendarPlus, Check, Clapperboard, Copy, Download, Link2, Package, RefreshCw, Send, Sparkles, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -95,6 +95,9 @@ export function VideoPackagePanel({
   const reviewable = ["package_ready", "generated"].includes(video.status);
   const generatable = ["package_ready", "provider_not_configured", "failed", "needs_revision"].includes(video.status);
   const lastError = video.errorMessage || (typeof meta.lastError === "string" ? meta.lastError : "");
+  // Phase 34 — generation succeeded but the storage upload failed: the video
+  // is still retrievable through the server-side download proxy (~1 hour).
+  const directDownloadOnly = meta.directDownloadOnly === true && !video.videoUrl && Boolean(video.jobId);
 
   return (
     <div className="mt-4 rounded-xl border border-brand-border bg-white p-4">
@@ -121,11 +124,13 @@ export function VideoPackagePanel({
             <>
               <Clapperboard className="h-8 w-8 opacity-50" />
               <p className="px-4 text-center text-[11px]">
-                {video.status === "generating"
-                  ? "Generating the final video — check status below."
-                  : canGenerate
-                    ? "No final video yet — generate one or attach a URL."
-                    : "Video generation provider not connected. Attach the final video URL when ready."}
+                {directDownloadOnly
+                  ? "Video generated! Storage upload failed — download it directly below (link valid ~1 hour)."
+                  : video.status === "generating"
+                    ? "Generating the final video — check status below."
+                    : canGenerate
+                      ? "No final video yet — generate one or attach a URL."
+                      : "Video generation provider not connected. Attach the final video URL when ready."}
               </p>
             </>
           )}
@@ -186,10 +191,17 @@ export function VideoPackagePanel({
             <Sparkles className="mr-1 h-3.5 w-3.5" /> Generate video{providerLabel ? ` (${providerLabel})` : ""}
           </Button>
         )}
-        {video.status === "generating" && (
+        {(video.status === "generating" || directDownloadOnly) && (
           <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(() => checkVideoGenerationStatus(video.id))}>
             <RefreshCw className="mr-1 h-3.5 w-3.5" /> Check generation status
           </Button>
+        )}
+        {directDownloadOnly && (
+          <a href={`/api/video/download/${video.id}`}>
+            <Button size="sm">
+              <Download className="mr-1 h-3.5 w-3.5" /> Download generated video
+            </Button>
+          </a>
         )}
         {reviewable && (
           <>

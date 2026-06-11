@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Label, Textarea } from "@/components/ui/input";
+import { SourceLinks } from "@/components/shared/source-links";
 import { approveCommunityReply, rejectCommunityReply, updateCommunityReplyDraft } from "@/lib/actions/roots-agent";
 import type { CommunityOpportunity, CommunityReplyDraft } from "@/lib/types";
 
@@ -82,6 +83,18 @@ export function CommunityOpportunityDrawer({
 
           <p className="mt-3 text-sm font-medium text-brand-primary">{opportunity.author}</p>
           <p className="mt-2 rounded-xl bg-brand-bg/50 p-3 text-sm italic">&ldquo;{opportunity.post}&rdquo;</p>
+
+          <SourceLinks
+            sourceUrl={opportunity.sourceUrl}
+            sourceAuthor={opportunity.sourceAuthor}
+            sourceAuthorUrl={opportunity.sourceAuthorUrl}
+            sourcePlatform={opportunity.sourcePlatform}
+            sourceTitle={opportunity.sourceTitle}
+            sourceSubreddit={opportunity.sourceSubreddit}
+            sourceCreatedAt={opportunity.sourceCreatedAt}
+            engagement={opportunity.engagement}
+            dataSource={opportunity.dataSource}
+          />
 
           {opportunity.question && (
             <div className="mt-4">

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { CommunityOpportunityDrawer } from "@/components/community/community-opportunity-drawer";
+import { SourceLinks } from "@/components/shared/source-links";
 import { runRootsListening } from "@/lib/actions/roots-agent";
 import type { CommunityOpportunity, CommunityReplyDraft } from "@/lib/types";
 
@@ -101,6 +102,20 @@ export function CommunityListeningPanel({
               <p className="mt-3 text-sm font-medium text-brand-primary">{opp.author}</p>
               <p className="mt-1 line-clamp-2 text-sm">&ldquo;{opp.post}&rdquo;</p>
               <p className="mt-3 line-clamp-2 rounded-xl bg-brand-bg p-3 text-xs text-brand-muted">{opp.suggestedReply}</p>
+              <div onClick={(e) => e.stopPropagation()}>
+                <SourceLinks
+                  sourceUrl={opp.sourceUrl}
+                  sourceAuthor={opp.sourceAuthor}
+                  sourceAuthorUrl={opp.sourceAuthorUrl}
+                  sourcePlatform={opp.sourcePlatform}
+                  sourceTitle={opp.sourceTitle}
+                  sourceSubreddit={opp.sourceSubreddit}
+                  sourceCreatedAt={opp.sourceCreatedAt}
+                  engagement={opp.engagement}
+                  dataSource={opp.dataSource}
+                  compact
+                />
+              </div>
             </CardContent>
           </Card>
           </div>

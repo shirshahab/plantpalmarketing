@@ -59,6 +59,7 @@ Apply each file in **SQL Editor** before deploying to Vercel. Filenames are pref
 53. `053_phase32_website_blog_export.sql`
 54. `054_phase33_mobile_pipeline_repair.sql`
 55. `055_phase34_integration_health_repair.sql`
+56. `056_phase34_source_links.sql`
 
 ## If you already ran early migrations
 
@@ -83,6 +84,7 @@ Minimum repair set for current HQ features:
 - `053_phase32_website_blog_export.sql` — Phase 32 website blog export (`/seo/export`): adds `author`, `category`, `tags`, `featured_image`, `export_status` (`not_exported`/`exported`/`published`), `exported_at` to `seo_blog_posts` so approved posts export as TypeScript objects for the public site's `src/lib/blog/posts.ts`
 - `054_phase33_mobile_pipeline_repair.sql` — **Phase 33 one-shot production repair.** Creates or repairs every table production reported missing: `ivy_briefs`, `ivy_recommendations`, `ivy_alerts`, `agent_profiles`, `agent_memory`, `agent_conversations`, `agent_decisions`, `pipeline_content`, `generated_assets`, `generated_videos`, `content_feedback`, `automation_rules` (+seed), `automation_runs`, `publishing_packages`, `batch_approvals`, `creative_content_ideas` (+Phase 33 routing columns), and all five Company OS tables. Also adds Phase 33 source-context columns (`source_platform`, `source_url`, `source_author`, `source_author_url`, `source_title`, `source_excerpt`, `data_source`) to `approval_queue` and `data_source`/`source_url` to `reddit_opportunities`/`community_opportunities`. Safe to re-run; if you only run one migration in production, run this one. Verify afterwards at `/admin/setup-health`
 - `055_phase34_integration_health_repair.sql` — **Phase 34 integrations + video repair.** Creates or repairs `integration_logs`, `integration_status` (and clears stale "run migration" error messages), `provider_health_checks`, `api_rate_limits`, plus new `integration_events` and `api_usage_logs`. Adds `job_id`/`error_message` to `generated_videos` and widens its status check (`provider_not_configured`, `failed`, `attached_to_calendar`). Creates public storage buckets `generated-assets` and `generated-videos` for gpt-image-1 base64 output and downloaded Sora videos. Safe to re-run; run after 054
+- `056_phase34_source_links.sql` — **Phase 34 source attribution.** Adds full source columns (`source_url`, `source_author`, `source_author_url`, `source_platform`, `source_title`, `source_subreddit`, `source_created_at`, `engagement` jsonb, `data_source`) to `community_opportunities`, `community_reply_drafts`, and `reply_drafts`, with backfill from existing `platform`/`author` values. Powers the "Open Original Post / Open Author / Copy Link" UI and DEMO badges. Safe to re-run
 
 ## After running
 

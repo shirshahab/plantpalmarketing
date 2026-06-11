@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HQLivingWorld } from "@/components/hq/living/hq-living-world";
-import { HQCommandView } from "@/components/hq/hq-command-view";
+import { HQCommandCenter } from "@/components/hq/station/hq-command-center";
 import { PanelErrorBoundary } from "@/components/shared/error-boundary";
 import { HQLivingAgentDrawer } from "@/components/hq/living/hq-living-agent-drawer";
 import { ActivityDetailDrawer } from "@/components/hq/agent-detail-drawer";
@@ -30,7 +30,7 @@ import type {
 } from "@/lib/types";
 
 type DrawerMode = "agent" | "activity" | null;
-type HQViewMode = "compact" | "world";
+type HQViewMode = "command" | "world";
 
 const VIEW_MODE_KEY = "plantpal-hq-view-mode";
 
@@ -70,18 +70,16 @@ export function PlantPalHQ({
   const [drawerMode, setDrawerMode] = useState<DrawerMode>(null);
   const [workflowLabel, setWorkflowLabel] = useState<string | null>(null);
 
-  // Phase 33 — responsive view mode. Mobile defaults to the clean Command
-  // View; desktop keeps the full Living World. Choice persists per device.
-  const [viewMode, setViewMode] = useState<HQViewMode>("world");
+  // Phase 34 — the Command Center (station map) is the default everywhere.
+  // The animated Living World stays one tap away. Choice persists per device.
+  const [viewMode, setViewMode] = useState<HQViewMode>("command");
   const [viewReady, setViewReady] = useState(false);
 
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(VIEW_MODE_KEY);
-      if (stored === "compact" || stored === "world") {
-        setViewMode(stored);
-      } else if (window.matchMedia("(max-width: 767px)").matches) {
-        setViewMode("compact");
+      if (stored === "world") {
+        setViewMode("world");
       }
     } catch {
       // ignore storage failures (private mode)
@@ -237,14 +235,14 @@ export function PlantPalHQ({
         <div className="inline-flex rounded-full border border-brand-border/60 bg-white/90 p-0.5 shadow-sm backdrop-blur">
           <button
             type="button"
-            onClick={() => switchViewMode("compact")}
+            onClick={() => switchViewMode("command")}
             className={
-              viewMode === "compact"
+              viewMode === "command"
                 ? "rounded-full bg-brand-primary px-3 py-1.5 text-[11px] font-semibold text-white"
                 : "rounded-full px-3 py-1.5 text-[11px] font-medium text-brand-muted"
             }
           >
-            Compact
+            Command Center
           </button>
           <button
             type="button"
@@ -260,14 +258,17 @@ export function PlantPalHQ({
         </div>
       </div>
 
-      {viewMode === "compact" ? (
+      {viewMode === "command" ? (
         <PanelErrorBoundary>
-          <HQCommandView
+          <HQCommandCenter
             agents={agents}
             activity={activity}
+            selectedAgentId={selectedAgentId}
             onSelectAgent={openAgentDrawer}
             onSelectActivity={openActivityDrawer}
-            onOpenLivingWorld={() => switchViewMode("world")}
+            onApproveActivity={handleApprove}
+            onRejectActivity={handleReject}
+            onDailyReportGenerated={handleDailyReportGenerated}
           />
         </PanelErrorBoundary>
       ) : (
