@@ -57,7 +57,7 @@ export default async function OakPage() {
           <EmptyState
             icon={TreeDeciduous}
             title="Oak not initialized"
-            description="Run migrations 015 + 016, then convert Scout leads from this page."
+            description="System setup is still finishing. Once ready, convert Scout leads from this page."
           />
         )
       )}

@@ -5,6 +5,13 @@ import { createServerClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/integrations/db-safe";
 import { upsertCalendarItem } from "@/lib/content-calendar/sync";
 import { recordHandoff } from "@/lib/collaboration/handoff";
+import {
+  generateVideo,
+  generateVideoPackage,
+  getVideoJobStatus,
+  getVideoProviderStatus,
+  downloadAndStoreVideo,
+} from "@/lib/video/video-provider";
 import type { Json } from "@/lib/supabase/database.types";
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
@@ -52,17 +59,19 @@ export async function buildVideoPackageFromScript(scriptId: string): Promise<Res
       .map((s) => (s && typeof s === "object" ? String((s as Record<string, unknown>).description ?? "") : ""))
       .filter(Boolean);
 
-    const fullScript = [
-      `HOOK: ${script.hook}`,
-      ...sceneDescriptions.map((d, i) => `SCENE ${i + 1}: ${d}`),
-      `VOICEOVER: ${script.voiceover}`,
-      `CTA: ${script.cta}`,
-    ].join("\n\n");
+    const pkg = generateVideoPackage({
+      title: script.title,
+      hook: script.hook,
+      sceneDescriptions,
+      voiceover: script.voiceover,
+      cta: script.cta,
+    });
+    const providerStatus = getVideoProviderStatus();
 
     const { error } = await supabase.from("generated_videos").insert({
       script_id: scriptId,
       platform: script.platform,
-      script: fullScript,
+      script: pkg.fullScript,
       hook: script.hook,
       scenes: script.scenes as Json,
       voiceover: script.voiceover,
@@ -70,27 +79,16 @@ export async function buildVideoPackageFromScript(scriptId: string): Promise<Res
       caption: `${script.hook} ${script.cta}`.trim(),
       cta: script.cta,
       status: "package_ready",
-      generation_provider: "none",
+      generation_provider: providerStatus.canGenerate ? providerStatus.provider : "none",
+      generation_model: providerStatus.canGenerate ? providerStatus.model : "",
       metadata: {
         title: script.title,
-        visualDirection:
-          "Vertical 9:16. Warm natural light, real plants in frame, hook text on screen for the first 3 seconds.",
-        bRollList: [
-          "Close-up of leaves (healthy + struggling for contrast)",
-          "Phone screen showing the PlantPal scan flow",
-          "Hands repotting / watering",
-          "Reaction shot after the diagnosis result",
-        ],
-        hashtags: ["#plantcare", "#planttok", "#houseplants", "#plantpal"],
-        thumbnailPrompt: `Bright, cozy thumbnail for: ${script.title}. A healthy plant + phone with the PlantPal app, bold readable title text.`,
-        uploadChecklist: [
-          "Record or assemble the video from the scene list",
-          "Add on-screen text and captions",
-          "Export vertical 1080×1920",
-          "Paste caption + hashtags",
-          "Upload manually, then mark as posted on the calendar",
-        ],
-        providerNote: "Final video generation not connected yet.",
+        visualDirection: pkg.visualDirection,
+        bRollList: pkg.bRollList,
+        hashtags: pkg.hashtags,
+        thumbnailPrompt: pkg.thumbnailPrompt,
+        uploadChecklist: pkg.uploadChecklist,
+        providerNote: providerStatus.message,
       } as Json,
     });
     if (error) {
@@ -101,6 +99,166 @@ export async function buildVideoPackageFromScript(scriptId: string): Promise<Res
     return { ok: true, message: "Video package created" };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to build package" };
+  }
+}
+
+/**
+ * Tolerates databases where migration 055 hasn't run yet: retries the update
+ * without the new job_id / error_message columns (kept in metadata anyway).
+ */
+async function updateVideoRow(
+  videoId: string,
+  patch: Record<string, unknown>
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = createServerClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await supabase.from("generated_videos").update(patch as any).eq("id", videoId);
+  if (!error) return { ok: true };
+
+  if (/column|job_id|error_message/i.test(error.message)) {
+    const fallback = { ...patch };
+    delete fallback.job_id;
+    delete fallback.error_message;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const retry = await supabase.from("generated_videos").update(fallback as any).eq("id", videoId);
+    if (!retry.error) return { ok: true };
+    return { ok: false, error: isMissingTableError(retry.error) ? MIGRATION_HINT : retry.error.message };
+  }
+  return { ok: false, error: isMissingTableError(error) ? MIGRATION_HINT : error.message };
+}
+
+/**
+ * Phase 34 — submit a real video generation job for an existing package.
+ * Only available when VIDEO_PROVIDER is configured (e.g. openai + API key).
+ */
+export async function generateVideoFromPackage(videoId: string): Promise<Result> {
+  try {
+    const supabase = createServerClient();
+    const { data: video, error: videoError } = await supabase
+      .from("generated_videos")
+      .select("*")
+      .eq("id", videoId)
+      .maybeSingle();
+    if (videoError || !video) {
+      return {
+        ok: false,
+        error: videoError && isMissingTableError(videoError) ? MIGRATION_HINT : (videoError?.message ?? "Video not found"),
+      };
+    }
+
+    const providerStatus = getVideoProviderStatus();
+    if (!providerStatus.canGenerate) {
+      await updateVideoRow(videoId, {
+        status: "provider_not_configured",
+        metadata: {
+          ...(video.metadata as Record<string, unknown>),
+          providerNote: providerStatus.message,
+        } as Json,
+      });
+      revalidatePath("/video");
+      return { ok: false, error: providerStatus.message };
+    }
+
+    const meta = (video.metadata as Record<string, unknown>) ?? {};
+    const prompt = [
+      `Vertical 9:16 short-form marketing video for the PlantPal plant-care app.`,
+      typeof meta.visualDirection === "string" ? meta.visualDirection : "",
+      video.script,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    const job = await generateVideo(prompt, { seconds: "8", size: "720x1280" });
+    if (!job.ok || !job.jobId) {
+      const updated = await updateVideoRow(videoId, {
+        status: "failed",
+        error_message: job.error ?? "Video generation failed",
+        metadata: { ...meta, lastError: job.error ?? "", lastErrorAt: new Date().toISOString() } as Json,
+      });
+      revalidatePath("/video");
+      return { ok: false, error: updated.ok ? (job.error ?? "Video generation failed") : (updated.error ?? "Update failed") };
+    }
+
+    const updated = await updateVideoRow(videoId, {
+      status: "generating",
+      job_id: job.jobId,
+      error_message: "",
+      generation_provider: providerStatus.provider,
+      generation_model: providerStatus.model,
+      metadata: {
+        ...meta,
+        jobId: job.jobId,
+        jobSubmittedAt: new Date().toISOString(),
+        providerNote: providerStatus.message,
+      } as Json,
+    });
+    if (!updated.ok) return { ok: false, error: updated.error ?? "Update failed" };
+
+    revalidatePath("/video");
+    return { ok: true, message: "Generation started — check status in a minute or two" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Generation failed" };
+  }
+}
+
+/** Phase 34 — poll the provider job; on completion store the video + thumbnail. */
+export async function checkVideoGenerationStatus(videoId: string): Promise<Result> {
+  try {
+    const supabase = createServerClient();
+    const { data: video, error: videoError } = await supabase
+      .from("generated_videos")
+      .select("*")
+      .eq("id", videoId)
+      .maybeSingle();
+    if (videoError || !video) {
+      return { ok: false, error: videoError?.message ?? "Video not found" };
+    }
+
+    const meta = (video.metadata as Record<string, unknown>) ?? {};
+    const row = video as Record<string, unknown>;
+    const jobId = String(row.job_id ?? meta.jobId ?? "");
+    if (!jobId) return { ok: false, error: "No generation job for this video yet" };
+
+    const job = await getVideoJobStatus(jobId);
+    if (!job.ok) return { ok: false, error: job.error ?? "Status check failed" };
+
+    if (job.status === "failed") {
+      await updateVideoRow(videoId, {
+        status: "failed",
+        error_message: job.error ?? "Generation failed at the provider",
+        metadata: { ...meta, lastError: job.error ?? "", lastErrorAt: new Date().toISOString() } as Json,
+      });
+      revalidatePath("/video");
+      return { ok: false, error: job.error ?? "Generation failed at the provider" };
+    }
+
+    if (job.status !== "completed") {
+      const pct = typeof job.progress === "number" ? ` (${Math.round(job.progress)}%)` : "";
+      return { ok: true, message: `Still generating${pct} — check again shortly` };
+    }
+
+    const stored = await downloadAndStoreVideo(jobId);
+    if (!stored.ok || !stored.videoUrl) {
+      await updateVideoRow(videoId, {
+        error_message: stored.error ?? "Download failed",
+        metadata: { ...meta, lastError: stored.error ?? "", lastErrorAt: new Date().toISOString() } as Json,
+      });
+      return { ok: false, error: stored.error ?? "Video completed but download failed" };
+    }
+
+    const updated = await updateVideoRow(videoId, {
+      status: "generated",
+      video_url: stored.videoUrl,
+      ...(stored.thumbnailUrl ? { thumbnail_url: stored.thumbnailUrl } : {}),
+      error_message: "",
+      metadata: { ...meta, generatedAt: new Date().toISOString(), lastError: "" } as Json,
+    });
+    if (!updated.ok) return { ok: false, error: updated.error ?? "Update failed" };
+
+    revalidatePath("/video");
+    return { ok: true, message: "Video generated — review it below" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Status check failed" };
   }
 }
 

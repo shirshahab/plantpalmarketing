@@ -60,7 +60,7 @@ export default async function EchoPage() {
           <EmptyState
             icon={MessageCircleHeart}
             title="Echo not initialized"
-            description="Run migrations 023 + 024, then run VoC scan."
+            description="System setup is still finishing. Once ready, run a VoC scan."
           />
         )
       )}

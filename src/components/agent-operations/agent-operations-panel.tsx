@@ -226,7 +226,7 @@ export function AgentOperationsPanel({
             <strong>2.</strong> Deploy with <code>vercel.json</code> — cron at <code>*/30 * * * *</code>
           </p>
           <p>
-            <strong>3.</strong> Run migrations <code>037</code>, <code>038</code>, and <code>041</code> in Supabase
+            <strong>3.</strong> Verify database setup at <code>/admin/setup-health</code>
           </p>
           <p>
             <strong>Local test:</strong>{" "}

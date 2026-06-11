@@ -54,7 +54,7 @@ export default async function CollaborationPage() {
           <EmptyState
             icon={GitBranch}
             title="Collaboration system not initialized"
-            description="Run migrations 025 + 026 to enable agent messaging, tasks, and events."
+            description="System setup is still finishing. Agent messaging, tasks, and events will appear once ready."
           />
         )
       )}

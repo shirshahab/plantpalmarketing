@@ -83,6 +83,7 @@ export function ImageAssetPanel({
 
   const badge = STATUS_BADGES[asset.status] ?? { label: asset.status, variant: "muted" as const };
   const placeholder = !asset.imageUrl;
+  const lastError = typeof asset.metadata.lastError === "string" ? asset.metadata.lastError : "";
 
   return (
     <div className="mt-3 rounded-xl border border-brand-border bg-white p-3">
@@ -108,6 +109,13 @@ export function ImageAssetPanel({
           <img src={asset.imageUrl} alt="Generated asset preview" className="h-56 w-full object-cover" />
         )}
       </div>
+
+      {lastError && (
+        <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+          Last generation didn&apos;t go through — you can regenerate.
+          <span className="mt-0.5 block break-words text-[10px] text-amber-700/80">{lastError.slice(0, 220)}</span>
+        </p>
+      )}
 
       {asset.reviewFeedback && (
         <p className="mt-2 rounded-lg bg-brand-bg px-2 py-1.5 text-xs text-brand-muted">

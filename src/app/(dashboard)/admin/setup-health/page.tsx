@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { createServerClient } from "@/lib/supabase/server";
 import { isNextBuildPhase } from "@/lib/build-phase";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { checkAllApiHealth } from "@/lib/setup/api-health";
+import { formatDistanceToNow } from "date-fns";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,6 +26,14 @@ const TABLE_GROUPS: Record<string, string[]> = {
   "SEO factory": ["seo_blog_posts", "seo_blog_keywords", "seo_blog_publish_logs"],
   Reddit: ["reddit_accounts", "reddit_opportunities", "reddit_reply_drafts", "reddit_publish_logs"],
   "Creative department": ["creative_projects", "creative_assets", "creative_reviews"],
+  Integrations: [
+    "integration_status",
+    "integration_logs",
+    "provider_health_checks",
+    "api_rate_limits",
+    "integration_events",
+    "api_usage_logs",
+  ],
 };
 
 type ProbeClient = {
@@ -68,12 +78,15 @@ export default async function SetupHealthPage() {
     );
   }
 
-  const groups = await Promise.all(
-    Object.entries(TABLE_GROUPS).map(async ([group, tables]) => ({
-      group,
-      results: await Promise.all(tables.map(checkTable)),
-    }))
-  );
+  const [groups, apiHealth] = await Promise.all([
+    Promise.all(
+      Object.entries(TABLE_GROUPS).map(async ([group, tables]) => ({
+        group,
+        results: await Promise.all(tables.map(checkTable)),
+      }))
+    ),
+    checkAllApiHealth().catch(() => []),
+  ]);
 
   const missing = groups.flatMap((g) => g.results.filter((r) => !r.ok));
 
@@ -96,10 +109,59 @@ export default async function SetupHealthPage() {
               <Badge variant="warning">{missing.length} missing</Badge>
               <p className="text-sm text-brand-muted">
                 Run <code className="rounded bg-brand-bg px-1 py-0.5 text-xs">supabase/migrations/054_phase33_mobile_pipeline_repair.sql</code>{" "}
-                in the Supabase SQL Editor to repair everything in one pass.
+                then <code className="rounded bg-brand-bg px-1 py-0.5 text-xs">supabase/migrations/055_phase34_integration_health_repair.sql</code>{" "}
+                in the Supabase SQL Editor to repair everything.
               </p>
             </>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-4">
+        <CardContent className="py-4">
+          <p className="mb-1 text-sm font-semibold text-brand-primary">API health (live tests)</p>
+          <p className="mb-3 text-xs text-brand-muted">
+            Each row runs a real lightweight call against the provider with the configured key.
+          </p>
+          <div className="space-y-2">
+            {apiHealth.length === 0 ? (
+              <p className="text-sm text-brand-muted">API checks unavailable right now.</p>
+            ) : (
+              apiHealth.map((api) => (
+                <div key={api.id} className="rounded-xl border border-brand-border/60 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-brand-primary">{api.label}</span>
+                      {api.status === "ok" ? (
+                        <Badge variant="success">connected</Badge>
+                      ) : api.status === "not_configured" ? (
+                        <Badge variant="muted">not configured</Badge>
+                      ) : (
+                        <Badge variant="danger">error</Badge>
+                      )}
+                      <span
+                        className={`h-2 w-2 rounded-full ${api.envPresent ? "bg-emerald-500" : "bg-rose-400"}`}
+                        title={api.envPresent ? "Env present" : "Env missing"}
+                      />
+                      <code className="text-[10px] text-brand-muted">{api.envVars.join(", ")}</code>
+                    </div>
+                    {api.lastSuccessAt && (
+                      <span className="text-[11px] text-brand-muted">
+                        Last success {formatDistanceToNow(new Date(api.lastSuccessAt), { addSuffix: true })}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-brand-muted">{api.message}</p>
+                  {api.lastError && (
+                    <p className="mt-0.5 text-[11px] text-rose-700">Last error: {api.lastError.slice(0, 200)}</p>
+                  )}
+                  {api.fix && (
+                    <p className="mt-0.5 text-[11px] text-amber-700">Fix: {api.fix}</p>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
         </CardContent>
       </Card>
 

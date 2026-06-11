@@ -12,11 +12,13 @@ import { VideoPackagePanel } from "@/components/assets/video-package-panel";
 import { fetchPageData } from "@/lib/db/fetch-page-data";
 import { getVideoScripts } from "@/lib/db/queries";
 import { getVideosByScript } from "@/lib/db/asset-queries";
+import { getVideoProviderStatus } from "@/lib/video/video-provider";
 import { formatDate } from "@/lib/utils";
 
 export default async function VideoScriptsPage() {
   const { data, error, configured } = await fetchPageData(getVideoScripts);
   const videosByScript = configured ? await getVideosByScript().catch(() => new Map()) : new Map();
+  const providerStatus = getVideoProviderStatus();
 
   if (!configured) {
     return (<div><PageHeader title="Video Script Generator" /><ConfigBanner /></div>);
@@ -25,6 +27,17 @@ export default async function VideoScriptsPage() {
   return (
     <div>
       <PageHeader title="Video Studio" description="Script → approve → full video package → review the final video → calendar." />
+      <div
+        className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${
+          providerStatus.canGenerate
+            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+            : "border-brand-border bg-brand-bg text-brand-muted"
+        }`}
+      >
+        {providerStatus.canGenerate
+          ? `Video generation: ${providerStatus.message}. Generated videos land in the review queue below.`
+          : `Video generation: ${providerStatus.message}. Packages are still fully usable — attach the final video URL manually.`}
+      </div>
       {error && <ErrorBanner message={error} />}
 
       {!data || data.length === 0 ? (
@@ -89,6 +102,12 @@ export default async function VideoScriptsPage() {
                   scriptId={script.id}
                   scriptApproved={script.status === "approved"}
                   video={videosByScript.get(script.id) ?? null}
+                  canGenerate={providerStatus.canGenerate}
+                  providerLabel={
+                    providerStatus.canGenerate
+                      ? `${providerStatus.provider} · ${providerStatus.model}`
+                      : ""
+                  }
                 />
               </CardContent>
             </Card>

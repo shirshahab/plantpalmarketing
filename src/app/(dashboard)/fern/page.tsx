@@ -52,7 +52,7 @@ export default async function FernPage() {
           <EmptyState
             icon={Sprout}
             title="Fern not initialized"
-            description="Run migrations 021 + 022, then run acquisition scan."
+            description="System setup is still finishing. Once ready, run an acquisition scan."
           />
         )
       )}

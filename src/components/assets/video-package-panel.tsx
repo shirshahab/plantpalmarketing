@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Check, Clapperboard, Copy, Link2, Package, Send, Video, X } from "lucide-react";
+import { CalendarPlus, Check, Clapperboard, Copy, Link2, Package, RefreshCw, Send, Sparkles, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -11,6 +11,8 @@ import {
   attachVideoToCalendar,
   attachVideoUrl,
   sendVideoToFern,
+  generateVideoFromPackage,
+  checkVideoGenerationStatus,
 } from "@/lib/actions/video-generation";
 import { FEEDBACK_CATEGORIES } from "@/lib/approvals/feedback-categories";
 import type { GeneratedVideo } from "@/lib/db/asset-queries";
@@ -19,12 +21,15 @@ const STATUS_BADGES: Record<string, { label: string; variant: "success" | "warni
   script_draft: { label: "Script draft", variant: "muted" },
   script_approved: { label: "Script approved", variant: "info" },
   package_ready: { label: "Package ready — review", variant: "warning" },
+  provider_not_configured: { label: "Provider not connected", variant: "muted" },
   pending_generation: { label: "Awaiting generation", variant: "info" },
   generating: { label: "Generating…", variant: "warning" },
   generated: { label: "Video ready — review", variant: "warning" },
+  failed: { label: "Generation failed", variant: "danger" },
   approved: { label: "Video approved", variant: "success" },
   rejected: { label: "Rejected", variant: "danger" },
   needs_revision: { label: "Edits requested", variant: "warning" },
+  attached_to_calendar: { label: "On calendar", variant: "success" },
   scheduled: { label: "On calendar", variant: "success" },
   published: { label: "Published", variant: "success" },
 };
@@ -33,10 +38,14 @@ export function VideoPackagePanel({
   scriptId,
   scriptApproved,
   video,
+  canGenerate = false,
+  providerLabel = "",
 }: {
   scriptId: string;
   scriptApproved: boolean;
   video: GeneratedVideo | null;
+  canGenerate?: boolean;
+  providerLabel?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -84,6 +93,8 @@ export function VideoPackagePanel({
   const hashtags = Array.isArray(meta.hashtags) ? (meta.hashtags as string[]) : [];
   const checklist = Array.isArray(meta.uploadChecklist) ? (meta.uploadChecklist as string[]) : [];
   const reviewable = ["package_ready", "generated"].includes(video.status);
+  const generatable = ["package_ready", "provider_not_configured", "failed", "needs_revision"].includes(video.status);
+  const lastError = video.errorMessage || (typeof meta.lastError === "string" ? meta.lastError : "");
 
   return (
     <div className="mt-4 rounded-xl border border-brand-border bg-white p-4">
@@ -93,6 +104,12 @@ export function VideoPackagePanel({
           <span className="text-sm font-semibold text-brand-primary">Video package</span>
           <Badge variant={badge.variant}>{badge.label}</Badge>
         </div>
+        {video.generationProvider !== "none" && video.generationProvider !== "" && (
+          <span className="text-[10px] text-brand-muted">
+            {video.generationProvider}
+            {video.generationModel ? ` · ${video.generationModel}` : ""}
+          </span>
+        )}
       </div>
 
       {/* Preview area */}
@@ -103,7 +120,13 @@ export function VideoPackagePanel({
           ) : (
             <>
               <Clapperboard className="h-8 w-8 opacity-50" />
-              <p className="px-4 text-center text-[11px]">Final video generation not connected yet.</p>
+              <p className="px-4 text-center text-[11px]">
+                {video.status === "generating"
+                  ? "Generating the final video — check status below."
+                  : canGenerate
+                    ? "No final video yet — generate one or attach a URL."
+                    : "Video generation provider not connected. Attach the final video URL when ready."}
+              </p>
             </>
           )}
         </div>
@@ -143,6 +166,13 @@ export function VideoPackagePanel({
         </div>
       )}
 
+      {lastError && (
+        <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+          Last generation didn&apos;t go through — the package is still usable.
+          <span className="mt-0.5 block break-words text-[10px] text-amber-700/80">{lastError.slice(0, 220)}</span>
+        </p>
+      )}
+
       {video.reviewFeedback && (
         <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
           Founder remarks: {video.reviewFeedback}
@@ -151,6 +181,16 @@ export function VideoPackagePanel({
 
       {/* Review actions */}
       <div className="mt-3 flex flex-wrap gap-2">
+        {canGenerate && generatable && !video.videoUrl && (
+          <Button size="sm" disabled={pending} onClick={() => run(() => generateVideoFromPackage(video.id))}>
+            <Sparkles className="mr-1 h-3.5 w-3.5" /> Generate video{providerLabel ? ` (${providerLabel})` : ""}
+          </Button>
+        )}
+        {video.status === "generating" && (
+          <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(() => checkVideoGenerationStatus(video.id))}>
+            <RefreshCw className="mr-1 h-3.5 w-3.5" /> Check generation status
+          </Button>
+        )}
         {reviewable && (
           <>
             <Button

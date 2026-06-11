@@ -41,7 +41,7 @@ export default async function IntegrationsPage() {
           <EmptyState
             icon={Plug}
             title="Integrations not initialized"
-            description="Run migration 031 in Supabase SQL Editor, then add API keys to .env.local."
+            description="System setup is still finishing. Add API keys to your environment, then use Test Connection."
           />
         )
       )}

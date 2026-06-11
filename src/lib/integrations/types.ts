@@ -8,6 +8,19 @@ export type IntegrationProvider =
 
 export type IntegrationStatus = "connected" | "disconnected" | "degraded" | "error";
 
+/**
+ * User-facing provider state. Distinguishes "the logging tables aren't ready"
+ * from "the provider itself is degraded", and "no key at all" from "key invalid".
+ */
+export type IntegrationViewStatus =
+  | "connected"
+  | "degraded"
+  | "error"
+  | "missing_key"
+  | "not_configured"
+  | "logging_unavailable"
+  | "unknown";
+
 export type IntegrationLogStatus = "success" | "error" | "rate_limited";
 
 export type XPostQueueStatus =

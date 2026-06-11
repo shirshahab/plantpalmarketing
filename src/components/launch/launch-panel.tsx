@@ -57,7 +57,7 @@ export function LaunchPanel({ data }: { data: LaunchData }) {
           <h3 className="font-heading font-semibold text-brand-primary">Checklist</h3>
           {data.items.length === 0 ? (
             <p className="mt-2 text-sm text-brand-muted">
-              Checklist empty — run migration 051 to seed it, then re-check.
+              Checklist empty — system setup is still finishing. Re-check shortly.
             </p>
           ) : (
             <div className="mt-3 space-y-2">

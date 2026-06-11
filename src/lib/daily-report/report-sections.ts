@@ -337,7 +337,7 @@ export function buildActionPlan(
       ownerAgent: "ivy",
       priority: "medium",
       impactScore: 70,
-      nextStep: "Run supabase/migrations/043 + 044 in the Supabase SQL Editor.",
+      nextStep: "Finish backend setup — details at /admin/setup-health.",
       category: "system",
       targetRoute: "/calendar",
       targetLabel: "Open Calendar",

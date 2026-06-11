@@ -15,7 +15,7 @@ import { recordHandoff } from "@/lib/collaboration/handoff";
 type Result = { ok: true; message?: string } | { ok: false; error: string };
 
 const MIGRATION_HINT =
-  "Reddit tables not found — run supabase/migrations/049_phase29_reddit_automation.sql";
+  "System setup is still finishing. This section will populate once the backend is ready.";
 
 const QUESTION_HINTS = ["?", "help", "why", "how", "what", "dying", "yellow", "brown", "advice", "problem", "wrong"];
 

@@ -234,7 +234,7 @@ export async function runScheduledAgentBatch(
     return {
       triggered: [],
       skipped: [],
-      errors: ["agent_schedules table missing or empty — run migration 037"],
+      errors: ["agent_schedules table missing or empty — see /admin/setup-health"],
     };
   }
 

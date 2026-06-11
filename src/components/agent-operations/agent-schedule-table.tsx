@@ -29,7 +29,7 @@ export function AgentScheduleTable({
   if (stats.length === 0) {
     return (
       <p className="rounded-2xl border border-dashed border-brand-border/60 p-6 text-center text-sm text-brand-muted">
-        No active schedules — run migration 038 in Supabase
+        No active schedules — system setup is still finishing
       </p>
     );
   }

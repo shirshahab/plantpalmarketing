@@ -37,7 +37,7 @@ export default async function AgentOperationsPage() {
           <EmptyState
             icon={Server}
             title="Agent worker system not initialized"
-            description="Run migrations 037, 038, and 041 in Supabase SQL Editor, set CRON_SECRET, and deploy to Vercel for autonomous agent runs."
+            description="System setup is still finishing. Set CRON_SECRET and deploy to Vercel for autonomous agent runs."
           />
         )
       )}

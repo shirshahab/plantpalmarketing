@@ -43,7 +43,7 @@ export default async function DailyReportPage() {
         <EmptyState
           icon={FileBarChart}
           title="Daily report system not initialized"
-          description="Run migration 036 in Supabase SQL Editor, then generate your first report from HQ."
+          description="System setup is still finishing. Once ready, generate your first report from HQ."
         />
       )}
     </div>

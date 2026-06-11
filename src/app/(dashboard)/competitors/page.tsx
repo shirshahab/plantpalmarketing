@@ -52,7 +52,7 @@ export default async function CompetitorMonitorPage() {
           <EmptyState
             icon={Radar}
             title="Sentinel not initialized"
-            description="Run migrations 007 + 008, then run Sentinel from PlantPal HQ."
+            description="System setup is still finishing. Once ready, run Sentinel from PlantPal HQ."
           />
         )
       )}

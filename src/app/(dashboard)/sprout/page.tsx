@@ -59,7 +59,7 @@ export default async function SproutPage() {
           <EmptyState
             icon={Rocket}
             title="Sprout not initialized"
-            description="Run migrations 013 + 014, approve content via Gate, then open Sprout."
+            description="System setup is still finishing. Approve content via Gate, then open Sprout."
           />
         )
       )}

@@ -51,7 +51,7 @@ export default async function CreatorCRMPage({
           <EmptyState
             icon={Users}
             title="No creator leads yet"
-            description="Run migration 005 + 006, then run Scout from PlantPal HQ."
+            description="System setup is still finishing. Once ready, run Scout from PlantPal HQ."
           />
         )
       )}

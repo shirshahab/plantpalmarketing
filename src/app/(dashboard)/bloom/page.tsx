@@ -61,7 +61,7 @@ export default async function BloomPage() {
           <EmptyState
             icon={Flower2}
             title="Bloom not initialized"
-            description="Run migrations 009 + 010, then run Bloom from PlantPal HQ or this page."
+            description="System setup is still finishing. Once ready, run Bloom from PlantPal HQ or this page."
           />
         )
       )}

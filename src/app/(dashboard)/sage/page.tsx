@@ -68,7 +68,7 @@ export default async function SagePage() {
           <EmptyState
             icon={Star}
             title="Sage not initialized"
-            description="Run migrations 011 + 012, then run Bloom production followed by Sage review."
+            description="System setup is still finishing. Once ready, run Bloom production followed by Sage review."
           />
         )
       )}

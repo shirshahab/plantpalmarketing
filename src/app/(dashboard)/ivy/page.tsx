@@ -55,7 +55,7 @@ export default async function IvyPage() {
           <EmptyState
             icon={Crown}
             title="Ivy not initialized"
-            description="Run migrations 017 + 018, then generate the morning brief."
+            description="System setup is still finishing. Once ready, generate the morning brief."
           />
         )
       )}

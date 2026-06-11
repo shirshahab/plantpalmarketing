@@ -376,7 +376,7 @@ export function AutomationPanel({
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-heading font-semibold text-brand-primary">Automation Rules</h3>
           {!rulesConfigured && (
-            <Badge variant="warning">Defaults shown — run migration 044 to edit</Badge>
+            <Badge variant="warning">Defaults shown — editable once setup finishes</Badge>
           )}
         </div>
         <div className="space-y-4">

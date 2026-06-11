@@ -60,7 +60,7 @@ export default async function AtlasPage() {
           <EmptyState
             icon={Telescope}
             title="Atlas not initialized"
-            description="Run migrations 019 + 020, then generate the growth brief."
+            description="System setup is still finishing. Once ready, generate the growth brief."
           />
         )
       )}

@@ -46,7 +46,7 @@ export default async function CommunityListeningPage() {
           <EmptyState
             icon={Eye}
             title="No community opportunities"
-            description="Run migration 005 + 006, then run Roots from PlantPal HQ."
+            description="System setup is still finishing. Once ready, run Roots from PlantPal HQ."
           />
         )
       )}

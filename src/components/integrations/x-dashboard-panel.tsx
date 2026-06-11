@@ -239,7 +239,7 @@ export function XDashboardPanel({
           <h3 className="font-heading font-semibold text-brand-primary">Recent Posts</h3>
           <div className="mt-4 space-y-3">
             {recentPosts.length === 0 ? (
-              <p className="text-sm text-brand-muted">No posts cached. Sync from X or run migration 030.</p>
+              <p className="text-sm text-brand-muted">No posts cached yet. Sync from X to populate.</p>
             ) : (
               recentPosts.map((p) => (
                 <div key={p.id} className="rounded-xl border border-brand-border/60 p-3">

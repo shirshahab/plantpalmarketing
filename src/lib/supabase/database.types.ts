@@ -655,6 +655,9 @@ export interface Database {
           revision_notes: string;
           generation_provider: string;
           generation_model: string;
+          // Phase 34 (migration 055) — optional until applied
+          job_id?: string;
+          error_message?: string;
           metadata: Json;
           created_at: string;
           updated_at: string;
@@ -678,6 +681,8 @@ export interface Database {
           revision_notes?: string;
           generation_provider?: string;
           generation_model?: string;
+          job_id?: string;
+          error_message?: string;
           metadata?: Json;
           created_at?: string;
           updated_at?: string;
@@ -701,6 +706,8 @@ export interface Database {
           revision_notes?: string;
           generation_provider?: string;
           generation_model?: string;
+          job_id?: string;
+          error_message?: string;
           metadata?: Json;
           updated_at?: string;
         }

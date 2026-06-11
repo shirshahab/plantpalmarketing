@@ -30,7 +30,6 @@ export default async function ContentEnginePage() {
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Add <code className="rounded bg-white px-1">OPENAI_API_KEY</code> to{" "}
           <code className="rounded bg-white px-1">.env.local</code> to enable AI generation.
-          Run migration <code className="rounded bg-white px-1">003_creative_content_engine.sql</code> if the table is missing.
         </div>
       )}
 

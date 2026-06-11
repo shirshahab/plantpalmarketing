@@ -238,7 +238,7 @@ export function SeoKeywordPanel({ keywords, posts, logs, topics = [], clusters =
                 {keywords.length === 0 && (
                   <tr>
                     <td colSpan={6} className="py-6 text-center text-sm text-brand-muted">
-                      No keywords yet. Run migration 050 to seed the starter topics, or add one above.
+                      No keywords yet. Add one above — starter topics appear once setup finishes.
                     </td>
                   </tr>
                 )}

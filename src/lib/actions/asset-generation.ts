@@ -91,16 +91,20 @@ export async function generateImageAsset(assetId: string): Promise<Result> {
     const result = await generateImageWithProvider(asset.prompt);
 
     if (!result.ok) {
-      // No provider (or provider failure) — keep the package usable as a placeholder
+      // Provider missing or call failed — keep the package usable.
+      // Save the error in metadata so the founder can see it and regenerate.
+      const providerMissing = result.provider === "none";
       await supabase
         .from("generated_assets")
         .update({
-          status: "generated",
+          status: providerMissing ? "generated" : "pending_generation",
           generation_provider: result.provider,
           generation_model: result.model,
           metadata: {
             ...(asset.metadata as Record<string, unknown>),
             placeholder: true,
+            lastError: result.error ?? "",
+            lastErrorAt: new Date().toISOString(),
             providerNote: result.error ?? "Image generation provider not connected yet.",
           } as Json,
         })
@@ -108,12 +112,15 @@ export async function generateImageAsset(assetId: string): Promise<Result> {
       revalidatePath("/images");
       return {
         ok: true,
-        message: result.provider === "none"
+        message: providerMissing
           ? "Image generation provider not connected yet — placeholder package created."
-          : `Generation failed (${result.error}) — placeholder package kept.`,
+          : "Generation didn't go through this time — the package is still usable. Try Regenerate.",
       };
     }
 
+    const cleanMeta = { ...(asset.metadata as Record<string, unknown>) };
+    delete cleanMeta.lastError;
+    delete cleanMeta.lastErrorAt;
     await supabase
       .from("generated_assets")
       .update({
@@ -123,7 +130,7 @@ export async function generateImageAsset(assetId: string): Promise<Result> {
         generation_provider: result.provider,
         generation_model: result.model,
         metadata: {
-          ...(asset.metadata as Record<string, unknown>),
+          ...cleanMeta,
           placeholder: false,
           generatedAt: new Date().toISOString(),
         } as Json,

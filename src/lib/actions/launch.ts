@@ -48,7 +48,7 @@ export async function refreshLaunchChecklist(): Promise<Result> {
     const calendarItems = await countOf(supabase, "content_calendar");
     checks.calendar =
       calendarItems === null
-        ? { status: "blocked", notes: "content_calendar table missing — run migration 043" }
+        ? { status: "blocked", notes: "Calendar storage not ready — see /admin/setup-health" }
         : calendarItems > 0
           ? { status: "ready", notes: `${calendarItems} items on the calendar` }
           : { status: "pending", notes: "Calendar empty — approve some content" };
@@ -68,7 +68,7 @@ export async function refreshLaunchChecklist(): Promise<Result> {
     const voicePassed = await countOf(supabase, "seo_blog_posts", (q: any) => q.eq("voice_check_passed", true));
     checks.seo_factory =
       voicePassed === null
-        ? { status: "blocked", notes: "seo_blog_posts missing — run migration 050" }
+        ? { status: "blocked", notes: "SEO storage not ready — see /admin/setup-health" }
         : voicePassed > 0
           ? { status: "ready", notes: `${voicePassed} voice-checked drafts` }
           : { status: "pending", notes: "No voice-checked drafts yet — run the factory" };
@@ -79,13 +79,13 @@ export async function refreshLaunchChecklist(): Promise<Result> {
       ? { status: "ready", notes: "Credentials set, safety rules active" }
       : (redditRules ?? 0) > 0
         ? { status: "pending", notes: "Safety rules seeded — add REDDIT_* env vars" }
-        : { status: "pending", notes: "Run migration 049 and add credentials" };
+        : { status: "pending", notes: "Finish setup, then add Reddit credentials" };
 
     // Creative department
     const creativeAssets = await countOf(supabase, "creative_assets");
     checks.creative_department =
       creativeAssets === null
-        ? { status: "blocked", notes: "creative tables missing — run migration 051" }
+        ? { status: "blocked", notes: "Creative storage not ready — see /admin/setup-health" }
         : creativeAssets > 0
           ? { status: "ready", notes: `${creativeAssets} creative assets produced` }
           : { status: "pending", notes: "Queue a project for Fern on /creative" };

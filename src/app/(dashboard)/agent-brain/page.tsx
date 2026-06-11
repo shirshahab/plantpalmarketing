@@ -61,7 +61,7 @@ export default async function AgentBrainPage() {
           <EmptyState
             icon={Brain}
             title="Agent Brain not initialized"
-            description="Run migrations 027 + 028, then add OPENAI_API_KEY to .env.local."
+            description="System setup is still finishing. Add OPENAI_API_KEY to your environment to enable agent reasoning."
           />
         )
       )}

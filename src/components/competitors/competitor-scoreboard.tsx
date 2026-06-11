@@ -22,7 +22,7 @@ function ThreatBar({ value }: { value: number }) {
 
 export function CompetitorScoreboard({ entries }: { entries: CompetitorScoreboardEntry[] }) {
   if (entries.length === 0) {
-    return <p className="text-sm text-brand-muted">Scoreboard empty — run migration 008.</p>;
+    return <p className="text-sm text-brand-muted">Scoreboard empty — it fills in once setup finishes.</p>;
   }
 
   return (

@@ -41,6 +41,8 @@ export interface GeneratedVideo {
   revisionNotes: string;
   generationProvider: string;
   generationModel: string;
+  jobId: string;
+  errorMessage: string;
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -136,6 +138,8 @@ export async function getGeneratedVideos(): Promise<GeneratedVideo[]> {
     revisionNotes: row.revision_notes,
     generationProvider: row.generation_provider,
     generationModel: row.generation_model,
+    jobId: row.job_id ?? "",
+    errorMessage: row.error_message ?? "",
     metadata: asRecord(row.metadata),
     createdAt: row.created_at,
     updatedAt: row.updated_at,

@@ -118,7 +118,7 @@ export function ScheduleBoard({ rows, recentRuns }: { rows: ScheduleRow[]; recen
                 {rows.length === 0 && (
                   <tr>
                     <td colSpan={9} className="py-6 text-center text-sm text-brand-muted">
-                      No schedules found. Run migration 051 to seed the Phase 31 cadences.
+                      No schedules found. They appear once system setup finishes.
                     </td>
                   </tr>
                 )}

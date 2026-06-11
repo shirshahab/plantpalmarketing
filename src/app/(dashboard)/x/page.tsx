@@ -51,7 +51,7 @@ export default async function XDashboardPage() {
           <EmptyState
             icon={Twitter}
             title="X dashboard not initialized"
-            description="Run migrations 029 + 030, add X_BEARER_TOKEN to .env.local, then sync."
+            description="System setup is still finishing. Add X_BEARER_TOKEN to your environment, then sync."
           />
         )
       )}

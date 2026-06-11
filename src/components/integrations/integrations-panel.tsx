@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import {
-  CheckCircle2, AlertCircle, Loader2, Plug, RefreshCw, XCircle, WifiOff,
+  CheckCircle2, AlertCircle, HelpCircle, KeyRound, Loader2, Plug, RefreshCw, XCircle, WifiOff, Database,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
@@ -12,7 +12,8 @@ import {
   runAllIntegrationHealthChecks,
   testIntegrationConnection,
 } from "@/lib/actions/integrations";
-import type { IntegrationLog, IntegrationProvider, IntegrationStatus } from "@/lib/types";
+import type { IntegrationLog, IntegrationProvider } from "@/lib/types";
+import type { IntegrationViewStatus } from "@/lib/integrations/types";
 
 interface ProviderView {
   provider: IntegrationProvider;
@@ -20,8 +21,9 @@ interface ProviderView {
   description: string;
   envVars: string[];
   uses: string[];
-  status: IntegrationStatus;
+  status: IntegrationViewStatus;
   configured: boolean;
+  loggingAvailable: boolean;
   lastSuccessAt: string | null;
   lastErrorAt: string | null;
   lastErrorMessage: string;
@@ -33,20 +35,25 @@ interface ProviderView {
   openaiKeyInvalid?: boolean;
 }
 
-function StatusIcon({ status, configured }: { status: IntegrationStatus; configured: boolean }) {
-  if (!configured) return <WifiOff className="h-4 w-4 text-brand-muted" />;
+function StatusIcon({ status }: { status: IntegrationViewStatus }) {
   if (status === "connected") return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
   if (status === "degraded") return <AlertCircle className="h-4 w-4 text-amber-500" />;
-  return <XCircle className="h-4 w-4 text-rose-500" />;
+  if (status === "error") return <XCircle className="h-4 w-4 text-rose-500" />;
+  if (status === "missing_key") return <KeyRound className="h-4 w-4 text-amber-500" />;
+  if (status === "not_configured") return <WifiOff className="h-4 w-4 text-brand-muted" />;
+  if (status === "logging_unavailable") return <Database className="h-4 w-4 text-sky-500" />;
+  return <HelpCircle className="h-4 w-4 text-brand-muted" />;
 }
 
-function statusLabel(status: IntegrationStatus, configured: boolean) {
-  if (!configured) return "Not configured";
-  if (status === "connected") return "Connected";
-  if (status === "degraded") return "Degraded";
-  if (status === "error") return "Error";
-  return "Disconnected";
-}
+const STATUS_LABELS: Record<IntegrationViewStatus, string> = {
+  connected: "Connected",
+  degraded: "Degraded",
+  error: "Error",
+  missing_key: "Missing key",
+  not_configured: "Not configured",
+  logging_unavailable: "Logging unavailable",
+  unknown: "Unknown",
+};
 
 export function IntegrationsPanel({
   statuses,
@@ -122,15 +129,27 @@ export function IntegrationsPanel({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <StatusIcon status={s.status} configured={s.configured} />
+                  <StatusIcon status={s.status} />
                   <h3 className="font-heading font-semibold text-brand-primary">{s.label}</h3>
                 </div>
                 <p className="mt-1 text-sm text-brand-muted">{s.description}</p>
               </div>
               <span className="shrink-0 rounded-full bg-brand-bg px-2.5 py-1 text-xs font-medium text-brand-muted">
-                {statusLabel(s.status, s.configured)}
+                {STATUS_LABELS[s.status] ?? "Unknown"}
               </span>
             </div>
+
+            {s.status === "logging_unavailable" && (
+              <p className="mt-3 rounded-lg bg-sky-50 px-2.5 py-1.5 text-xs text-sky-900">
+                Logging not ready yet — status history is unavailable, but the API key may be fine.
+                Use Test Connection to check it directly.
+              </p>
+            )}
+            {s.status === "unknown" && (
+              <p className="mt-3 rounded-lg bg-brand-bg px-2.5 py-1.5 text-xs text-brand-muted">
+                Key present but not tested yet — run Test Connection.
+              </p>
+            )}
 
             <div className="mt-4 space-y-2 text-xs text-brand-muted">
               {s.provider === "openai" && (
