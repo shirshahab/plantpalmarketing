@@ -53,6 +53,7 @@ Apply each file in **SQL Editor** before deploying to Vercel. Filenames are pref
 47. `047_phase28_pipeline_and_feedback.sql`
 48. `048_phase29_missing_tables_and_assets.sql`
 49. `049_phase29_reddit_automation.sql`
+50. `050_phase30_seo_blog.sql`
 
 ## If you already ran early migrations
 
@@ -71,6 +72,7 @@ Minimum repair set for current HQ features:
 - `047_phase28_pipeline_and_feedback.sql` — fixes "Could not find the table public.pipeline_content"; adds approval feedback columns to `approval_queue` (+ `revision_requested` status), `needs_revision` on `content_calendar`, and the `content_feedback` table (run after 042 + 043)
 - `048_phase29_missing_tables_and_assets.sql` — fixes "Could not find the table public.ivy_briefs / public.agent_conversations / public.pipeline_content" (self-sufficient — also creates `ivy_recommendations`, `ivy_alerts`, `agent_profiles`, `agent_memory`, `agent_decisions`); adds `generated_assets` (image pipeline) and `generated_videos` (video packages); upgrades `content_feedback` with `content_id`/`content_type`/`agent_id`/`feedback_type`
 - `049_phase29_reddit_automation.sql` — Reddit help-first automation: `reddit_accounts`, `reddit_opportunities`, `reddit_reply_drafts`, `reddit_publish_logs`, `reddit_safety_rules` (seeded with conservative limits: 5/day, 1/subreddit/day, no links, founder approval required)
+- `050_phase30_seo_blog.sql` — SEO blog automation (`/seo`, `/blog-pipeline`): `seo_blog_keywords` (seeded with 10 starter topics), `seo_blog_posts` (drafts, voice check results, HTML package, schema markup, backlinks, published URL), `seo_blog_publish_logs`
 
 ## After running
 

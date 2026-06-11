@@ -909,6 +909,165 @@ export interface Database {
           updated_at?: string;
         }
       >;
+      seo_blog_keywords: TableDef<
+        {
+          id: string;
+          keyword: string;
+          topic_cluster: string;
+          source: string;
+          search_volume_estimate: number;
+          difficulty: number;
+          priority_score: number;
+          search_demand_notes: string;
+          status: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          keyword: string;
+          topic_cluster?: string;
+          source?: string;
+          search_volume_estimate?: number;
+          difficulty?: number;
+          priority_score?: number;
+          search_demand_notes?: string;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          keyword?: string;
+          topic_cluster?: string;
+          source?: string;
+          search_volume_estimate?: number;
+          difficulty?: number;
+          priority_score?: number;
+          search_demand_notes?: string;
+          status?: string;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      seo_blog_posts: TableDef<
+        {
+          id: string;
+          keyword_id: string | null;
+          keyword: string;
+          headline: string;
+          seo_title: string;
+          meta_description: string;
+          slug: string;
+          intro: string;
+          sections: Json;
+          faq: Json;
+          cta: string;
+          internal_links: Json;
+          html: string;
+          schema_markup: Json;
+          word_count: number;
+          status: string;
+          risk_level: string;
+          voice_check: Json;
+          voice_check_passed: boolean;
+          review_feedback: string;
+          source_agent: string;
+          published_url: string;
+          published_at: string | null;
+          backlinks: Json;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          keyword_id?: string | null;
+          keyword?: string;
+          headline?: string;
+          seo_title?: string;
+          meta_description?: string;
+          slug?: string;
+          intro?: string;
+          sections?: Json;
+          faq?: Json;
+          cta?: string;
+          internal_links?: Json;
+          html?: string;
+          schema_markup?: Json;
+          word_count?: number;
+          status?: string;
+          risk_level?: string;
+          voice_check?: Json;
+          voice_check_passed?: boolean;
+          review_feedback?: string;
+          source_agent?: string;
+          published_url?: string;
+          published_at?: string | null;
+          backlinks?: Json;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          keyword_id?: string | null;
+          keyword?: string;
+          headline?: string;
+          seo_title?: string;
+          meta_description?: string;
+          slug?: string;
+          intro?: string;
+          sections?: Json;
+          faq?: Json;
+          cta?: string;
+          internal_links?: Json;
+          html?: string;
+          schema_markup?: Json;
+          word_count?: number;
+          status?: string;
+          risk_level?: string;
+          voice_check?: Json;
+          voice_check_passed?: boolean;
+          review_feedback?: string;
+          source_agent?: string;
+          published_url?: string;
+          published_at?: string | null;
+          backlinks?: Json;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      seo_blog_publish_logs: TableDef<
+        {
+          id: string;
+          post_id: string | null;
+          action: string;
+          status: string;
+          published_url: string;
+          error_message: string;
+          metadata: Json;
+          created_at: string;
+        },
+        {
+          id?: string;
+          post_id?: string | null;
+          action?: string;
+          status?: string;
+          published_url?: string;
+          error_message?: string;
+          metadata?: Json;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          status?: string;
+          published_url?: string;
+          error_message?: string;
+        }
+      >;
       content_calendar: TableDef<
         {
           id: string;
