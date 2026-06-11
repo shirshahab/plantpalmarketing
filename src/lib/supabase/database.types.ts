@@ -1722,6 +1722,52 @@ export interface Database {
           error_message?: string;
         }
       >;
+      content_workflows: TableDef<
+        {
+          id: string;
+          source_table: string;
+          source_id: string;
+          content_type: string;
+          title: string;
+          current_stage: string;
+          assigned_agent: string;
+          next_agent: string;
+          next_action: string;
+          history_log: Json;
+          calendar_item_id: string | null;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          source_table: string;
+          source_id: string;
+          content_type?: string;
+          title?: string;
+          current_stage?: string;
+          assigned_agent?: string;
+          next_agent?: string;
+          next_action?: string;
+          history_log?: Json;
+          calendar_item_id?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          title?: string;
+          current_stage?: string;
+          assigned_agent?: string;
+          next_agent?: string;
+          next_action?: string;
+          history_log?: Json;
+          calendar_item_id?: string | null;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
       content_calendar: TableDef<
         {
           id: string;

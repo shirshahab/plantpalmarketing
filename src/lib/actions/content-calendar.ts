@@ -6,9 +6,48 @@ import { logCalendarPublish } from "@/lib/content-calendar/sync";
 import { publishApprovedXTweet } from "@/lib/integrations/x-service";
 import { isXPublishConfigured } from "@/lib/integrations/config";
 import { recordHandoff } from "@/lib/collaboration/handoff";
+import { transitionContentWorkflow } from "@/lib/workflow/engine";
+import type { WorkflowStage } from "@/lib/workflow/types";
 import type { CalendarStatus } from "@/lib/types";
 
 export type CalendarActionResult = { ok: true; message?: string } | { ok: false; error: string };
+
+async function syncCalendarWorkflow(
+  calendarItemId: string,
+  toStage: WorkflowStage,
+  event: string,
+  actor = "founder"
+) {
+  const supabase = createServerClient();
+  const { data: item } = await supabase
+    .from("content_calendar")
+    .select("id, title, source_table, source_id")
+    .eq("id", calendarItemId)
+    .maybeSingle();
+  if (!item) return;
+
+  await transitionContentWorkflow({
+    sourceTable: "content_calendar",
+    sourceId: calendarItemId,
+    toStage,
+    event,
+    actor,
+    calendarItemId,
+    title: item.title ?? "Calendar item",
+    contentType: "calendar",
+  });
+
+  if (item.source_table && item.source_id) {
+    await transitionContentWorkflow({
+      sourceTable: item.source_table,
+      sourceId: item.source_id,
+      toStage,
+      event,
+      actor,
+      calendarItemId,
+    });
+  }
+}
 
 /**
  * Phase 29 — founder leaves feedback directly on a calendar item.
@@ -103,6 +142,15 @@ export async function updateCalendarItemStatus(
       status: "status_change",
       metadata: { to: status, by: "human" },
     });
+
+    if (status === "scheduled") {
+      await syncCalendarWorkflow(id, "SCHEDULED", "Scheduled", "founder");
+    } else if (status === "published") {
+      await syncCalendarWorkflow(id, "PUBLISHED", "Published", "founder");
+    } else if (status === "rejected") {
+      await syncCalendarWorkflow(id, "REJECTED", "Rejected", "founder");
+    }
+
     await revalidateDashboard();
     return { ok: true, message: `Status changed to ${status}` };
   } catch (e) {
@@ -134,6 +182,7 @@ export async function markCalendarItemPosted(
       publishedUrl,
       metadata: { by: "human" },
     });
+    await syncCalendarWorkflow(id, "PUBLISHED", "Published", "founder");
     await supabase.from("agent_activity_log").insert({
       agent_id: "sprout",
       action: "calendar_published",
@@ -188,9 +237,10 @@ export async function rescheduleCalendarItem(
     const supabase = createServerClient();
     const { error } = await supabase
       .from("content_calendar")
-      .update({ scheduled_for: scheduledFor })
+      .update({ scheduled_for: scheduledFor, status: "scheduled" })
       .eq("id", id);
     if (error) return { ok: false, error: error.message };
+    await syncCalendarWorkflow(id, "SCHEDULED", "Scheduled", "founder");
     await revalidateDashboard();
     return { ok: true, message: "Rescheduled" };
   } catch (e) {
@@ -247,6 +297,7 @@ export async function publishCalendarItemToX(id: string): Promise<CalendarAction
       publishedUrl: platformUrl,
       metadata: { tweet_id: tweetId, human_confirmed: true },
     });
+    await syncCalendarWorkflow(id, "PUBLISHED", "Published", "sprout");
 
     await revalidateDashboard();
     return { ok: true, message: `Published to X — ${platformUrl}` };

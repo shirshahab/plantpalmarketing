@@ -16,7 +16,12 @@ import { getVideosByScript } from "@/lib/db/asset-queries";
 import { getVideoProviderStatus } from "@/lib/video/video-provider";
 import { formatDate } from "@/lib/utils";
 
-export default async function VideoScriptsPage() {
+export default async function VideoScriptsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ video?: string }>;
+}) {
+  const { video: highlightVideoId } = await searchParams;
   const { data, error, configured } = await fetchPageData(getVideoScripts);
   const videosByScript = configured ? await getVideosByScript().catch(() => new Map()) : new Map();
   const providerStatus = getVideoProviderStatus();
@@ -27,7 +32,7 @@ export default async function VideoScriptsPage() {
 
   return (
     <div>
-      <PageHeader title="Video Studio" description="Script → approve → full video package → review the final video → calendar." />
+      <PageHeader title="Video Studio" description="Creative Department — scripts in production and videos awaiting your review. Approved work moves to Calendar." />
       <div
         className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${
           providerStatus.canGenerate
@@ -48,8 +53,11 @@ export default async function VideoScriptsPage() {
         <EmptyState icon={Clapperboard} title="No video scripts" description="Seed data or add scripts via Supabase." />
       ) : (
         <div className="space-y-6">
-          {data.map((script) => (
-            <Card key={script.id}>
+          {data.map((script) => {
+            const video = videosByScript.get(script.id) ?? null;
+            const highlighted = video?.id === highlightVideoId;
+            return (
+            <Card key={script.id} className={highlighted ? "ring-2 ring-brand-accent" : undefined}>
               <CardContent className="py-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
@@ -105,7 +113,7 @@ export default async function VideoScriptsPage() {
                 <VideoPackagePanel
                   scriptId={script.id}
                   scriptApproved={script.status === "approved"}
-                  video={videosByScript.get(script.id) ?? null}
+                  video={video}
                   canGenerate={providerStatus.canGenerate}
                   providerLabel={
                     providerStatus.canGenerate
@@ -115,7 +123,8 @@ export default async function VideoScriptsPage() {
                 />
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

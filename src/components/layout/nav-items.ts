@@ -8,6 +8,7 @@ import {
   FileText,
   GitBranch,
   Brain,
+  Inbox,
   Rocket,
   Crown,
   Telescope,
@@ -73,6 +74,7 @@ export const navMenu: NavEntry[] = [
     ],
   },
   { href: "/approvals", label: "Approvals", icon: CheckSquare },
+  { href: "/inbox", label: "Founder Inbox", icon: Inbox },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   {
     label: "Analytics",

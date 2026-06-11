@@ -10,9 +10,24 @@ import {
 import { upsertCalendarItem } from "@/lib/content-calendar/sync";
 import { recordHandoff } from "@/lib/collaboration/handoff";
 import { buildCampaignContext, getCampaignContext } from "@/lib/assets/campaign-context";
+import {
+  ensureContentWorkflow,
+  logWorkflowEvent,
+  transitionContentWorkflow,
+} from "@/lib/workflow/engine";
 import type { Json } from "@/lib/supabase/database.types";
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
+
+/** Phase 39 — image approval actions (Reject replaced with regeneration options). */
+export type ImageWorkflowDecision =
+  | "approve"
+  | "regenerate_image"
+  | "regenerate_caption"
+  | "regenerate_both"
+  | "kill_campaign"
+  | "reject"
+  | "request_revision";
 
 const MIGRATION_HINT =
   "System setup is still finishing. This section will populate once the backend is ready.";
@@ -59,7 +74,7 @@ export async function prepareAssetForPrompt(promptId: string): Promise<Result> {
       style: prompt.style,
     });
 
-    const { error } = await supabase.from("generated_assets").insert({
+    const { data: inserted, error } = await supabase.from("generated_assets").insert({
       prompt_id: promptId,
       platform: campaign.platform,
       asset_type: "image",
@@ -72,12 +87,24 @@ export async function prepareAssetForPrompt(promptId: string): Promise<Result> {
         style: prompt.style,
         campaign,
       } as unknown as Json,
-    });
-    if (error) {
-      return { ok: false, error: isMissingTableError(error) ? MIGRATION_HINT : error.message };
+    }).select("id").single();
+    if (error || !inserted) {
+      return { ok: false, error: isMissingTableError(error) ? MIGRATION_HINT : (error?.message ?? "Insert failed") };
     }
 
+    await ensureContentWorkflow({
+      sourceTable: "generated_assets",
+      sourceId: inserted.id,
+      contentType: "image",
+      title: prompt.title,
+      stage: "IN_PRODUCTION",
+      assignedAgent: "fern",
+      initialEvent: "Asset package created — entering production",
+      actor: "fern",
+    });
+
     revalidatePath("/images");
+    revalidatePath("/inbox");
     return { ok: true, message: "Asset package created — ready to generate" };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to prepare asset" };
@@ -151,55 +178,150 @@ export async function generateImageAsset(assetId: string): Promise<Result> {
       })
       .eq("id", assetId);
 
+    await transitionContentWorkflow({
+      sourceTable: "generated_assets",
+      sourceId: assetId,
+      toStage: "PENDING_FOUNDER_ASSET_APPROVAL",
+      event: "Fern generated image",
+      actor: "fern",
+      agent: "gate",
+    });
+
     revalidatePath("/images");
+    revalidatePath("/inbox");
     return { ok: true, message: "Image generated — review it below" };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Generation failed" };
   }
 }
 
-/** Founder reviews the finished image: approve / reject / request revision with feedback. */
+/** Phase 39 — founder reviews image: approve sends to calendar immediately. */
 export async function reviewGeneratedAsset(input: {
   assetId: string;
-  decision: "approve" | "reject" | "request_revision";
+  decision: ImageWorkflowDecision;
   feedbackCategory?: string;
   note?: string;
 }): Promise<Result> {
   try {
     const supabase = createServerClient();
     const note = (input.note ?? "").trim();
-    const category = input.feedbackCategory || (input.decision === "approve" ? "approved as-is" : "needs better visual");
-    const status =
-      input.decision === "approve" ? "approved" : input.decision === "reject" ? "rejected" : "needs_revision";
-
-    const { error } = await supabase
+    const { data: asset } = await supabase
       .from("generated_assets")
-      .update({
-        status,
-        review_feedback: note || category,
-        ...(input.decision === "request_revision" ? { revision_notes: note || category } : {}),
-        selected: input.decision === "approve",
-      })
-      .eq("id", input.assetId);
-    if (error) {
-      return { ok: false, error: isMissingTableError(error) ? MIGRATION_HINT : error.message };
+      .select("*")
+      .eq("id", input.assetId)
+      .maybeSingle();
+    if (!asset) return { ok: false, error: "Asset not found" };
+
+    const meta = (asset.metadata as Record<string, unknown>) ?? {};
+    const category = input.feedbackCategory || input.decision;
+
+    if (input.decision === "approve") {
+      await supabase
+        .from("generated_assets")
+        .update({ status: "approved", review_feedback: note || "approved as-is", selected: true })
+        .eq("id", input.assetId);
+
+      const cal = await attachAssetToCalendar(input.assetId);
+      if (!cal.ok) return cal;
+
+      await transitionContentWorkflow({
+        sourceTable: "generated_assets",
+        sourceId: input.assetId,
+        toStage: "CALENDAR_READY",
+        event: "Founder approved asset — sent to calendar",
+        actor: "founder",
+        agent: "atlas",
+        title: String(meta.title ?? "Image asset"),
+        contentType: "image",
+      });
+
+      await tryFeedback({
+        source_table: "generated_assets",
+        source_id: input.assetId,
+        content_id: input.assetId,
+        content_type: "image_asset",
+        agent_id: "fern",
+        feedback_type: "image_review",
+        decision: "approved",
+        feedback_category: "approved as-is",
+        feedback_text: note,
+        created_by: "founder",
+      });
+
+      revalidatePath("/images");
+      revalidatePath("/inbox");
+      revalidatePath("/calendar");
+      return { ok: true, message: "Approved — moved to Calendar. Removed from Creative Department." };
     }
 
-    await tryFeedback({
-      source_table: "generated_assets",
-      source_id: input.assetId,
-      content_id: input.assetId,
-      content_type: "image_asset",
-      agent_id: "fern",
-      feedback_type: "image_review",
-      decision: input.decision === "approve" ? "approved" : input.decision === "reject" ? "rejected" : "revision_requested",
-      feedback_category: category,
-      feedback_text: note,
-      sent_back_to_agent: input.decision === "request_revision" ? "fern" : "",
-      created_by: "founder",
-    });
+    if (input.decision === "kill_campaign" || input.decision === "reject") {
+      await supabase
+        .from("generated_assets")
+        .update({ status: "rejected", review_feedback: note || "Campaign killed" })
+        .eq("id", input.assetId);
+      await transitionContentWorkflow({
+        sourceTable: "generated_assets",
+        sourceId: input.assetId,
+        toStage: "REJECTED",
+        event: "Kill campaign",
+        actor: "founder",
+        note: note || category,
+      });
+      revalidatePath("/images");
+      revalidatePath("/inbox");
+      return { ok: true, message: "Campaign killed." };
+    }
 
-    if (input.decision === "request_revision") {
+    if (input.decision === "regenerate_caption" || input.decision === "regenerate_both") {
+      const campaign = buildCampaignContext({
+        title: String(meta.title ?? ""),
+        category: String(meta.category ?? ""),
+        style: String(meta.style ?? ""),
+      });
+      await supabase
+        .from("generated_assets")
+        .update({
+          metadata: { ...meta, campaign } as unknown as Json,
+          review_feedback: note || "Regenerate caption",
+        })
+        .eq("id", input.assetId);
+      await logWorkflowEvent({
+        sourceTable: "generated_assets",
+        sourceId: input.assetId,
+        event: "Regenerate caption",
+        actor: "founder",
+        agent: "bloom",
+        note,
+      });
+    }
+
+    if (
+      input.decision === "regenerate_image" ||
+      input.decision === "regenerate_both" ||
+      input.decision === "request_revision"
+    ) {
+      await supabase
+        .from("generated_assets")
+        .update({
+          status: "needs_revision",
+          revision_notes: note || category,
+          review_feedback: note || category,
+        })
+        .eq("id", input.assetId);
+
+      await transitionContentWorkflow({
+        sourceTable: "generated_assets",
+        sourceId: input.assetId,
+        toStage: "IN_PRODUCTION",
+        event:
+          input.decision === "regenerate_both"
+            ? "Regenerate image and caption"
+            : "Regenerate image",
+        actor: "founder",
+        agent: "fern",
+        note,
+      });
+
       await recordHandoff({
         fromAgent: "gate",
         toAgent: "fern",
@@ -207,16 +329,21 @@ export async function reviewGeneratedAsset(input: {
         triggerType: "asset_revision",
         triggerId: input.assetId,
         taskType: "asset_revision",
-        taskDescription: `Regenerate image asset (${category}). Founder notes: ${note || "see category"}`,
+        taskDescription: `${input.decision}: ${note || category}`,
         priority: "high",
-        messageTitle: `Image revision requested — ${category}`,
-        messageBody: `Founder asked for a new version.\n\nFeedback: ${note || category}`,
-        activityDetail: `Founder sent an image asset back to Fern — ${category}`,
+        messageTitle: `Image revision — ${input.decision}`,
+        messageBody: note || category,
+        activityDetail: `Founder requested ${input.decision}`,
       });
+
+      if (input.decision === "regenerate_image" || input.decision === "regenerate_both") {
+        await generateImageAsset(input.assetId);
+      }
     }
 
     revalidatePath("/images");
-    return { ok: true };
+    revalidatePath("/inbox");
+    return { ok: true, message: "Sent back to production." };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Review failed" };
   }
@@ -289,10 +416,31 @@ export async function attachAssetToCalendar(assetId: string): Promise<Result> {
         .from("generated_assets")
         .update({ calendar_item_id: calendarId, status: "scheduled" })
         .eq("id", assetId);
+
+      await transitionContentWorkflow({
+        sourceTable: "generated_assets",
+        sourceId: assetId,
+        toStage: "CALENDAR_READY",
+        event: "Sent to calendar",
+        actor: "atlas",
+        agent: "sprout",
+        calendarItemId: calendarId,
+      });
+      await ensureContentWorkflow({
+        sourceTable: "content_calendar",
+        sourceId: calendarId,
+        contentType: "image_post",
+        title,
+        stage: "CALENDAR_READY",
+        initialEvent: "Sent to calendar",
+        actor: "atlas",
+        assignedAgent: "atlas",
+      });
     }
 
     revalidatePath("/images");
     revalidatePath("/calendar");
+    revalidatePath("/inbox");
     return { ok: true, message: "Attached to calendar" };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Attach failed" };

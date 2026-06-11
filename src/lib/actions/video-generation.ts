@@ -6,6 +6,10 @@ import { isMissingTableError } from "@/lib/integrations/db-safe";
 import { upsertCalendarItem } from "@/lib/content-calendar/sync";
 import { recordHandoff } from "@/lib/collaboration/handoff";
 import {
+  ensureContentWorkflow,
+  transitionContentWorkflow,
+} from "@/lib/workflow/engine";
+import {
   generateVideo,
   generateVideoPackage,
   getVideoJobStatus,
@@ -15,6 +19,18 @@ import {
 import type { Json } from "@/lib/supabase/database.types";
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
+
+/** Phase 39 — video approval actions. */
+export type VideoWorkflowDecision =
+  | "approve"
+  | "improve_hook"
+  | "improve_pacing"
+  | "improve_visuals"
+  | "improve_cta"
+  | "regenerate_video"
+  | "kill_campaign"
+  | "reject"
+  | "request_edits";
 
 const MIGRATION_HINT =
   "System setup is still finishing. This section will populate once the backend is ready.";
@@ -68,7 +84,7 @@ export async function buildVideoPackageFromScript(scriptId: string): Promise<Res
     });
     const providerStatus = getVideoProviderStatus();
 
-    const { error } = await supabase.from("generated_videos").insert({
+    const { data: inserted, error } = await supabase.from("generated_videos").insert({
       script_id: scriptId,
       platform: script.platform,
       script: pkg.fullScript,
@@ -90,12 +106,24 @@ export async function buildVideoPackageFromScript(scriptId: string): Promise<Res
         uploadChecklist: pkg.uploadChecklist,
         providerNote: providerStatus.message,
       } as Json,
-    });
-    if (error) {
-      return { ok: false, error: isMissingTableError(error) ? MIGRATION_HINT : error.message };
+    }).select("id").single();
+    if (error || !inserted) {
+      return { ok: false, error: isMissingTableError(error) ? MIGRATION_HINT : (error?.message ?? "Insert failed") };
     }
 
+    await ensureContentWorkflow({
+      sourceTable: "generated_videos",
+      sourceId: inserted.id,
+      contentType: "video",
+      title: script.title,
+      stage: "IN_PRODUCTION",
+      assignedAgent: "bloom",
+      initialEvent: "Video package created — entering production",
+      actor: "bloom",
+    });
+
     revalidatePath("/video");
+    revalidatePath("/inbox");
     return { ok: true, message: "Video package created" };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to build package" };
@@ -269,7 +297,17 @@ export async function checkVideoGenerationStatus(videoId: string): Promise<Resul
             lastErrorAt: new Date().toISOString(),
           } as Json,
         });
+        await transitionContentWorkflow({
+          sourceTable: "generated_videos",
+          sourceId: videoId,
+          toStage: "PENDING_FOUNDER_ASSET_APPROVAL",
+          event: "Video generated — storage upload failed, awaiting founder review",
+          actor: "bloom",
+          agent: "gate",
+        });
+
         revalidatePath("/video");
+        revalidatePath("/inbox");
         return {
           ok: true,
           message:
@@ -292,73 +330,149 @@ export async function checkVideoGenerationStatus(videoId: string): Promise<Resul
     });
     if (!updated.ok) return { ok: false, error: updated.error ?? "Update failed" };
 
+    await transitionContentWorkflow({
+      sourceTable: "generated_videos",
+      sourceId: videoId,
+      toStage: "PENDING_FOUNDER_ASSET_APPROVAL",
+      event: "Video generated — awaiting founder review",
+      actor: "bloom",
+      agent: "gate",
+    });
+
     revalidatePath("/video");
+    revalidatePath("/inbox");
     return { ok: true, message: "Video generated — review it below" };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Status check failed" };
   }
 }
 
-/** Founder reviews the video (or package): approve / reject / request edits with remarks. */
+/** Phase 39 — founder reviews video: approve sends to calendar immediately. */
 export async function reviewGeneratedVideo(input: {
   videoId: string;
-  decision: "approve" | "reject" | "request_edits";
+  decision: VideoWorkflowDecision;
   feedbackCategory?: string;
   note?: string;
 }): Promise<Result> {
   try {
     const supabase = createServerClient();
     const note = (input.note ?? "").trim();
-    const category =
-      input.feedbackCategory || (input.decision === "approve" ? "approved as-is" : "needs better video pacing");
-    const status =
-      input.decision === "approve" ? "approved" : input.decision === "reject" ? "rejected" : "needs_revision";
-
-    const { error } = await supabase
+    const { data: video } = await supabase
       .from("generated_videos")
-      .update({
-        status,
-        review_feedback: note || category,
-        ...(input.decision === "request_edits" ? { revision_notes: note || category } : {}),
-      })
-      .eq("id", input.videoId);
-    if (error) {
-      return { ok: false, error: isMissingTableError(error) ? MIGRATION_HINT : error.message };
+      .select("*")
+      .eq("id", input.videoId)
+      .maybeSingle();
+    if (!video) return { ok: false, error: "Video not found" };
+
+    const meta = (video.metadata as Record<string, unknown>) ?? {};
+    const category = input.feedbackCategory || input.decision;
+
+    if (input.decision === "approve") {
+      await supabase
+        .from("generated_videos")
+        .update({ status: "approved", review_feedback: note || "approved as-is" })
+        .eq("id", input.videoId);
+
+      const cal = await attachVideoToCalendar(input.videoId);
+      if (!cal.ok) return cal;
+
+      await transitionContentWorkflow({
+        sourceTable: "generated_videos",
+        sourceId: input.videoId,
+        toStage: "CALENDAR_READY",
+        event: "Founder approved asset — sent to calendar",
+        actor: "founder",
+        agent: "atlas",
+        title: String(meta.title ?? video.hook?.slice(0, 80) ?? "Video"),
+        contentType: "video",
+      });
+
+      revalidatePath("/video");
+      revalidatePath("/inbox");
+      revalidatePath("/calendar");
+      return { ok: true, message: "Approved — moved to Calendar. Removed from Creative Department." };
     }
 
-    await tryFeedback({
-      source_table: "generated_videos",
-      source_id: input.videoId,
-      content_id: input.videoId,
-      content_type: "video_asset",
-      agent_id: "bloom",
-      feedback_type: "video_review",
-      decision:
-        input.decision === "approve" ? "approved" : input.decision === "reject" ? "rejected" : "edit_requested",
-      feedback_category: category,
-      feedback_text: note,
-      sent_back_to_agent: input.decision === "request_edits" ? "bloom" : "",
-      created_by: "founder",
-    });
+    if (input.decision === "kill_campaign" || input.decision === "reject") {
+      await supabase
+        .from("generated_videos")
+        .update({ status: "rejected", review_feedback: note || "Campaign killed" })
+        .eq("id", input.videoId);
+      await transitionContentWorkflow({
+        sourceTable: "generated_videos",
+        sourceId: input.videoId,
+        toStage: "REJECTED",
+        event: "Kill campaign",
+        actor: "founder",
+        note: note || category,
+      });
+      revalidatePath("/video");
+      revalidatePath("/inbox");
+      return { ok: true, message: "Campaign killed." };
+    }
 
-    if (input.decision === "request_edits") {
+    const improveMap: Record<string, { agent: "bloom" | "fern"; label: string }> = {
+      improve_hook: { agent: "bloom", label: "Improve hook" },
+      improve_pacing: { agent: "bloom", label: "Improve pacing" },
+      improve_visuals: { agent: "fern", label: "Improve visuals" },
+      improve_cta: { agent: "bloom", label: "Improve CTA" },
+      request_edits: { agent: "bloom", label: "Request edits" },
+    };
+
+    const improve = improveMap[input.decision];
+    if (improve) {
+      await supabase
+        .from("generated_videos")
+        .update({ status: "needs_revision", revision_notes: note || improve.label, review_feedback: note || improve.label })
+        .eq("id", input.videoId);
+
+      await transitionContentWorkflow({
+        sourceTable: "generated_videos",
+        sourceId: input.videoId,
+        toStage: "IN_PRODUCTION",
+        event: improve.label,
+        actor: "founder",
+        agent: improve.agent,
+        note,
+      });
+
       await recordHandoff({
         fromAgent: "gate",
-        toAgent: "bloom",
-        workflowName: "Gate → Bloom",
+        toAgent: improve.agent,
+        workflowName: `Gate → ${improve.agent === "fern" ? "Fern" : "Bloom"}`,
         triggerType: "video_revision",
         triggerId: input.videoId,
         taskType: "video_revision",
-        taskDescription: `Rework video package (${category}). Founder remarks: ${note || "see category"}`,
+        taskDescription: `${improve.label}: ${note || category}`,
         priority: "high",
-        messageTitle: `Video edits requested — ${category}`,
-        messageBody: `Founder left remarks on the video package.\n\nFeedback: ${note || category}`,
-        activityDetail: `Founder requested video edits — ${category}`,
+        messageTitle: improve.label,
+        messageBody: note || category,
+        activityDetail: improve.label,
       });
     }
 
+    if (input.decision === "regenerate_video") {
+      await supabase
+        .from("generated_videos")
+        .update({ status: "needs_revision", revision_notes: note || "Regenerate entire video" })
+        .eq("id", input.videoId);
+
+      await transitionContentWorkflow({
+        sourceTable: "generated_videos",
+        sourceId: input.videoId,
+        toStage: "IN_PRODUCTION",
+        event: "Regenerate entire video",
+        actor: "founder",
+        agent: "bloom",
+        note,
+      });
+
+      await generateVideoFromPackage(input.videoId);
+    }
+
     revalidatePath("/video");
-    return { ok: true };
+    revalidatePath("/inbox");
+    return { ok: true, message: "Sent back to production." };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Review failed" };
   }
@@ -510,10 +624,31 @@ export async function attachVideoToCalendar(videoId: string): Promise<Result> {
         .from("generated_videos")
         .update({ calendar_item_id: calendarId, status: "scheduled" })
         .eq("id", videoId);
+
+      await transitionContentWorkflow({
+        sourceTable: "generated_videos",
+        sourceId: videoId,
+        toStage: "CALENDAR_READY",
+        event: "Sent to calendar",
+        actor: "atlas",
+        agent: "sprout",
+        calendarItemId: calendarId,
+      });
+      await ensureContentWorkflow({
+        sourceTable: "content_calendar",
+        sourceId: calendarId,
+        contentType: "video",
+        title,
+        stage: "CALENDAR_READY",
+        initialEvent: "Sent to calendar",
+        actor: "atlas",
+        assignedAgent: "atlas",
+      });
     }
 
     revalidatePath("/video");
     revalidatePath("/calendar");
+    revalidatePath("/inbox");
     return { ok: true, message: "Marked ready for calendar" };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Attach failed" };

@@ -21,7 +21,12 @@ const categoryLabels: Record<string, string> = {
   educational: "Educational Visual", before_after: "Before / After",
 };
 
-export default async function ImagePromptsPage() {
+export default async function ImagePromptsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ asset?: string }>;
+}) {
+  const { asset: highlightAssetId } = await searchParams;
   const { data, error, configured } = await fetchPageData(getImagePrompts);
   const assetsByPrompt = configured ? await getAssetsByPrompt().catch(() => new Map()) : new Map();
 
@@ -31,7 +36,7 @@ export default async function ImagePromptsPage() {
 
   return (
     <div>
-      <PageHeader title="Image Asset Studio" description="Prompt → approve → generate → review the finished image → attach to calendar." action={<CreateImagePromptForm />} />
+      <PageHeader title="Image Asset Studio" description="Creative Department — prompts in production and assets awaiting your review. Approved work moves to Calendar." action={<CreateImagePromptForm />} />
       {error && <ErrorBanner message={error} />}
 
       <div className="mb-8 flex flex-wrap gap-2">
@@ -44,8 +49,11 @@ export default async function ImagePromptsPage() {
         <EmptyState icon={ImageIcon} title="No image prompts" description="Create your first prompt to get started." />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {data.map((prompt) => (
-            <Card key={prompt.id}>
+          {data.map((prompt) => {
+            const asset = assetsByPrompt.get(prompt.id) ?? null;
+            const highlighted = asset?.id === highlightAssetId;
+            return (
+            <Card key={prompt.id} className={highlighted ? "ring-2 ring-brand-accent" : undefined}>
               <CardContent className="py-5">
                 <div className="flex items-start gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-sage/20 text-brand-primary">
@@ -69,13 +77,14 @@ export default async function ImagePromptsPage() {
                       promptId={prompt.id}
                       promptText={prompt.prompt}
                       promptApproved={prompt.status === "approved"}
-                      asset={assetsByPrompt.get(prompt.id) ?? null}
+                      asset={asset}
                     />
                   </div>
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
