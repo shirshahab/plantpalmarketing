@@ -1577,6 +1577,12 @@ export interface Database {
           published_at: string | null;
           backlinks: Json;
           metadata: Json;
+          author: string;
+          category: string;
+          tags: Json;
+          featured_image: string;
+          export_status: string;
+          exported_at: string | null;
           created_at: string;
           updated_at: string;
         },
@@ -1606,6 +1612,12 @@ export interface Database {
           published_at?: string | null;
           backlinks?: Json;
           metadata?: Json;
+          author?: string;
+          category?: string;
+          tags?: Json;
+          featured_image?: string;
+          export_status?: string;
+          exported_at?: string | null;
           created_at?: string;
           updated_at?: string;
         },
@@ -1635,6 +1647,12 @@ export interface Database {
           published_at?: string | null;
           backlinks?: Json;
           metadata?: Json;
+          author?: string;
+          category?: string;
+          tags?: Json;
+          featured_image?: string;
+          export_status?: string;
+          exported_at?: string | null;
           updated_at?: string;
         }
       >;

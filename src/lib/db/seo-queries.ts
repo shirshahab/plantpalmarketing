@@ -40,6 +40,12 @@ export interface SeoBlogPost {
   publishedUrl: string;
   publishedAt: string | null;
   backlinks: { url: string; anchor: string }[];
+  author: string;
+  category: string;
+  tags: string[];
+  featuredImage: string;
+  exportStatus: string;
+  exportedAt: string | null;
   createdAt: string;
 }
 
@@ -82,6 +88,12 @@ function mapPost(row: {
   published_url: string;
   published_at: string | null;
   backlinks: Json;
+  author?: string;
+  category?: string;
+  tags?: Json;
+  featured_image?: string;
+  export_status?: string;
+  exported_at?: string | null;
   created_at: string;
 }): SeoBlogPost {
   const vc = row.voice_check;
@@ -115,6 +127,13 @@ function mapPost(row: {
     publishedUrl: row.published_url,
     publishedAt: row.published_at,
     backlinks: asArray(row.backlinks, (o) => ({ url: String(o.url ?? ""), anchor: String(o.anchor ?? "") })),
+    // Phase 32 export fields — fall back when migration 053 hasn't run yet
+    author: row.author ?? "PlantPal Team",
+    category: row.category ?? "Plant Care",
+    tags: Array.isArray(row.tags) ? row.tags.map((t) => String(t)) : [],
+    featuredImage: row.featured_image ?? "",
+    exportStatus: row.export_status ?? "not_exported",
+    exportedAt: row.exported_at ?? null,
     createdAt: row.created_at,
   };
 }
@@ -258,6 +277,24 @@ export async function getSeoRankTracking(): Promise<SeoRankRow[]> {
     url: r.url,
     checkedAt: r.checked_at,
   }));
+}
+
+/** Phase 32 — posts that qualify for website export (approved or already out). */
+export async function getSeoExportPageData() {
+  const posts = await getSeoBlogPosts();
+  const exportable = posts.filter((p) =>
+    ["ready_to_publish", "approved", "published"].includes(p.status)
+  );
+  return {
+    posts: exportable,
+    stats: {
+      total: exportable.length,
+      notExported: exportable.filter((p) => p.exportStatus === "not_exported").length,
+      exported: exportable.filter((p) => p.exportStatus === "exported").length,
+      published: exportable.filter((p) => p.exportStatus === "published" || p.status === "published").length,
+    },
+    cmsConfigured: Boolean(process.env.BLOG_CMS_WEBHOOK_URL?.trim()),
+  };
 }
 
 export async function getSeoPageData() {

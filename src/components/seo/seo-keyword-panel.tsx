@@ -145,7 +145,12 @@ export function SeoKeywordPanel({ keywords, posts, logs, topics = [], clusters =
         <CardContent className="py-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="font-heading font-semibold text-brand-primary">SEO Factory</h3>
+              <div className="flex flex-wrap items-center gap-3">
+                <h3 className="font-heading font-semibold text-brand-primary">SEO Factory</h3>
+                <Link href="/seo/export" className="text-sm font-medium text-brand-accent hover:underline">
+                  Website blog export →
+                </Link>
+              </div>
               <p className="mt-0.5 text-xs text-brand-muted">
                 Batch-draft from the keyword queue. Target: 5-10 voice-checked drafts a day. Gate still approves everything.
               </p>

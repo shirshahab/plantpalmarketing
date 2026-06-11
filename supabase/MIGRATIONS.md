@@ -56,6 +56,7 @@ Apply each file in **SQL Editor** before deploying to Vercel. Filenames are pref
 50. `050_phase30_seo_blog.sql`
 51. `051_phase31_autonomous_company.sql`
 52. `052_phase31a_company_os.sql`
+53. `053_phase32_website_blog_export.sql`
 
 ## If you already ran early migrations
 
@@ -77,6 +78,7 @@ Minimum repair set for current HQ features:
 - `050_phase30_seo_blog.sql` — SEO blog automation (`/seo`, `/blog-pipeline`): `seo_blog_keywords` (seeded with 10 starter topics), `seo_blog_posts` (drafts, voice check results, HTML package, schema markup, backlinks, published URL), `seo_blog_publish_logs`
 - `051_phase31_autonomous_company.sql` — Phase 31 autonomous company: scheduler upgrade (`interval_minutes` frequency, Sprout/Gate schedules, new cadences: Scout 2h, Bloom 4h, Sprout 30min, Ivy 8AM); `analytics_events`/`analytics_snapshots`/`analytics_metrics` (`/analytics`); `creative_projects`/`creative_assets`/`creative_reviews` (`/creative`); `seo_topics`/`seo_clusters`/`seo_rank_tracking` + `seo_posts` view (SEO Factory); Reddit engagement columns (`upvotes`, `engagement_note`, `reply_url`) + `reddit_monitor`/`reddit_drafts`/`reddit_approvals` views; `agent_scorecards` (leaderboard); `launch_checklist` seeded with 10 readiness checks (`/launch`)
 - `052_phase31a_company_os.sql` — Phase 31A Company Operating System (`/company-os`): `company_workflows` (every pipeline run: type, status, current/next agent, blocker, impact), `workflow_steps` (ordered timeline per workflow), `company_outputs` (everything produced, with source/target tables and approval flags), `company_decisions` (founder/Gate decisions with feedback), `company_bottlenecks` (slow workflows, blocked work, approval backlog). Auto-populated by `recordHandoff` — no agent changes needed
+- `053_phase32_website_blog_export.sql` — Phase 32 website blog export (`/seo/export`): adds `author`, `category`, `tags`, `featured_image`, `export_status` (`not_exported`/`exported`/`published`), `exported_at` to `seo_blog_posts` so approved posts export as TypeScript objects for the public site's `src/lib/blog/posts.ts`
 
 ## After running
 

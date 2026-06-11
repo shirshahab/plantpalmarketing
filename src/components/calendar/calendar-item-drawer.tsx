@@ -191,6 +191,17 @@ export function CalendarItemDrawer({
             <CopyButton label="Copy caption" text={item.caption} />
             <CopyButton label="Copy hashtags" text={hashtags.join(" ")} />
             <CopyButton label="Copy all" text={buildCopyAll(item)} />
+            {item.platform === "blog" && item.copyText && (
+              <CopyButton label="Copy blog HTML" text={item.copyText} />
+            )}
+            {item.platform === "blog" && (
+              <a href="/seo/export">
+                <Button variant="secondary" size="sm">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Export for website
+                </Button>
+              </a>
+            )}
             {platform.url && (
               <a href={item.platformUrl || platform.url} target="_blank" rel="noreferrer">
                 <Button variant="secondary" size="sm">

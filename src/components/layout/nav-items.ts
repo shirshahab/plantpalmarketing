@@ -101,6 +101,7 @@ export const moreNavGroup: NavGroup = {
     { href: "/agents/approved", label: "Approved Content", icon: ThumbsUp },
     { href: "/agents/rejected", label: "Rejected Content", icon: ThumbsDown },
     { href: "/blog-pipeline", label: "Blog Pipeline", icon: FileText },
+    { href: "/seo/export", label: "Website Blog Export", icon: FileText },
     { href: "/social", label: "Social Posts", icon: FileText },
     { href: "/images", label: "Image Asset Studio", icon: Image },
     { href: "/video", label: "Video Studio", icon: Video },

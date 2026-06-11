@@ -536,13 +536,24 @@ export async function markBlogPublished(postId: string, publishedUrl: string): P
   try {
     const supabase = createServerClient();
     const now = new Date().toISOString();
-    const { data: post, error } = await supabase
+    let { data: post, error } = await supabase
       .from("seo_blog_posts")
-      .update({ status: "published", published_url: publishedUrl.trim(), published_at: now })
+      .update({ status: "published", published_url: publishedUrl.trim(), published_at: now, export_status: "published" })
       .eq("id", postId)
       .select("keyword_id, headline, internal_links")
       .single();
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      // Older schema without export_status (migration 053 not run yet)
+      const fallback = await supabase
+        .from("seo_blog_posts")
+        .update({ status: "published", published_url: publishedUrl.trim(), published_at: now })
+        .eq("id", postId)
+        .select("keyword_id, headline, internal_links")
+        .single();
+      post = fallback.data;
+      error = fallback.error;
+    }
+    if (error || !post) return { ok: false, error: error?.message ?? "Post not found" };
 
     if (post.keyword_id) {
       await supabase.from("seo_blog_keywords").update({ status: "published" }).eq("id", post.keyword_id);
@@ -589,10 +600,75 @@ export async function markBlogPublished(postId: string, publishedUrl: string): P
 
     await logPublish({ post_id: postId, action: "mark_published", status: "success", published_url: publishedUrl.trim() });
     revalidatePath("/seo");
+    revalidatePath("/seo/export");
     revalidatePath("/blog-pipeline");
     revalidatePath("/calendar");
     return { ok: true, message: "Marked as published" };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to mark published" };
+  }
+}
+
+/** Phase 32 — founder copied/downloaded the TS object for the public site. */
+export async function markBlogExported(postId: string): Promise<Result> {
+  try {
+    const supabase = createServerClient();
+    const { error } = await supabase
+      .from("seo_blog_posts")
+      .update({ export_status: "exported", exported_at: new Date().toISOString() })
+      .eq("id", postId);
+    if (error) {
+      if (isMissingTableError(error) || error.message.includes("export_status")) {
+        return { ok: false, error: "Export columns missing — run supabase/migrations/053_phase32_website_blog_export.sql" };
+      }
+      return { ok: false, error: error.message };
+    }
+
+    await logPublish({ post_id: postId, action: "website_export", status: "success" });
+    await createCompanyOutput({
+      agentId: "sprout",
+      outputType: "website_blog_export",
+      title: "Blog post exported for the public site",
+      summary: "TypeScript object generated for src/lib/blog/posts.ts",
+      sourceTable: "seo_blog_posts",
+      sourceId: postId,
+      status: "exported",
+      approvalRequired: false,
+    });
+
+    revalidatePath("/seo/export");
+    revalidatePath("/seo");
+    return { ok: true, message: "Marked as exported" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to mark exported" };
+  }
+}
+
+/** Phase 32 — save the website-facing metadata used by the TS export. */
+export async function saveBlogExportMeta(
+  postId: string,
+  meta: { author: string; category: string; tags: string[]; featuredImage: string }
+): Promise<Result> {
+  try {
+    const supabase = createServerClient();
+    const { error } = await supabase
+      .from("seo_blog_posts")
+      .update({
+        author: meta.author.trim() || "PlantPal Team",
+        category: meta.category.trim() || "Plant Care",
+        tags: meta.tags.map((t) => t.trim()).filter(Boolean) as unknown as Json,
+        featured_image: meta.featuredImage.trim(),
+      })
+      .eq("id", postId);
+    if (error) {
+      if (isMissingTableError(error) || error.message.includes("author")) {
+        return { ok: false, error: "Export columns missing — run supabase/migrations/053_phase32_website_blog_export.sql" };
+      }
+      return { ok: false, error: error.message };
+    }
+    revalidatePath("/seo/export");
+    return { ok: true, message: "Details saved" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to save details" };
   }
 }
