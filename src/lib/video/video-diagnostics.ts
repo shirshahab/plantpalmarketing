@@ -1,12 +1,14 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { getOpenAIConfig, isOpenAIConfigured } from "@/lib/openai/config";
+import { isServiceRoleConfigured } from "@/lib/supabase/admin";
+import { runStorageSelfTest, VIDEO_BUCKET } from "@/lib/storage/media-storage";
 import { getVideoProviderStatus } from "@/lib/video/video-provider";
 import { getOpenAIVideoModel } from "@/lib/video/openai-video-provider";
 
 /**
- * Phase 34 — full video pipeline diagnostics.
- * Checks every stage (key → model → storage → table → jobs) and reports the
- * exact failure point so nobody is left guessing.
+ * Phase 34/38 — full video pipeline diagnostics.
+ * Stages: Video Generation → Bucket Access → Storage Upload → Signed URL →
+ * Download Access, each PASS / FAIL / WARNING with the exact error.
  */
 
 export type CheckStatus = "ok" | "warning" | "error";
@@ -34,6 +36,7 @@ export interface VideoJobRow {
 export interface VideoDiagnostics {
   checks: VideoDiagnosticCheck[];
   recentJobs: VideoJobRow[];
+  bucket: string;
 }
 
 async function checkModelAvailable(model: string): Promise<{ ok: boolean; message: string }> {
@@ -49,31 +52,6 @@ async function checkModelAvailable(model: string): Promise<{ ok: boolean; messag
     return { ok: false, message: `OpenAI API responded ${res.status}` };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : "Request failed" };
-  }
-}
-
-/** Verifies the bucket exists AND is writable with a tiny test upload. */
-async function checkStorageBucket(): Promise<{ ok: boolean; message: string }> {
-  try {
-    const supabase = createServerClient();
-    const path = `diagnostics/write-test-${Date.now()}.txt`;
-    const { error: uploadError } = await supabase.storage
-      .from("generated-videos")
-      .upload(path, Buffer.from("video diagnostics write test"), {
-        contentType: "text/plain",
-        upsert: true,
-      });
-    if (uploadError) {
-      return { ok: false, message: `Upload to generated-videos failed: ${uploadError.message}` };
-    }
-    const { data } = supabase.storage.from("generated-videos").getPublicUrl(path);
-    await supabase.storage.from("generated-videos").remove([path]).catch(() => undefined);
-    if (!data?.publicUrl) {
-      return { ok: false, message: "Bucket is writable but public URLs are unavailable" };
-    }
-    return { ok: true, message: "Bucket generated-videos is writable and serves public URLs" };
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : "Storage check failed" };
   }
 }
 
@@ -105,11 +83,12 @@ function classifyFailurePoint(row: {
   directDownload: boolean;
 }): string {
   if (row.status === "generated" && row.videoUrl) return "Completed — stored";
-  if (row.directDownload) return "Generated, storage upload failed — direct download available";
+  if (row.status === "generated_not_uploaded" || row.directDownload)
+    return "Generated, storage upload failed — direct download available";
   if (row.status === "failed" && row.errorMessage) {
     if (/api key|401|unauthorized/i.test(row.errorMessage)) return "Failed at: OpenAI key";
     if (/model/i.test(row.errorMessage)) return "Failed at: model availability";
-    if (/storage|upload|bucket/i.test(row.errorMessage)) return "Failed at: storage upload";
+    if (/row-level security|policy|bucket|storage|upload/i.test(row.errorMessage)) return "Failed at: storage upload";
     if (/download/i.test(row.errorMessage)) return "Failed at: provider download";
     return "Failed at: generation (provider)";
   }
@@ -122,21 +101,20 @@ function classifyFailurePoint(row: {
 export async function runVideoDiagnostics(): Promise<VideoDiagnostics> {
   const checks: VideoDiagnosticCheck[] = [];
 
-  // 1. OpenAI key
+  // ── VIDEO GENERATION ──────────────────────────────────────────────────
   const keyOk = isOpenAIConfigured();
   checks.push({
     id: "openai_key",
-    label: "OpenAI API key",
+    label: "Video generation — OpenAI API key",
     status: keyOk ? "ok" : "error",
     message: keyOk ? "OPENAI_API_KEY is set" : "OPENAI_API_KEY is missing or a placeholder",
     fix: keyOk ? "" : "Add OPENAI_API_KEY to .env.local and Vercel env vars, then redeploy.",
   });
 
-  // 2. Provider mode
   const provider = getVideoProviderStatus();
   checks.push({
     id: "provider",
-    label: "Video provider",
+    label: "Video generation — provider",
     status: provider.canGenerate ? "ok" : "warning",
     message: provider.message,
     fix: provider.canGenerate
@@ -144,13 +122,12 @@ export async function runVideoDiagnostics(): Promise<VideoDiagnostics> {
       : "Set VIDEO_PROVIDER=openai (and OPENAI_VIDEO_MODEL=sora-2 or sora-2-pro) to enable real generation.",
   });
 
-  // 3. Sora model availability (live)
   if (keyOk && provider.provider === "openai") {
     const model = getOpenAIVideoModel();
     const modelCheck = await checkModelAvailable(model);
     checks.push({
       id: "model",
-      label: `Sora model (${model})`,
+      label: `Video generation — Sora model (${model})`,
       status: modelCheck.ok ? "ok" : "warning",
       message: modelCheck.message,
       fix: modelCheck.ok
@@ -159,19 +136,52 @@ export async function runVideoDiagnostics(): Promise<VideoDiagnostics> {
     });
   }
 
-  // 4. Storage bucket + signed/public URL + upload process
-  const storage = await checkStorageBucket();
+  // ── SERVICE ROLE KEY (drives storage upload reliability) ──────────────
+  const serviceRole = isServiceRoleConfigured();
   checks.push({
-    id: "storage",
-    label: "Storage bucket (generated-videos)",
-    status: storage.ok ? "ok" : "error",
-    message: storage.message,
-    fix: storage.ok
+    id: "service_role",
+    label: "Storage upload — service-role key",
+    status: serviceRole ? "ok" : "warning",
+    message: serviceRole
+      ? "SUPABASE_SERVICE_ROLE_KEY is set — uploads bypass storage RLS"
+      : "SUPABASE_SERVICE_ROLE_KEY is not set — uploads use the anon key and will FAIL unless storage RLS policies exist",
+    fix: serviceRole
       ? ""
-      : "Apply migration 055 (creates the generated-videos bucket + policies) in the Supabase SQL editor.",
+      : "Add SUPABASE_SERVICE_ROLE_KEY (Supabase Dashboard → Settings → API → service_role) to .env.local AND Vercel env vars, then redeploy.",
   });
 
-  // 5. Job persistence
+  // ── BUCKET / UPLOAD / SIGNED URL / DOWNLOAD (live round-trip) ──────────
+  const selfTest = await runStorageSelfTest(VIDEO_BUCKET);
+  const stepFix: Record<string, string> = {
+    bucket: "Run migration 057, or create the public bucket generated-videos in Supabase Dashboard → Storage.",
+    upload: serviceRole
+      ? "Bucket rejected the write even with the service role — check the bucket exists and file size limits (default 50MB)."
+      : "Add SUPABASE_SERVICE_ROLE_KEY to env, or add an INSERT policy on storage.objects for generated-videos (migration 057 / Dashboard → Storage → Policies).",
+    signed_url: "Check the bucket exists and the key has storage access; run migration 057.",
+    download: "Make the bucket public (migration 057) or check network egress; signed URLs should always download.",
+    delete: "Harmless for uploads — add a DELETE policy or service-role key so cleanup works.",
+  };
+  for (const step of selfTest.steps) {
+    if (step.id === "service_role") continue; // already reported above
+    checks.push({
+      id: `storage_${step.id}`,
+      label:
+        step.id === "bucket"
+          ? `Bucket access (${VIDEO_BUCKET})`
+          : step.id === "upload"
+            ? "Storage upload (live test)"
+            : step.id === "signed_url"
+              ? "Signed URL"
+              : step.id === "download"
+                ? "Download access"
+                : step.label,
+      status: step.status === "pass" ? "ok" : step.status === "warning" ? "warning" : "error",
+      message: step.detail,
+      fix: step.status === "pass" ? "" : (stepFix[step.id] ?? ""),
+    });
+  }
+
+  // ── JOB PERSISTENCE ────────────────────────────────────────────────────
   const persistence = await checkJobPersistence();
   checks.push({
     id: "persistence",
@@ -181,7 +191,7 @@ export async function runVideoDiagnostics(): Promise<VideoDiagnostics> {
     fix: persistence.ok ? "" : "Apply migration 055 to add job_id / error_message to generated_videos.",
   });
 
-  // 6. Recent jobs with exact failure points
+  // ── RECENT JOBS with exact failure points ─────────────────────────────
   let recentJobs: VideoJobRow[] = [];
   try {
     const supabase = createServerClient();
@@ -198,7 +208,7 @@ export async function runVideoDiagnostics(): Promise<VideoDiagnostics> {
         jobId: String(row.job_id ?? meta.jobId ?? ""),
         videoUrl: video.video_url ?? "",
         errorMessage: String(row.error_message ?? meta.lastError ?? ""),
-        directDownload: meta.directDownloadOnly === true,
+        directDownload: meta.directDownloadOnly === true || video.status === "generated_not_uploaded",
       };
       return {
         id: video.id,
@@ -212,5 +222,5 @@ export async function runVideoDiagnostics(): Promise<VideoDiagnostics> {
     // table missing — already reported by the persistence check
   }
 
-  return { checks, recentJobs };
+  return { checks, recentJobs, bucket: VIDEO_BUCKET };
 }

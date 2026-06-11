@@ -29,4 +29,6 @@ export interface StoredVideoResult {
    * via the direct-download proxy — never hide a successful generation.
    */
   storageFailed?: boolean;
+  /** Exact storage error message (RLS, missing bucket, size limit, …). */
+  storageError?: string;
 }

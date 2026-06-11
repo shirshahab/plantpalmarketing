@@ -103,8 +103,10 @@ export async function buildVideoPackageFromScript(scriptId: string): Promise<Res
 }
 
 /**
- * Tolerates databases where migration 055 hasn't run yet: retries the update
- * without the new job_id / error_message columns (kept in metadata anyway).
+ * Tolerates databases where migrations 055/057 haven't run yet: retries the
+ * update without the new job_id / error_message columns (kept in metadata
+ * anyway), and downgrades `generated_not_uploaded` to `generated` if the
+ * status CHECK constraint hasn't been widened.
  */
 async function updateVideoRow(
   videoId: string,
@@ -115,10 +117,13 @@ async function updateVideoRow(
   const { error } = await supabase.from("generated_videos").update(patch as any).eq("id", videoId);
   if (!error) return { ok: true };
 
-  if (/column|job_id|error_message/i.test(error.message)) {
+  if (/column|job_id|error_message/i.test(error.message) || /check constraint|generated_videos_status_check/i.test(error.message)) {
     const fallback = { ...patch };
     delete fallback.job_id;
     delete fallback.error_message;
+    if (/check constraint|generated_videos_status_check/i.test(error.message) && fallback.status === "generated_not_uploaded") {
+      fallback.status = "generated";
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const retry = await supabase.from("generated_videos").update(fallback as any).eq("id", videoId);
     if (!retry.error) return { ok: true };
@@ -242,15 +247,25 @@ export async function checkVideoGenerationStatus(videoId: string): Promise<Resul
     const stored = await downloadAndStoreVideo(jobId);
     if (!stored.ok || !stored.videoUrl) {
       if (stored.storageFailed) {
-        // Generation succeeded — never hide it. Mark the video as generated
-        // and let the founder download it directly through the proxy route.
+        // Phase 38 — generation succeeded, only storage broke. Status is
+        // generated_not_uploaded (NOT failed) and everything needed to
+        // recover the video is persisted on the row.
         await updateVideoRow(videoId, {
-          status: "generated",
-          error_message: stored.error ?? "Storage upload failed — direct download available",
+          status: "generated_not_uploaded",
+          error_message: stored.storageError ?? stored.error ?? "Storage upload failed — direct download available",
           metadata: {
             ...meta,
             directDownloadOnly: true,
-            lastError: stored.error ?? "",
+            direct_download_url: `/api/video/download/${videoId}`,
+            provider_video_url: `https://api.openai.com/v1/videos/${jobId}/content`,
+            generation_metadata: {
+              jobId,
+              provider: video.generation_provider,
+              model: video.generation_model,
+              completedAt: new Date().toISOString(),
+              storageError: stored.storageError ?? "",
+            },
+            lastError: stored.storageError ?? stored.error ?? "",
             lastErrorAt: new Date().toISOString(),
           } as Json,
         });
@@ -258,7 +273,7 @@ export async function checkVideoGenerationStatus(videoId: string): Promise<Resul
         return {
           ok: true,
           message:
-            "Video generated! Storage upload failed, so use the Download generated video button (link valid ~1 hour).",
+            "Video generated! Storage upload failed, so use the Download generated video button (provider link valid ~1 hour). You can still approve and schedule it.",
         };
       }
       await updateVideoRow(videoId, {
@@ -447,12 +462,22 @@ export async function attachVideoToCalendar(videoId: string): Promise<Result> {
     const meta = (video.metadata as Record<string, unknown>) ?? {};
     const title = String(meta.title ?? video.hook.slice(0, 80) ?? "Video package");
 
+    // Phase 38 — a video that generated but failed to upload still has a
+    // usable asset: the direct-download proxy. Never block the calendar.
+    const directDownloadUrl =
+      typeof meta.direct_download_url === "string" && meta.direct_download_url
+        ? meta.direct_download_url
+        : meta.directDownloadOnly === true
+          ? `/api/video/download/${video.id}`
+          : "";
+    const assetUrl = video.video_url || directDownloadUrl;
+
     let calendarId = video.calendar_item_id;
     if (calendarId) {
       await supabase
         .from("content_calendar")
         .update({
-          asset_url: video.video_url,
+          asset_url: assetUrl,
           asset_type: "video",
           caption: video.caption,
           hook: video.hook,
@@ -467,10 +492,10 @@ export async function attachVideoToCalendar(videoId: string): Promise<Result> {
         caption: video.caption,
         hook: video.hook,
         cta: video.cta,
-        assetUrl: video.video_url,
+        assetUrl,
         assetType: "video",
         assetPrompt: String(meta.thumbnailPrompt ?? ""),
-        status: video.video_url ? "ready_to_publish" : "needs_asset",
+        status: assetUrl ? "ready_to_publish" : "needs_asset",
         approvalStatus: "approved",
         sourceAgent: "bloom",
         sourceTable: "generated_videos",

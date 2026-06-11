@@ -3,20 +3,22 @@ import { AlertTriangle, CheckCircle2, Download, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { ConfigBanner } from "@/components/ui/config-banner";
+import { StorageTestButton } from "@/components/admin/storage-test-button";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { runVideoDiagnostics, type CheckStatus } from "@/lib/video/video-diagnostics";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_ICON: Record<CheckStatus, { icon: typeof CheckCircle2; tone: string }> = {
-  ok: { icon: CheckCircle2, tone: "text-emerald-600" },
-  warning: { icon: AlertTriangle, tone: "text-amber-600" },
-  error: { icon: XCircle, tone: "text-red-600" },
+const STATUS_ICON: Record<CheckStatus, { icon: typeof CheckCircle2; tone: string; label: string }> = {
+  ok: { icon: CheckCircle2, tone: "text-emerald-600", label: "PASS" },
+  warning: { icon: AlertTriangle, tone: "text-amber-600", label: "WARNING" },
+  error: { icon: XCircle, tone: "text-red-600", label: "FAIL" },
 };
 
 const JOB_BADGE: Record<string, "success" | "warning" | "danger" | "info" | "muted"> = {
   generated: "success",
+  generated_not_uploaded: "warning",
   approved: "success",
   scheduled: "success",
   generating: "warning",
@@ -46,9 +48,12 @@ export default async function VideoDiagnosticsPage() {
       />
 
       <div className="mb-6 rounded-2xl border border-brand-border bg-white p-4">
-        <p className="text-sm font-semibold text-brand-primary">
-          {failing === 0 ? "Pipeline healthy" : `${failing} blocking issue${failing > 1 ? "s" : ""} found`}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-brand-primary">
+            {failing === 0 ? "Pipeline healthy" : `${failing} blocking issue${failing > 1 ? "s" : ""} found`}
+          </p>
+          <StorageTestButton bucket={diagnostics.bucket} />
+        </div>
         <div className="mt-3 space-y-3">
           {diagnostics.checks.map((check) => {
             const meta = STATUS_ICON[check.status];
@@ -57,8 +62,11 @@ export default async function VideoDiagnosticsPage() {
               <div key={check.id} className="flex items-start gap-3 rounded-xl border border-brand-border/50 bg-brand-bg/40 p-3">
                 <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${meta.tone}`} />
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-brand-primary">{check.label}</p>
-                  <p className="mt-0.5 text-xs text-brand-muted">{check.message}</p>
+                  <p className="text-sm font-semibold text-brand-primary">
+                    <span className={`mr-1.5 text-[10px] font-bold ${meta.tone}`}>{meta.label}</span>
+                    {check.label}
+                  </p>
+                  <p className="mt-0.5 break-words text-xs text-brand-muted">{check.message}</p>
                   {check.fix && (
                     <p className="mt-1 text-xs font-medium text-amber-800">Fix: {check.fix}</p>
                   )}

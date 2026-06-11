@@ -1,5 +1,5 @@
 import { getOpenAIConfig, isOpenAIConfigured } from "@/lib/openai/config";
-import { createServerClient } from "@/lib/supabase/server";
+import { uploadToBucket, ASSET_BUCKET } from "@/lib/storage/media-storage";
 
 export interface ImageGenerationResult {
   ok: boolean;
@@ -28,20 +28,12 @@ export function isImageGenerationConfigured(): boolean {
  * bucket isn't available so the preview still works.
  */
 async function storeBase64Image(b64: string, format: string): Promise<string> {
-  try {
-    const supabase = createServerClient();
-    const bytes = Buffer.from(b64, "base64");
-    const path = `images/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${format}`;
-    const { error } = await supabase.storage
-      .from("generated-assets")
-      .upload(path, bytes, { contentType: `image/${format}`, upsert: false });
-    if (!error) {
-      const { data } = supabase.storage.from("generated-assets").getPublicUrl(path);
-      if (data?.publicUrl) return data.publicUrl;
-    }
-  } catch {
-    // fall through to data URL
-  }
+  // Phase 38 — service-role upload (bypasses storage RLS); data URL fallback
+  // keeps the preview alive if storage is completely unavailable.
+  const bytes = Buffer.from(b64, "base64");
+  const path = `images/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${format}`;
+  const stored = await uploadToBucket(ASSET_BUCKET, path, bytes, `image/${format}`);
+  if (stored.ok && stored.url) return stored.url;
   return `data:image/${format};base64,${b64}`;
 }
 

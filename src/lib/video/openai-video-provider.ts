@@ -1,6 +1,6 @@
 import { getOpenAIClient } from "@/lib/openai/client";
 import { isOpenAIConfigured } from "@/lib/openai/config";
-import { createServerClient } from "@/lib/supabase/server";
+import { uploadToBucket, VIDEO_BUCKET } from "@/lib/storage/media-storage";
 import type { StoredVideoResult, VideoGenerationJob } from "@/lib/video/types";
 
 /**
@@ -112,18 +112,16 @@ export async function retrieveOpenAIVideoJob(jobId: string): Promise<VideoGenera
   }
 }
 
-async function storeBinary(bucketPath: string, bytes: Buffer, contentType: string): Promise<string | null> {
-  try {
-    const supabase = createServerClient();
-    const { error } = await supabase.storage
-      .from("generated-videos")
-      .upload(bucketPath, bytes, { contentType, upsert: false });
-    if (error) return null;
-    const { data } = supabase.storage.from("generated-videos").getPublicUrl(bucketPath);
-    return data?.publicUrl ?? null;
-  } catch {
-    return null;
-  }
+// Phase 38 — uploads go through the service-role client (bypasses storage
+// RLS) and the exact failure reason is propagated instead of swallowed.
+async function storeBinary(
+  bucketPath: string,
+  bytes: Buffer,
+  contentType: string
+): Promise<{ url: string | null; error?: string }> {
+  const result = await uploadToBucket(VIDEO_BUCKET, bucketPath, bytes, contentType);
+  if (result.ok && result.url) return { url: result.url };
+  return { url: null, error: result.error };
 }
 
 /**
@@ -144,13 +142,13 @@ export async function downloadAndStoreOpenAIVideo(jobId: string): Promise<Stored
     }
     const videoBytes = Buffer.from(await videoRes.arrayBuffer());
     const stamp = `${Date.now()}-${jobId.slice(-8)}`;
-    const videoUrl = await storeBinary(`videos/${stamp}.mp4`, videoBytes, "video/mp4");
-    if (!videoUrl) {
+    const stored = await storeBinary(`videos/${stamp}.mp4`, videoBytes, "video/mp4");
+    if (!stored.url) {
       return {
         ok: false,
         storageFailed: true,
-        error:
-          "Video generated successfully, but the storage upload failed. Use the direct download link, or fix storage (see /admin/video-diagnostics) and check status again.",
+        storageError: stored.error,
+        error: `Video generated successfully, but the storage upload failed: ${stored.error ?? "unknown storage error"}. Use the direct download link, or run the storage test at /admin/video-diagnostics and check status again.`,
       };
     }
 
@@ -159,13 +157,13 @@ export async function downloadAndStoreOpenAIVideo(jobId: string): Promise<Stored
       const thumbRes = await client.videos.downloadContent(jobId, { variant: "thumbnail" });
       if (thumbRes.ok) {
         const thumbBytes = Buffer.from(await thumbRes.arrayBuffer());
-        thumbnailUrl = (await storeBinary(`thumbnails/${stamp}.webp`, thumbBytes, "image/webp")) ?? undefined;
+        thumbnailUrl = (await storeBinary(`thumbnails/${stamp}.webp`, thumbBytes, "image/webp")).url ?? undefined;
       }
     } catch {
       // thumbnail is best-effort
     }
 
-    return { ok: true, videoUrl, thumbnailUrl };
+    return { ok: true, videoUrl: stored.url, thumbnailUrl };
   } catch (e) {
     return { ok: false, error: errorMessage(e) };
   }

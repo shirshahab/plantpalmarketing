@@ -25,6 +25,7 @@ const STATUS_BADGES: Record<string, { label: string; variant: "success" | "warni
   pending_generation: { label: "Awaiting generation", variant: "info" },
   generating: { label: "Generating…", variant: "warning" },
   generated: { label: "Video ready — review", variant: "warning" },
+  generated_not_uploaded: { label: "Video ready — storage failed, download below", variant: "warning" },
   failed: { label: "Generation failed", variant: "danger" },
   approved: { label: "Video approved", variant: "success" },
   rejected: { label: "Rejected", variant: "danger" },
@@ -92,12 +93,18 @@ export function VideoPackagePanel({
   const bRoll = Array.isArray(meta.bRollList) ? (meta.bRollList as string[]) : [];
   const hashtags = Array.isArray(meta.hashtags) ? (meta.hashtags as string[]) : [];
   const checklist = Array.isArray(meta.uploadChecklist) ? (meta.uploadChecklist as string[]) : [];
-  const reviewable = ["package_ready", "generated"].includes(video.status);
+  // Phase 38 — generated_not_uploaded videos are fully reviewable: approve,
+  // reject, request edits, attach to calendar, download. Storage broke,
+  // the video didn't.
+  const reviewable = ["package_ready", "generated", "generated_not_uploaded"].includes(video.status);
   const generatable = ["package_ready", "provider_not_configured", "failed", "needs_revision"].includes(video.status);
   const lastError = video.errorMessage || (typeof meta.lastError === "string" ? meta.lastError : "");
-  // Phase 34 — generation succeeded but the storage upload failed: the video
-  // is still retrievable through the server-side download proxy (~1 hour).
-  const directDownloadOnly = meta.directDownloadOnly === true && !video.videoUrl && Boolean(video.jobId);
+  // Generation succeeded but the storage upload failed: the video is still
+  // retrievable through the server-side download proxy (~1 hour).
+  const directDownloadOnly =
+    (meta.directDownloadOnly === true || video.status === "generated_not_uploaded") &&
+    !video.videoUrl &&
+    Boolean(video.jobId);
 
   return (
     <div className="mt-4 rounded-xl border border-brand-border bg-white p-4">
@@ -239,7 +246,7 @@ export function VideoPackagePanel({
         <Button size="sm" variant="ghost" onClick={() => copyText(video.caption, "Caption")}>
           <Copy className="mr-1 h-3.5 w-3.5" /> Copy caption
         </Button>
-        {video.status === "approved" && !video.calendarItemId && (
+        {["approved", "generated_not_uploaded"].includes(video.status) && !video.calendarItemId && (
           <Button size="sm" disabled={pending} onClick={() => run(() => attachVideoToCalendar(video.id))}>
             <CalendarPlus className="mr-1 h-3.5 w-3.5" /> Mark ready for calendar
           </Button>
