@@ -9,9 +9,11 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { CreateImagePromptForm } from "@/components/forms/create-image-prompt-form";
 import { DeleteButton } from "@/components/shared/delete-button";
 import { ApprovalActions } from "@/components/shared/approval-actions";
+import { ImageAssetPanel } from "@/components/assets/image-asset-panel";
 import { imageCategories } from "@/components/layout/nav-items";
 import { fetchPageData } from "@/lib/db/fetch-page-data";
 import { getImagePrompts } from "@/lib/db/queries";
+import { getAssetsByPrompt } from "@/lib/db/asset-queries";
 import { formatDate } from "@/lib/utils";
 
 const categoryLabels: Record<string, string> = {
@@ -21,6 +23,7 @@ const categoryLabels: Record<string, string> = {
 
 export default async function ImagePromptsPage() {
   const { data, error, configured } = await fetchPageData(getImagePrompts);
+  const assetsByPrompt = configured ? await getAssetsByPrompt().catch(() => new Map()) : new Map();
 
   if (!configured) {
     return (<div><PageHeader title="Image Prompt Generator" /><ConfigBanner /></div>);
@@ -28,7 +31,7 @@ export default async function ImagePromptsPage() {
 
   return (
     <div>
-      <PageHeader title="Image Prompt Generator" description="AI-ready prompts for social graphics and plant visuals." action={<CreateImagePromptForm />} />
+      <PageHeader title="Image Asset Studio" description="Prompt → approve → generate → review the finished image → attach to calendar." action={<CreateImagePromptForm />} />
       {error && <ErrorBanner message={error} />}
 
       <div className="mb-8 flex flex-wrap gap-2">
@@ -62,6 +65,12 @@ export default async function ImagePromptsPage() {
                       <ApprovalActions table="image_prompts" id={prompt.id} initialStatus={prompt.status} />
                       <DeleteButton table="image_prompts" id={prompt.id} />
                     </div>
+                    <ImageAssetPanel
+                      promptId={prompt.id}
+                      promptText={prompt.prompt}
+                      promptApproved={prompt.status === "approved"}
+                      asset={assetsByPrompt.get(prompt.id) ?? null}
+                    />
                   </div>
                 </div>
               </CardContent>

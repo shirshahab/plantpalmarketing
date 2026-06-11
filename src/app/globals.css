@@ -299,6 +299,15 @@ body {
 }
 .hq-anim-spark-2 { animation: hq-anim-spark-2 1.8s ease-in-out infinite; transform-origin: 17px 23px; }
 
+/* Fern — paintbrush strokes across the easel canvas */
+@keyframes hq-anim-paint {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  25% { transform: rotate(-14deg) translateY(-1px); }
+  55% { transform: rotate(8deg) translateY(0.5px); }
+  80% { transform: rotate(-6deg) translateY(-0.5px); }
+}
+.hq-anim-paint { animation: hq-anim-paint 1.3s ease-in-out infinite; }
+
 /* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .hq-anim-inspect, .hq-anim-sway, .hq-anim-pulse-soft, .hq-anim-wave,
@@ -306,7 +315,7 @@ body {
   .hq-anim-gate, .hq-anim-megaphone, .hq-anim-radar, .hq-anim-tail,
   .hq-anim-handshake, .hq-anim-papers, .hq-anim-point, .hq-anim-globe,
   .hq-anim-bubble-1, .hq-anim-bubble-2, .hq-anim-spark, .hq-anim-spark-2,
-  .hq-anim-route path {
+  .hq-anim-paint, .hq-anim-route path {
     animation: none;
   }
 }

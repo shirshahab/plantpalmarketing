@@ -25,7 +25,7 @@ const BASE_AGENTS: Pick<HQAgentData, "id" | "name" | "role" | "station" | "accen
   { id: "competitor", name: "Sentinel", role: "Competitor Intelligence Agent", station: "Watchtower", accent: "#3d4f5f", character: "sentinel" },
   { id: "partnerships", name: "Oak", role: "Partnership Manager", station: "Partnership Grove", accent: "#92400e", character: "oak" },
   { id: "growth", name: "Atlas", role: "Head of Growth", station: "Growth Observatory", accent: "#0369a1", character: "atlas" },
-  { id: "acquisition", name: "Fern", role: "User Acquisition Agent", station: "Growth Greenhouse", accent: "#15803d", character: "fern" },
+  { id: "acquisition", name: "Fern", role: "Visual Designer & Acquisition", station: "Creative Studio", accent: "#15803d", character: "fern" },
   { id: "customer_voice", name: "Echo", role: "Voice of Customer Agent", station: "Customer Garden", accent: "#9f1239", character: "echo" },
   { id: "approval", name: "Gate", role: "Approval Agent", station: "Launch Gate", accent: "#2d6a4f", character: "gatekeeper" },
 ];

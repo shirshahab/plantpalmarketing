@@ -54,6 +54,7 @@ export const mainNavItems: NavItem[] = [
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/automation", label: "Automation", icon: Zap },
   { href: "/approvals", label: "Approvals / Founder Inbox", icon: CheckSquare },
+  { href: "/reddit", label: "Reddit", icon: MessageSquare },
   { href: "/content", label: "Content Studio", icon: Sparkles },
   { href: "/x", label: "Analytics", icon: BarChart3 },
   { href: "/integrations", label: "Integrations", icon: Plug },
@@ -76,7 +77,7 @@ export const agentNavGroup: NavGroup = {
     { href: "/ivy", label: "Ivy — Chief of Staff", icon: Crown },
     { href: "/atlas", label: "Atlas — Head of Growth", icon: Sprout },
     { href: "/echo", label: "Echo — Voice of Customer", icon: MessageCircleHeart },
-    { href: "/fern", label: "Fern — User Acquisition", icon: Sprout },
+    { href: "/fern", label: "Fern — Visual Designer", icon: Sprout },
   ],
 };
 
@@ -93,8 +94,8 @@ export const moreNavGroup: NavGroup = {
     { href: "/agents/approved", label: "Approved Content", icon: ThumbsUp },
     { href: "/agents/rejected", label: "Rejected Content", icon: ThumbsDown },
     { href: "/social", label: "Social Posts", icon: FileText },
-    { href: "/images", label: "Image Prompts", icon: Image },
-    { href: "/video", label: "Video Scripts", icon: Video },
+    { href: "/images", label: "Image Asset Studio", icon: Image },
+    { href: "/video", label: "Video Studio", icon: Video },
     { href: "/replies", label: "Social Reply Drafts", icon: MessageSquare },
     { href: "/x", label: "X Dashboard", icon: Twitter },
     { href: "/partnerships", label: "Partnership Tracker (Legacy)", icon: Handshake },

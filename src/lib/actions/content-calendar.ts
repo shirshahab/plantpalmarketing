@@ -5,9 +5,79 @@ import { createServerClient } from "@/lib/supabase/server";
 import { logCalendarPublish } from "@/lib/content-calendar/sync";
 import { publishApprovedXTweet } from "@/lib/integrations/x-service";
 import { isXPublishConfigured } from "@/lib/integrations/config";
+import { recordHandoff } from "@/lib/collaboration/handoff";
 import type { CalendarStatus } from "@/lib/types";
 
 export type CalendarActionResult = { ok: true; message?: string } | { ok: false; error: string };
+
+/**
+ * Phase 29 — founder leaves feedback directly on a calendar item.
+ * Saves to content_feedback, optionally sends the item back to an agent
+ * (status → needs_revision + revision task + message).
+ */
+export async function submitCalendarItemFeedback(input: {
+  id: string;
+  feedbackCategory: string;
+  note?: string;
+  sendBackTo?: "sage" | "bloom" | "fern" | "";
+}): Promise<CalendarActionResult> {
+  try {
+    const supabase = createServerClient();
+    const note = (input.note ?? "").trim();
+    const sendBack = input.sendBackTo ?? "";
+
+    const { data: item, error: itemError } = await supabase
+      .from("content_calendar")
+      .select("id, title, platform")
+      .eq("id", input.id)
+      .maybeSingle();
+    if (itemError || !item) return { ok: false, error: itemError?.message ?? "Calendar item not found" };
+
+    try {
+      await supabase.from("content_feedback").insert({
+        source_table: "content_calendar",
+        source_id: item.id,
+        calendar_item_id: item.id,
+        content_id: item.id,
+        content_type: "calendar_item",
+        agent_id: sendBack,
+        feedback_type: "calendar_review",
+        decision: sendBack ? "revision_requested" : "note",
+        feedback_category: input.feedbackCategory,
+        feedback_text: note,
+        sent_back_to_agent: sendBack,
+        created_by: "founder",
+      });
+    } catch {
+      // optional table — feedback still flows through the revision path below
+    }
+
+    if (sendBack) {
+      await supabase
+        .from("content_calendar")
+        .update({ status: "needs_revision", notes: note || input.feedbackCategory })
+        .eq("id", item.id);
+      await recordHandoff({
+        fromAgent: "gate",
+        toAgent: sendBack,
+        workflowName: `Gate → ${sendBack[0].toUpperCase()}${sendBack.slice(1)}`,
+        triggerType: "calendar_revision",
+        triggerId: item.id,
+        taskType: "content_revision",
+        taskDescription: `Revise "${item.title}" (${input.feedbackCategory}). Founder notes: ${note || "see category"}`,
+        priority: "high",
+        messageTitle: `Revision requested — ${input.feedbackCategory}`,
+        messageBody: `Founder feedback on "${item.title}" (${item.platform}):\n\n${note || input.feedbackCategory}`,
+        activityDetail: `Founder sent "${item.title}" back to ${sendBack} — ${input.feedbackCategory}`,
+      });
+    }
+
+    await revalidateDashboard();
+    return { ok: true, message: sendBack ? `Sent back to ${sendBack}` : "Feedback saved" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Feedback failed" };
+  }
+}
 
 export async function updateCalendarItemStatus(
   id: string,

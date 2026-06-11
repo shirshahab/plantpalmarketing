@@ -51,6 +51,8 @@ Apply each file in **SQL Editor** before deploying to Vercel. Filenames are pref
 45. `045_phase26_discovery_items.sql`
 46. `046_phase27_executive_daily_report.sql`
 47. `047_phase28_pipeline_and_feedback.sql`
+48. `048_phase29_missing_tables_and_assets.sql`
+49. `049_phase29_reddit_automation.sql`
 
 ## If you already ran early migrations
 
@@ -67,6 +69,8 @@ Minimum repair set for current HQ features:
 - `045_phase26_discovery_items.sql` — fixes "Could not find the table public.discovery_items" (run after 042)
 - `046_phase27_executive_daily_report.sql` — creates `daily_reports`/`workflow_runs`/`growth_action_items` if missing (replaces needing 036 first) and adds structured executive sections (content/growth reports, action plan, founder review)
 - `047_phase28_pipeline_and_feedback.sql` — fixes "Could not find the table public.pipeline_content"; adds approval feedback columns to `approval_queue` (+ `revision_requested` status), `needs_revision` on `content_calendar`, and the `content_feedback` table (run after 042 + 043)
+- `048_phase29_missing_tables_and_assets.sql` — fixes "Could not find the table public.ivy_briefs / public.agent_conversations / public.pipeline_content" (self-sufficient — also creates `ivy_recommendations`, `ivy_alerts`, `agent_profiles`, `agent_memory`, `agent_decisions`); adds `generated_assets` (image pipeline) and `generated_videos` (video packages); upgrades `content_feedback` with `content_id`/`content_type`/`agent_id`/`feedback_type`
+- `049_phase29_reddit_automation.sql` — Reddit help-first automation: `reddit_accounts`, `reddit_opportunities`, `reddit_reply_drafts`, `reddit_publish_logs`, `reddit_safety_rules` (seeded with conservative limits: 5/day, 1/subreddit/day, no links, founder approval required)
 
 ## After running
 

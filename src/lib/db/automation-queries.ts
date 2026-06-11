@@ -130,14 +130,100 @@ export async function getAgentActivityToday(limit = 40) {
   return (data ?? []).map(mapAgentActivityLog);
 }
 
+const WORKBOARD_AGENTS = [
+  "scout",
+  "roots",
+  "bloom",
+  "sage",
+  "gate",
+  "sprout",
+  "sentinel",
+  "oak",
+  "ivy",
+  "atlas",
+  "echo",
+  "fern",
+] as const;
+
+export interface AgentWorkboardEntry {
+  agentId: string;
+  didToday: number;
+  lastAction: string;
+  doingNow: string;
+  pendingTasks: number;
+  blockedTasks: number;
+  nextRunAt: string | null;
+}
+
+/**
+ * Phase 29 — what each agent did today, is doing now, next scheduled run,
+ * blocked items, and items awaiting the founder. Every read degrades to
+ * empty values when an optional table is missing.
+ */
+export async function getAgentWorkboard(): Promise<{
+  entries: AgentWorkboardEntry[];
+  awaitingFounder: number;
+}> {
+  const supabase = createServerClient();
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [activity, tasks, schedules, approvals, batch] = await Promise.all([
+    supabase
+      .from("agent_activity_log")
+      .select("agent_id, action, detail, created_at")
+      .gte("created_at", todayStart.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(300),
+    supabase
+      .from("agent_tasks")
+      .select("assigned_agent, status, description")
+      .in("status", ["pending", "in_progress", "blocked"])
+      .limit(300),
+    supabase.from("agent_schedules").select("agent_id, next_run_at"),
+    supabase.from("approval_queue").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("batch_approvals").select("id", { count: "exact", head: true }).eq("status", "pending"),
+  ]);
+
+  const activityRows = activity.error ? [] : (activity.data ?? []);
+  const taskRows = tasks.error ? [] : (tasks.data ?? []);
+  const scheduleRows = schedules.error ? [] : (schedules.data ?? []);
+
+  const entries: AgentWorkboardEntry[] = WORKBOARD_AGENTS.map((agentId) => {
+    const agentActivity = activityRows.filter((a) => a.agent_id === agentId);
+    const agentTasks = taskRows.filter((t) => t.assigned_agent === agentId);
+    const inProgress = agentTasks.find((t) => t.status === "in_progress");
+    const schedule = scheduleRows.find((s) => s.agent_id === agentId);
+    return {
+      agentId,
+      didToday: agentActivity.length,
+      lastAction: agentActivity[0]?.detail ?? "",
+      doingNow: inProgress
+        ? inProgress.description.slice(0, 100)
+        : agentTasks.length > 0
+          ? `${agentTasks.length} queued task${agentTasks.length === 1 ? "" : "s"}`
+          : "Idle — waiting for work",
+      pendingTasks: agentTasks.filter((t) => t.status === "pending" || t.status === "in_progress").length,
+      blockedTasks: agentTasks.filter((t) => t.status === "blocked").length,
+      nextRunAt: schedule?.next_run_at ?? null,
+    };
+  });
+
+  const awaitingFounder =
+    (approvals.error ? 0 : (approvals.count ?? 0)) + (batch.error ? 0 : (batch.count ?? 0));
+
+  return { entries, awaitingFounder };
+}
+
 export async function getAutomationPageData() {
-  const [rules, runs, failedRuns, inbox, packages, todayActivity] = await Promise.all([
+  const [rules, runs, failedRuns, inbox, packages, todayActivity, workboard] = await Promise.all([
     getAutomationRules(),
     getAutomationRuns(30),
     getFailedAutomationRuns(10),
     getBatchInboxItems(),
     getPublishingPackages(),
     getAgentActivityToday(),
+    getAgentWorkboard(),
   ]);
-  return { rules, runs, failedRuns, inbox, packages, todayActivity };
+  return { rules, runs, failedRuns, inbox, packages, todayActivity, workboard };
 }

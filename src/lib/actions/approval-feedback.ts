@@ -41,7 +41,13 @@ export async function submitApprovalDecision(input: ApprovalFeedbackInput): Prom
     const isApprove = input.decision === "approve" || input.decision === "approve_with_note";
     const isReject = input.decision === "reject";
     const sendBackAgent =
-      input.decision === "send_back_to_sage" ? "sage" : input.decision === "send_back_to_bloom" ? "bloom" : "";
+      input.decision === "send_back_to_sage"
+        ? "sage"
+        : input.decision === "send_back_to_bloom"
+          ? "bloom"
+          : input.decision === "send_back_to_fern"
+            ? "fern"
+            : "";
 
     const status = isApprove ? "approved" : isReject ? "rejected" : "revision_requested";
 
@@ -92,6 +98,25 @@ export async function submitApprovalDecision(input: ApprovalFeedbackInput): Prom
       sent_back_to_agent: sendBackAgent,
       created_by: "founder",
     });
+
+    // Agents learn from feedback — store the pattern in agent_memory
+    if (!isApprove) {
+      const learner = sendBackAgent || "sage";
+      try {
+        await supabase.from("agent_memory").upsert(
+          {
+            agent_id: learner,
+            memory_key: `founder_feedback:${category.replace(/\s+/g, "_")}`,
+            memory_value: `Founder feedback (${category}): ${note || "recurring theme — adjust future drafts"}`,
+            memory_type: "preference",
+            importance: 80,
+          },
+          { onConflict: "agent_id,memory_key" }
+        );
+      } catch {
+        // optional table
+      }
+    }
 
     if (isApprove || isReject) {
       await syncApprovalQueueItemToCalendar(input.id, isApprove);

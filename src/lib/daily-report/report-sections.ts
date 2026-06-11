@@ -376,7 +376,7 @@ export function buildActionPlan(
     system: pad(system, [
       { title: "Run a full integration health check", ownerAgent: "ivy", priority: "low", impactScore: 50, nextStep: "Click Test All Connections on /integrations.", category: "system", targetRoute: "/integrations", targetLabel: "Open Integrations" },
       { title: "Verify cron schedules fired", ownerAgent: "ivy", priority: "low", impactScore: 48, nextStep: "Check /agent-operations run history for the overnight window.", category: "system", targetRoute: "/agent-operations", targetLabel: "Open Agent Operations" },
-      { title: "Confirm Supabase migrations are current", ownerAgent: "ivy", priority: "low", impactScore: 45, nextStep: "Compare supabase/MIGRATIONS.md against your SQL editor history.", category: "system", targetRoute: "/integrations", targetLabel: "Open Integrations" },
+      { title: "Confirm Supabase migrations are current", ownerAgent: "ivy", priority: "low", impactScore: 45, nextStep: "Compare supabase/MIGRATIONS.md against your SQL editor history.", category: "system", targetRoute: "/debug/database", targetLabel: "Open Database Debug" },
     ]),
   };
 }

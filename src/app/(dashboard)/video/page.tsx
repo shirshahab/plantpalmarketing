@@ -8,12 +8,15 @@ import { ConfigBanner } from "@/components/ui/config-banner";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { DeleteButton } from "@/components/shared/delete-button";
 import { ApprovalActions } from "@/components/shared/approval-actions";
+import { VideoPackagePanel } from "@/components/assets/video-package-panel";
 import { fetchPageData } from "@/lib/db/fetch-page-data";
 import { getVideoScripts } from "@/lib/db/queries";
+import { getVideosByScript } from "@/lib/db/asset-queries";
 import { formatDate } from "@/lib/utils";
 
 export default async function VideoScriptsPage() {
   const { data, error, configured } = await fetchPageData(getVideoScripts);
+  const videosByScript = configured ? await getVideosByScript().catch(() => new Map()) : new Map();
 
   if (!configured) {
     return (<div><PageHeader title="Video Script Generator" /><ConfigBanner /></div>);
@@ -21,7 +24,7 @@ export default async function VideoScriptsPage() {
 
   return (
     <div>
-      <PageHeader title="Video Script Generator" description="Short-form scripts with hooks, scenes, voiceover, and CTAs." />
+      <PageHeader title="Video Studio" description="Script → approve → full video package → review the final video → calendar." />
       {error && <ErrorBanner message={error} />}
 
       {!data || data.length === 0 ? (
@@ -82,6 +85,11 @@ export default async function VideoScriptsPage() {
                     </div>
                   </div>
                 </div>
+                <VideoPackagePanel
+                  scriptId={script.id}
+                  scriptApproved={script.status === "approved"}
+                  video={videosByScript.get(script.id) ?? null}
+                />
               </CardContent>
             </Card>
           ))}

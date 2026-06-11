@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import { isMissingTableError } from "@/lib/integrations/db-safe";
 import { mapAgentActivityLog, mapIvyAlert, mapIvyBrief, mapIvyRecommendation } from "@/lib/supabase/mappers";
 import type { IvyBriefType, IvyRecommendationCategory } from "@/lib/types";
 
@@ -15,7 +16,10 @@ export async function getLatestIvyBrief(type: IvyBriefType) {
     .order("run_date", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingTableError(error)) return null;
+    throw new Error(error.message);
+  }
   return data ? mapIvyBrief(data) : null;
 }
 
@@ -28,7 +32,10 @@ export async function getIvyRecommendations(date?: string, category?: IvyRecomme
     .order("priority_score", { ascending: false });
   if (category) query = query.eq("category", category);
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    throw new Error(error.message);
+  }
   return (data ?? []).map(mapIvyRecommendation);
 }
 
@@ -40,7 +47,10 @@ export async function getIvyAlerts(date?: string) {
     .eq("brief_date", date ?? todayDateString())
     .eq("status", "active")
     .order("priority_score", { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    throw new Error(error.message);
+  }
   return (data ?? []).map(mapIvyAlert);
 }
 

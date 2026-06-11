@@ -1,0 +1,254 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createServerClient } from "@/lib/supabase/server";
+import { isMissingTableError } from "@/lib/integrations/db-safe";
+import {
+  generateImageWithProvider,
+  isImageGenerationConfigured,
+} from "@/lib/integrations/providers/image-generation-provider";
+import { upsertCalendarItem } from "@/lib/content-calendar/sync";
+import { recordHandoff } from "@/lib/collaboration/handoff";
+import type { Json } from "@/lib/supabase/database.types";
+
+type Result = { ok: true; message?: string } | { ok: false; error: string };
+
+const MIGRATION_HINT =
+  "generated_assets table not found — run supabase/migrations/048_phase29_missing_tables_and_assets.sql";
+
+async function tryFeedback(row: Record<string, unknown>) {
+  try {
+    const supabase = createServerClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await supabase.from("content_feedback").insert(row as any);
+  } catch {
+    // non-blocking
+  }
+}
+
+/**
+ * Part 2 — after a prompt is approved, create the asset package row.
+ * Workflow: prompt → approve prompt → generate image → review → approve → calendar.
+ */
+export async function prepareAssetForPrompt(promptId: string): Promise<Result> {
+  try {
+    const supabase = createServerClient();
+    const { data: prompt, error: promptError } = await supabase
+      .from("image_prompts")
+      .select("*")
+      .eq("id", promptId)
+      .maybeSingle();
+    if (promptError || !prompt) return { ok: false, error: promptError?.message ?? "Prompt not found" };
+
+    // One package per prompt — reuse if it already exists
+    const { data: existing, error: existingError } = await supabase
+      .from("generated_assets")
+      .select("id")
+      .eq("prompt_id", promptId)
+      .limit(1)
+      .maybeSingle();
+    if (existingError && isMissingTableError(existingError)) return { ok: false, error: MIGRATION_HINT };
+    if (existing) return { ok: true, message: "Asset package already exists" };
+
+    const { error } = await supabase.from("generated_assets").insert({
+      prompt_id: promptId,
+      platform: prompt.category === "app_screenshot" ? "x" : "instagram",
+      asset_type: "image",
+      prompt: prompt.prompt,
+      status: "pending_generation",
+      generation_provider: isImageGenerationConfigured() ? "openai" : "none",
+      metadata: { title: prompt.title, category: prompt.category, style: prompt.style } as Json,
+    });
+    if (error) {
+      return { ok: false, error: isMissingTableError(error) ? MIGRATION_HINT : error.message };
+    }
+
+    revalidatePath("/images");
+    return { ok: true, message: "Asset package created — ready to generate" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to prepare asset" };
+  }
+}
+
+/** Generate (or regenerate) the final image for an asset package. */
+export async function generateImageAsset(assetId: string): Promise<Result> {
+  try {
+    const supabase = createServerClient();
+    const { data: asset, error: assetError } = await supabase
+      .from("generated_assets")
+      .select("*")
+      .eq("id", assetId)
+      .maybeSingle();
+    if (assetError || !asset) {
+      return {
+        ok: false,
+        error: assetError && isMissingTableError(assetError) ? MIGRATION_HINT : (assetError?.message ?? "Asset not found"),
+      };
+    }
+
+    await supabase.from("generated_assets").update({ status: "generating" }).eq("id", assetId);
+
+    const result = await generateImageWithProvider(asset.prompt);
+
+    if (!result.ok) {
+      // No provider (or provider failure) — keep the package usable as a placeholder
+      await supabase
+        .from("generated_assets")
+        .update({
+          status: "generated",
+          generation_provider: result.provider,
+          generation_model: result.model,
+          metadata: {
+            ...(asset.metadata as Record<string, unknown>),
+            placeholder: true,
+            providerNote: result.error ?? "Image generation provider not connected yet.",
+          } as Json,
+        })
+        .eq("id", assetId);
+      revalidatePath("/images");
+      return {
+        ok: true,
+        message: result.provider === "none"
+          ? "Image generation provider not connected yet — placeholder package created."
+          : `Generation failed (${result.error}) — placeholder package kept.`,
+      };
+    }
+
+    await supabase
+      .from("generated_assets")
+      .update({
+        status: "generated",
+        image_url: result.url ?? "",
+        thumbnail_url: result.url ?? "",
+        generation_provider: result.provider,
+        generation_model: result.model,
+        metadata: {
+          ...(asset.metadata as Record<string, unknown>),
+          placeholder: false,
+          generatedAt: new Date().toISOString(),
+        } as Json,
+      })
+      .eq("id", assetId);
+
+    revalidatePath("/images");
+    return { ok: true, message: "Image generated — review it below" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Generation failed" };
+  }
+}
+
+/** Founder reviews the finished image: approve / reject / request revision with feedback. */
+export async function reviewGeneratedAsset(input: {
+  assetId: string;
+  decision: "approve" | "reject" | "request_revision";
+  feedbackCategory?: string;
+  note?: string;
+}): Promise<Result> {
+  try {
+    const supabase = createServerClient();
+    const note = (input.note ?? "").trim();
+    const category = input.feedbackCategory || (input.decision === "approve" ? "approved as-is" : "needs better visual");
+    const status =
+      input.decision === "approve" ? "approved" : input.decision === "reject" ? "rejected" : "needs_revision";
+
+    const { error } = await supabase
+      .from("generated_assets")
+      .update({
+        status,
+        review_feedback: note || category,
+        ...(input.decision === "request_revision" ? { revision_notes: note || category } : {}),
+        selected: input.decision === "approve",
+      })
+      .eq("id", input.assetId);
+    if (error) {
+      return { ok: false, error: isMissingTableError(error) ? MIGRATION_HINT : error.message };
+    }
+
+    await tryFeedback({
+      source_table: "generated_assets",
+      source_id: input.assetId,
+      content_id: input.assetId,
+      content_type: "image_asset",
+      agent_id: "fern",
+      feedback_type: "image_review",
+      decision: input.decision === "approve" ? "approved" : input.decision === "reject" ? "rejected" : "revision_requested",
+      feedback_category: category,
+      feedback_text: note,
+      sent_back_to_agent: input.decision === "request_revision" ? "fern" : "",
+      created_by: "founder",
+    });
+
+    if (input.decision === "request_revision") {
+      await recordHandoff({
+        fromAgent: "gate",
+        toAgent: "fern",
+        workflowName: "Gate → Fern",
+        triggerType: "asset_revision",
+        triggerId: input.assetId,
+        taskType: "asset_revision",
+        taskDescription: `Regenerate image asset (${category}). Founder notes: ${note || "see category"}`,
+        priority: "high",
+        messageTitle: `Image revision requested — ${category}`,
+        messageBody: `Founder asked for a new version.\n\nFeedback: ${note || category}`,
+        activityDetail: `Founder sent an image asset back to Fern — ${category}`,
+      });
+    }
+
+    revalidatePath("/images");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Review failed" };
+  }
+}
+
+/** Attach an approved asset to a calendar item (creates one if needed). */
+export async function attachAssetToCalendar(assetId: string): Promise<Result> {
+  try {
+    const supabase = createServerClient();
+    const { data: asset, error: assetError } = await supabase
+      .from("generated_assets")
+      .select("*")
+      .eq("id", assetId)
+      .maybeSingle();
+    if (assetError || !asset) return { ok: false, error: assetError?.message ?? "Asset not found" };
+
+    const meta = (asset.metadata as Record<string, unknown>) ?? {};
+    const title = String(meta.title ?? "Generated visual asset");
+
+    let calendarId = asset.calendar_item_id;
+    if (calendarId) {
+      await supabase
+        .from("content_calendar")
+        .update({ asset_url: asset.image_url, asset_type: "image", asset_prompt: asset.prompt })
+        .eq("id", calendarId);
+    } else {
+      calendarId = await upsertCalendarItem({
+        title,
+        platform: (asset.platform || "instagram") as never,
+        contentType: "image_post",
+        assetUrl: asset.image_url,
+        assetType: "image",
+        assetPrompt: asset.prompt,
+        status: "approved",
+        approvalStatus: "approved",
+        sourceAgent: "fern",
+        sourceTable: "generated_assets",
+        sourceId: asset.id,
+        metadata: { generationProvider: asset.generation_provider, placeholder: meta.placeholder === true },
+      });
+    }
+
+    if (calendarId) {
+      await supabase
+        .from("generated_assets")
+        .update({ calendar_item_id: calendarId, status: "scheduled" })
+        .eq("id", assetId);
+    }
+
+    revalidatePath("/images");
+    revalidatePath("/calendar");
+    return { ok: true, message: "Attached to calendar" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Attach failed" };
+  }
+}

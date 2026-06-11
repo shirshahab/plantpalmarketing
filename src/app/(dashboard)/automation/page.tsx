@@ -1,4 +1,5 @@
 import { AutomationPanel } from "@/components/automation/automation-panel";
+import { AgentWorkboard } from "@/components/automation/agent-workboard";
 import { ConfigBanner } from "@/components/ui/config-banner";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -30,6 +31,9 @@ export default async function AutomationPage() {
         one-click/copy-paste packages. X publishes only after a final human click.
       </div>
       {error && <ErrorBanner message={error} />}
+      {data?.workboard && (
+        <AgentWorkboard entries={data.workboard.entries} awaitingFounder={data.workboard.awaitingFounder} />
+      )}
       <AutomationPanel
         rules={data?.rules ?? []}
         runs={data?.runs ?? []}

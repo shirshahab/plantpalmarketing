@@ -527,6 +527,10 @@ export interface Database {
           source_table: string;
           source_id: string | null;
           calendar_item_id: string | null;
+          content_id: string | null;
+          content_type: string;
+          agent_id: string;
+          feedback_type: string;
           decision: string;
           feedback_category: string;
           feedback_text: string;
@@ -539,6 +543,10 @@ export interface Database {
           source_table?: string;
           source_id?: string | null;
           calendar_item_id?: string | null;
+          content_id?: string | null;
+          content_type?: string;
+          agent_id?: string;
+          feedback_type?: string;
           decision?: string;
           feedback_category?: string;
           feedback_text?: string;
@@ -552,6 +560,353 @@ export interface Database {
           feedback_category?: string;
           feedback_text?: string;
           sent_back_to_agent?: string;
+        }
+      >;
+      generated_assets: TableDef<
+        {
+          id: string;
+          prompt_id: string | null;
+          calendar_item_id: string | null;
+          platform: string;
+          asset_type: string;
+          image_url: string;
+          thumbnail_url: string;
+          generation_provider: string;
+          generation_model: string;
+          prompt: string;
+          status: string;
+          review_feedback: string;
+          revision_notes: string;
+          selected: boolean;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          prompt_id?: string | null;
+          calendar_item_id?: string | null;
+          platform?: string;
+          asset_type?: string;
+          image_url?: string;
+          thumbnail_url?: string;
+          generation_provider?: string;
+          generation_model?: string;
+          prompt?: string;
+          status?: string;
+          review_feedback?: string;
+          revision_notes?: string;
+          selected?: boolean;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          prompt_id?: string | null;
+          calendar_item_id?: string | null;
+          platform?: string;
+          asset_type?: string;
+          image_url?: string;
+          thumbnail_url?: string;
+          generation_provider?: string;
+          generation_model?: string;
+          prompt?: string;
+          status?: string;
+          review_feedback?: string;
+          revision_notes?: string;
+          selected?: boolean;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      generated_videos: TableDef<
+        {
+          id: string;
+          script_id: string | null;
+          calendar_item_id: string | null;
+          platform: string;
+          video_url: string;
+          thumbnail_url: string;
+          script: string;
+          hook: string;
+          scenes: Json;
+          voiceover: string;
+          on_screen_text: Json;
+          caption: string;
+          cta: string;
+          status: string;
+          review_feedback: string;
+          revision_notes: string;
+          generation_provider: string;
+          generation_model: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          script_id?: string | null;
+          calendar_item_id?: string | null;
+          platform?: string;
+          video_url?: string;
+          thumbnail_url?: string;
+          script?: string;
+          hook?: string;
+          scenes?: Json;
+          voiceover?: string;
+          on_screen_text?: Json;
+          caption?: string;
+          cta?: string;
+          status?: string;
+          review_feedback?: string;
+          revision_notes?: string;
+          generation_provider?: string;
+          generation_model?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          script_id?: string | null;
+          calendar_item_id?: string | null;
+          platform?: string;
+          video_url?: string;
+          thumbnail_url?: string;
+          script?: string;
+          hook?: string;
+          scenes?: Json;
+          voiceover?: string;
+          on_screen_text?: Json;
+          caption?: string;
+          cta?: string;
+          status?: string;
+          review_feedback?: string;
+          revision_notes?: string;
+          generation_provider?: string;
+          generation_model?: string;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      reddit_accounts: TableDef<
+        {
+          id: string;
+          username: string;
+          status: string;
+          karma: number;
+          account_age_days: number;
+          monitored_subreddits: string[];
+          rate_limit_remaining: number;
+          last_checked_at: string | null;
+          notes: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          username?: string;
+          status?: string;
+          karma?: number;
+          account_age_days?: number;
+          monitored_subreddits?: string[];
+          rate_limit_remaining?: number;
+          last_checked_at?: string | null;
+          notes?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          username?: string;
+          status?: string;
+          karma?: number;
+          account_age_days?: number;
+          monitored_subreddits?: string[];
+          rate_limit_remaining?: number;
+          last_checked_at?: string | null;
+          notes?: string;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      reddit_opportunities: TableDef<
+        {
+          id: string;
+          subreddit: string;
+          post_id: string;
+          permalink: string;
+          author: string;
+          title: string;
+          question: string;
+          risk_score: number;
+          status: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          subreddit?: string;
+          post_id?: string;
+          permalink?: string;
+          author?: string;
+          title?: string;
+          question?: string;
+          risk_score?: number;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          subreddit?: string;
+          post_id?: string;
+          permalink?: string;
+          author?: string;
+          title?: string;
+          question?: string;
+          risk_score?: number;
+          status?: string;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      reddit_reply_drafts: TableDef<
+        {
+          id: string;
+          opportunity_id: string | null;
+          subreddit: string;
+          post_id: string;
+          comment_id: string;
+          permalink: string;
+          author: string;
+          question: string;
+          draft_reply: string;
+          approved_reply: string;
+          status: string;
+          risk_score: number;
+          review_feedback: string;
+          posted_at: string | null;
+          published_url: string;
+          error_message: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          opportunity_id?: string | null;
+          subreddit?: string;
+          post_id?: string;
+          comment_id?: string;
+          permalink?: string;
+          author?: string;
+          question?: string;
+          draft_reply?: string;
+          approved_reply?: string;
+          status?: string;
+          risk_score?: number;
+          review_feedback?: string;
+          posted_at?: string | null;
+          published_url?: string;
+          error_message?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          opportunity_id?: string | null;
+          subreddit?: string;
+          post_id?: string;
+          comment_id?: string;
+          permalink?: string;
+          author?: string;
+          question?: string;
+          draft_reply?: string;
+          approved_reply?: string;
+          status?: string;
+          risk_score?: number;
+          review_feedback?: string;
+          posted_at?: string | null;
+          published_url?: string;
+          error_message?: string;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      reddit_publish_logs: TableDef<
+        {
+          id: string;
+          draft_id: string | null;
+          subreddit: string;
+          post_id: string;
+          comment_id: string;
+          permalink: string;
+          action: string;
+          status: string;
+          published_url: string;
+          error_message: string;
+          rate_limit_remaining: number | null;
+          metadata: Json;
+          created_at: string;
+        },
+        {
+          id?: string;
+          draft_id?: string | null;
+          subreddit?: string;
+          post_id?: string;
+          comment_id?: string;
+          permalink?: string;
+          action?: string;
+          status?: string;
+          published_url?: string;
+          error_message?: string;
+          rate_limit_remaining?: number | null;
+          metadata?: Json;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          status?: string;
+          published_url?: string;
+          error_message?: string;
+        }
+      >;
+      reddit_safety_rules: TableDef<
+        {
+          id: string;
+          rule_key: string;
+          rule_label: string;
+          rule_value: string;
+          enabled: boolean;
+          notes: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          rule_key: string;
+          rule_label?: string;
+          rule_value?: string;
+          enabled?: boolean;
+          notes?: string;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          rule_key?: string;
+          rule_label?: string;
+          rule_value?: string;
+          enabled?: boolean;
+          notes?: string;
+          updated_at?: string;
         }
       >;
       content_calendar: TableDef<

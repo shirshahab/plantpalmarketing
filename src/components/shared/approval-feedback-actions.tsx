@@ -13,13 +13,14 @@ import {
 } from "@/lib/approvals/feedback-categories";
 import type { Status } from "@/lib/types";
 
-type Mode = "idle" | "approve_note" | "reject" | "send_back_sage" | "send_back_bloom";
+type Mode = "idle" | "approve_note" | "reject" | "send_back_sage" | "send_back_bloom" | "send_back_fern";
 
 const MODE_TO_DECISION: Record<Exclude<Mode, "idle">, ApprovalDecision> = {
   approve_note: "approve_with_note",
   reject: "reject",
   send_back_sage: "send_back_to_sage",
   send_back_bloom: "send_back_to_bloom",
+  send_back_fern: "send_back_to_fern",
 };
 
 const MODE_LABEL: Record<Exclude<Mode, "idle">, string> = {
@@ -27,6 +28,7 @@ const MODE_LABEL: Record<Exclude<Mode, "idle">, string> = {
   reject: "Reject with reason",
   send_back_sage: "Send back to Sage",
   send_back_bloom: "Send back to Bloom",
+  send_back_fern: "Send back to Fern (visuals)",
 };
 
 /**
@@ -154,6 +156,10 @@ export function ApprovalFeedbackActions({
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setMode("send_back_bloom")}>
           <CornerUpLeft className="h-3.5 w-3.5" />
           To Bloom
+        </Button>
+        <Button variant="ghost" size="sm" disabled={pending} onClick={() => setMode("send_back_fern")}>
+          <CornerUpLeft className="h-3.5 w-3.5" />
+          To Fern
         </Button>
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}

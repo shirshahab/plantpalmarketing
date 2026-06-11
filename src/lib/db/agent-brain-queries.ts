@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import { isMissingTableError } from "@/lib/integrations/db-safe";
 import {
   mapAgentConversation,
   mapAgentDecision,
@@ -14,7 +15,10 @@ export async function getAgentProfiles() {
     .select("*")
     .eq("is_active", true)
     .order("agent_id");
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    throw new Error(error.message);
+  }
   return (data ?? []).map(mapAgentProfile);
 }
 
@@ -25,7 +29,10 @@ export async function getAgentProfile(agentId: AgentSlug) {
     .select("*")
     .eq("agent_id", agentId)
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingTableError(error)) return null;
+    throw new Error(error.message);
+  }
   return data ? mapAgentProfile(data) : null;
 }
 
@@ -34,7 +41,10 @@ export async function getAgentMemories(agentId?: AgentSlug, limit = 50) {
   let query = supabase.from("agent_memory").select("*").order("importance", { ascending: false }).limit(limit);
   if (agentId) query = query.eq("agent_id", agentId);
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    throw new Error(error.message);
+  }
   return (data ?? []).map(mapAgentMemory);
 }
 
@@ -43,7 +53,10 @@ export async function getAgentConversations(agentId?: AgentSlug, limit = 30) {
   let query = supabase.from("agent_conversations").select("*").order("created_at", { ascending: false }).limit(limit);
   if (agentId) query = query.eq("agent_id", agentId);
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    throw new Error(error.message);
+  }
   return (data ?? []).map(mapAgentConversation);
 }
 
@@ -52,7 +65,10 @@ export async function getAgentDecisions(agentId?: AgentSlug, limit = 30) {
   let query = supabase.from("agent_decisions").select("*").order("created_at", { ascending: false }).limit(limit);
   if (agentId) query = query.eq("agent_id", agentId);
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    throw new Error(error.message);
+  }
   return (data ?? []).map(mapAgentDecision);
 }
 

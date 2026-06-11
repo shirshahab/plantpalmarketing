@@ -464,28 +464,27 @@ function CharacterSvg({ character, accent }: { character: HQAgent["character"]; 
           {/* lab-apron body */}
           <path d="M16 28 Q24 24.5 32 28 L30 44 L18 44 Z" fill="#eab884" stroke="#9c5a26" strokeWidth="1.2" />
           <path d="M19 29 L29 29 L28 42 L20 42 Z" fill="#f6f8f4" stroke="#9c5a26" strokeWidth="0.8" />
-          {/* signature: calculator */}
-          <rect x="21" y="31" width="6.5" height="8" rx="1" fill="#374151" stroke="#1f2937" strokeWidth="0.8" />
-          <rect x="22" y="32" width="4.5" height="2" rx="0.4" fill="#a7f3d0" />
-          <circle cx="22.8" cy="35.6" r="0.6" fill="#9ca3af" />
-          <circle cx="24.3" cy="35.6" r="0.6" fill="#9ca3af" />
-          <circle cx="25.8" cy="35.6" r="0.6" fill="#9ca3af" />
-          <circle cx="22.8" cy="37.4" r="0.6" fill="#9ca3af" />
-          <circle cx="24.3" cy="37.4" r="0.6" fill="#9ca3af" />
-          <circle cx="25.8" cy="37.4" r="0.6" fill="#facc15" />
-          {/* signature: bubbling experiment flask with sparks */}
-          <path d="M9 27 L9 31 L6 38 Q5.5 41 8.5 41 L13.5 41 Q16.5 41 16 38 L13 31 L13 27 Z" fill="#d6f5e3" stroke="#0d9488" strokeWidth="1.1" />
-          <path d="M8 27 L14 27" stroke="#0d9488" strokeWidth="1.3" strokeLinecap="round" />
-          <path d="M7 37 Q11 35 15 37 L13.5 41 L8.5 41 Z" fill="#34d399" opacity="0.8" />
-          <g className="hq-anim-spark">
-            <circle cx="9.5" cy="33" r="0.8" fill="#34d399" />
-            <circle cx="12" cy="30.5" r="0.6" fill="#34d399" />
+          {/* signature: painter's palette on apron */}
+          <ellipse cx="24" cy="35" rx="4.2" ry="3.2" fill="#f6e3c8" stroke="#9c5a26" strokeWidth="0.9" />
+          <circle cx="22.4" cy="34" r="0.8" fill="#e85d9a" />
+          <circle cx="25.4" cy="33.6" r="0.8" fill="#3b82f6" />
+          <circle cx="24" cy="36.2" r="0.8" fill="#65a30d" />
+          {/* signature: easel with canvas being painted */}
+          <path d="M8 41 L11 27 M16 41 L13 27" stroke="#9c5a26" strokeWidth="1.1" strokeLinecap="round" />
+          <rect x="7.5" y="27" width="9" height="7" rx="0.8" fill="#fffdf7" stroke="#9c5a26" strokeWidth="1" />
+          <path d="M8.5 32 Q10 29.5 11.5 31 Q13 32.5 15.5 29" stroke="#65a30d" strokeWidth="0.9" fill="none" strokeLinecap="round" />
+          <circle cx="13.5" cy="29.5" r="0.9" fill="#e85d9a" opacity="0.85" />
+          {/* animated paintbrush hand */}
+          <g className="hq-anim-paint" style={{ transformOrigin: "14px 33px" }}>
+            <path d="M14 35 L18 30" stroke="#7c4a1f" strokeWidth="1.2" strokeLinecap="round" />
+            <path d="M13.2 36.2 L14.6 34.6" stroke="#e85d9a" strokeWidth="1.8" strokeLinecap="round" />
           </g>
+          {/* tiny camera + film reel — video assets */}
           <g className="hq-anim-spark-2">
-            <path d="M16 24 L17 22 M18.5 26 L20 25 M15 21 L15.5 19.5" stroke="#fbbf24" strokeWidth="1.1" strokeLinecap="round" />
+            <rect x="33" y="30" width="6" height="4.4" rx="0.9" fill="#374151" stroke="#1f2937" strokeWidth="0.7" />
+            <circle cx="36" cy="32.2" r="1.3" fill="#93c5fd" stroke="#1f2937" strokeWidth="0.5" />
+            <path d="M39 31 L41 30 L41 34.4 L39 33.4 Z" fill="#374151" />
           </g>
-          {/* mini growth chart on apron */}
-          <path d="M20.5 41 L22.5 39.8 L24.5 40.5 L27.5 38.8" {...thin} stroke="#0d9488" />
         </>
       );
 

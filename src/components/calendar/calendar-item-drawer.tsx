@@ -22,8 +22,10 @@ import {
   publishCalendarItemToX,
   saveCalendarItemNotes,
   saveCalendarItemPublishedUrl,
+  submitCalendarItemFeedback,
   updateCalendarItemStatus,
 } from "@/lib/actions/content-calendar";
+import { FEEDBACK_CATEGORIES } from "@/lib/approvals/feedback-categories";
 import type {
   CalendarStatus,
   ContentAsset,
@@ -93,6 +95,9 @@ export function CalendarItemDrawer({
   const [notes, setNotes] = useState(item.notes);
   const [publishedUrl, setPublishedUrl] = useState(item.platformUrl);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [fbCategory, setFbCategory] = useState<string>("approved as-is");
+  const [fbNote, setFbNote] = useState("");
+  const [fbSendBack, setFbSendBack] = useState<"" | "sage" | "bloom" | "fern">("");
 
   useEffect(() => {
     setNotes(item.notes);
@@ -392,6 +397,61 @@ export function CalendarItemDrawer({
             >
               <StickyNote className="h-3.5 w-3.5" />
               Save notes
+            </Button>
+          </Section>
+
+          {/* Founder feedback */}
+          <Section title="Founder feedback">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <select
+                value={fbCategory}
+                onChange={(e) => setFbCategory(e.target.value)}
+                className="rounded-lg border border-brand-border bg-white px-2 py-1.5 text-sm text-brand-primary"
+              >
+                {FEEDBACK_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <select
+                value={fbSendBack}
+                onChange={(e) => setFbSendBack(e.target.value as typeof fbSendBack)}
+                className="rounded-lg border border-brand-border bg-white px-2 py-1.5 text-sm text-brand-primary"
+              >
+                <option value="">Keep status — note only</option>
+                <option value="sage">Send back to Sage</option>
+                <option value="bloom">Send back to Bloom</option>
+                <option value="fern">Send back to Fern (visuals)</option>
+              </select>
+            </div>
+            <textarea
+              value={fbNote}
+              onChange={(e) => setFbNote(e.target.value)}
+              rows={2}
+              placeholder="What should the team know or change?"
+              className="w-full rounded-lg border border-brand-border px-3 py-2 text-sm text-brand-primary placeholder:text-brand-muted/60 focus:outline-none focus:ring-2 focus:ring-brand-accent/40"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={pending}
+              onClick={() =>
+                run(async () => {
+                  const result = await submitCalendarItemFeedback({
+                    id: item.id,
+                    feedbackCategory: fbCategory,
+                    note: fbNote,
+                    sendBackTo: fbSendBack,
+                  });
+                  if (result.ok) {
+                    setFbNote("");
+                    setFbSendBack("");
+                  }
+                  return result;
+                })
+              }
+            >
+              <Check className="h-3.5 w-3.5" />
+              Submit feedback
             </Button>
           </Section>
 
