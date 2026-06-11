@@ -13,7 +13,7 @@ import type { Json } from "@/lib/supabase/database.types";
 type Result = { ok: true; message?: string } | { ok: false; error: string };
 
 const MIGRATION_HINT =
-  "SEO blog tables not found — run supabase/migrations/050_phase30_seo_blog.sql";
+  "System setup is still finishing. This section will populate once the backend is ready.";
 
 async function logPublish(row: {
   post_id: string;
@@ -619,7 +619,7 @@ export async function markBlogExported(postId: string): Promise<Result> {
       .eq("id", postId);
     if (error) {
       if (isMissingTableError(error) || error.message.includes("export_status")) {
-        return { ok: false, error: "Export columns missing — run supabase/migrations/053_phase32_website_blog_export.sql" };
+        return { ok: false, error: "System setup is still finishing. Export tracking will work once the backend is ready." };
       }
       return { ok: false, error: error.message };
     }
@@ -662,7 +662,7 @@ export async function saveBlogExportMeta(
       .eq("id", postId);
     if (error) {
       if (isMissingTableError(error) || error.message.includes("author")) {
-        return { ok: false, error: "Export columns missing — run supabase/migrations/053_phase32_website_blog_export.sql" };
+        return { ok: false, error: "System setup is still finishing. Export tracking will work once the backend is ready." };
       }
       return { ok: false, error: error.message };
     }

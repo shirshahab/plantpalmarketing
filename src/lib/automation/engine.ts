@@ -255,7 +255,7 @@ export async function buildDailyApprovalInbox(): Promise<{
   if (error) {
     if (isMissingTableError(error)) {
       throw new Error(
-        "batch_approvals table not found — run supabase/migrations/044_phase26_automation.sql"
+        "System setup is still finishing. The batch approval inbox will populate once the backend is ready."
       );
     }
     throw new Error(error.message);

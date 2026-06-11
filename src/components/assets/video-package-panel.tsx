@@ -2,13 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Check, Clapperboard, Package, Video, X } from "lucide-react";
+import { CalendarPlus, Check, Clapperboard, Copy, Link2, Package, Send, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   buildVideoPackageFromScript,
   reviewGeneratedVideo,
   attachVideoToCalendar,
+  attachVideoUrl,
+  sendVideoToFern,
 } from "@/lib/actions/video-generation";
 import { FEEDBACK_CATEGORIES } from "@/lib/approvals/feedback-categories";
 import type { GeneratedVideo } from "@/lib/db/asset-queries";
@@ -42,6 +44,12 @@ export function VideoPackagePanel({
   const [showFeedback, setShowFeedback] = useState<"reject" | "edits" | null>(null);
   const [category, setCategory] = useState<string>("needs better video pacing");
   const [note, setNote] = useState("");
+  const [showAttachUrl, setShowAttachUrl] = useState(false);
+  const [videoUrlInput, setVideoUrlInput] = useState("");
+
+  const copyText = (text: string, label: string) => {
+    void navigator.clipboard?.writeText(text).then(() => setMessage(`${label} copied`));
+  };
 
   const run = (fn: () => Promise<{ ok: boolean; message?: string; error?: string }>) => {
     startTransition(async () => {
@@ -158,14 +166,51 @@ export function VideoPackagePanel({
             <Button size="sm" variant="secondary" disabled={pending} onClick={() => setShowFeedback("edits")}>
               Request edits
             </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={pending}
+              onClick={() => run(() => sendVideoToFern(video.id, note))}
+            >
+              <Send className="mr-1 h-3.5 w-3.5" /> Send to Fern
+            </Button>
           </>
         )}
+        {!video.videoUrl && (
+          <Button size="sm" variant="secondary" disabled={pending} onClick={() => setShowAttachUrl((v) => !v)}>
+            <Link2 className="mr-1 h-3.5 w-3.5" /> Attach video URL
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" onClick={() => copyText(video.script, "Script")}>
+          <Copy className="mr-1 h-3.5 w-3.5" /> Copy script
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => copyText(video.caption, "Caption")}>
+          <Copy className="mr-1 h-3.5 w-3.5" /> Copy caption
+        </Button>
         {video.status === "approved" && !video.calendarItemId && (
           <Button size="sm" disabled={pending} onClick={() => run(() => attachVideoToCalendar(video.id))}>
             <CalendarPlus className="mr-1 h-3.5 w-3.5" /> Mark ready for calendar
           </Button>
         )}
       </div>
+
+      {showAttachUrl && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-brand-border bg-brand-bg p-3">
+          <input
+            value={videoUrlInput}
+            onChange={(e) => setVideoUrlInput(e.target.value)}
+            placeholder="https://… final video link (Drive, YouTube unlisted, CDN)"
+            className="min-w-0 flex-1 rounded-lg border border-brand-border bg-white px-2 py-1.5 text-xs"
+          />
+          <Button
+            size="sm"
+            disabled={pending || !videoUrlInput.trim()}
+            onClick={() => run(() => attachVideoUrl({ videoId: video.id, videoUrl: videoUrlInput }))}
+          >
+            Attach
+          </Button>
+        </div>
+      )}
 
       {showFeedback && (
         <div className="mt-3 space-y-2 rounded-lg border border-brand-border bg-brand-bg p-3">

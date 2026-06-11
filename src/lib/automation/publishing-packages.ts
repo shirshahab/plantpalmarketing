@@ -157,7 +157,7 @@ export async function buildPublishingPackageForCalendarItem(
     const err = e as { message?: string; code?: string };
     if (isMissingTableError(err)) {
       console.error(
-        "[publishing_packages] table not found — run supabase/migrations/044_phase26_automation.sql"
+        "System setup is still finishing. This section will populate once the backend is ready."
       );
     } else {
       console.error("[publishing_packages] build failed:", err.message ?? e);

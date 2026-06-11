@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { generateDailyReport } from "@/lib/actions/daily-report";
+import { workflowHealthHref } from "@/lib/navigation/resolve-action-target";
 import { formatDate } from "@/lib/utils";
 import type { ActionItemEntry, DailyReport, GrowthActionItem } from "@/lib/daily-report/types";
 import type { CalendarDayStats, ContentCalendarItem } from "@/lib/types";
@@ -299,19 +300,24 @@ export function DailyReportPanel({
             </div>
             <div className="grid gap-3 lg:grid-cols-2">
               {report.workflowSummary.all.map((wf) => (
-                <Card key={wf.workflowName} className="border-brand-border/40">
+                <Card
+                  key={wf.workflowName}
+                  className="border-brand-border/40 transition hover:border-brand-accent/60 hover:shadow-md"
+                >
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-brand-primary">{wf.workflowName}</p>
-                      <Badge variant={STATUS_VARIANT[wf.status] ?? "default"}>{wf.status}</Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-brand-muted">
-                      {wf.agentsInvolved.join(" → ")} · {wf.itemsMoved} items moved
-                    </p>
-                    {wf.bottleneck && (
-                      <p className="mt-2 text-xs text-amber-800">Bottleneck: {wf.bottleneck}</p>
-                    )}
-                    <p className="mt-1 text-xs text-brand-sage">{wf.recommendedFix}</p>
+                    <a href={workflowHealthHref(wf.workflowName)} className="block">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-brand-primary">{wf.workflowName}</p>
+                        <Badge variant={STATUS_VARIANT[wf.status] ?? "default"}>{wf.status}</Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-brand-muted">
+                        {wf.agentsInvolved.join(" → ")} · {wf.itemsMoved} items moved
+                      </p>
+                      {wf.bottleneck && (
+                        <p className="mt-2 text-xs text-amber-800">Bottleneck: {wf.bottleneck}</p>
+                      )}
+                      <p className="mt-1 text-xs text-brand-sage">{wf.recommendedFix}</p>
+                    </a>
                   </CardContent>
                 </Card>
               ))}

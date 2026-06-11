@@ -7,7 +7,12 @@ import { getCompanyOsPageData } from "@/lib/db/company-os-queries";
 
 export const dynamic = "force-dynamic";
 
-export default async function CompanyOsPage() {
+export default async function CompanyOsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ workflow?: string }>;
+}) {
+  const { workflow } = await searchParams;
   const { data, error, configured } = await fetchPageData(getCompanyOsPageData);
 
   if (!configured) {
@@ -26,7 +31,7 @@ export default async function CompanyOsPage() {
         description="Every workflow, handoff, output, decision, and bottleneck in one place. What happened, who did it, where it went next."
       />
       {error && <ErrorBanner message={error} />}
-      {data && <CompanyOsPanel data={data} />}
+      {data && <CompanyOsPanel data={data} workflowQuery={workflow} />}
     </div>
   );
 }

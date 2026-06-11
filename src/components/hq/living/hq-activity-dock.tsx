@@ -7,6 +7,18 @@ import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { ActivityItem } from "@/lib/hq/types";
 
+/** Malformed timestamps must never crash the dock (RangeError on mobile). */
+function safeTimeAgo(timestamp: unknown): string {
+  if (typeof timestamp !== "string" && typeof timestamp !== "number") return "just now";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "just now";
+  try {
+    return formatDistanceToNow(date, { addSuffix: true });
+  } catch {
+    return "just now";
+  }
+}
+
 export function HQActivityDock({
   items,
   onSelect,
@@ -19,9 +31,12 @@ export function HQActivityDock({
   onReject?: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const recent = items.slice(0, 8);
-  const urgent = items.filter(
-    (i) => i.status === "pending" || i.type === "reply_awaiting_approval"
+  const safeItems = (Array.isArray(items) ? items : []).filter(
+    (i): i is ActivityItem => Boolean(i && typeof i === "object" && i.id)
+  );
+  const recent = safeItems.slice(0, 8);
+  const urgent = safeItems.filter(
+    (i) => i?.status === "pending" || i?.type === "reply_awaiting_approval"
   ).length;
 
   return (
@@ -68,11 +83,9 @@ export function HQActivityDock({
                       className="w-full rounded-xl px-2.5 py-2 text-left transition hover:bg-brand-bg/80"
                     >
                       <p className="text-[11px] font-medium leading-snug text-brand-primary line-clamp-2">
-                        {item.title}
+                        {item.title || "Agent activity"}
                       </p>
-                      <p className="mt-0.5 text-[9px] text-brand-muted">
-                        {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
-                      </p>
+                      <p className="mt-0.5 text-[9px] text-brand-muted">{safeTimeAgo(item.timestamp)}</p>
                       {item.status === "pending" && onApprove && onReject && (
                         <div className="mt-1.5 flex gap-1">
                           <button
@@ -102,7 +115,7 @@ export function HQActivityDock({
                 ))}
                 {recent.length === 0 && (
                   <li className="px-3 py-4 text-center text-[11px] text-brand-muted">
-                    Agents are tending the garden…
+                    No pulse data yet. Agents will report here after their next run.
                   </li>
                 )}
               </ul>

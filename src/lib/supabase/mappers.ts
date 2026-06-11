@@ -1018,6 +1018,14 @@ export function mapApprovalItem(row: Database["public"]["Tables"]["approval_queu
     sourceId: row.source_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    // Phase 33 — optional until migration 054 runs
+    sourcePlatform: row.source_platform ?? "",
+    sourceUrl: row.source_url ?? "",
+    sourceAuthor: row.source_author ?? "",
+    sourceAuthorUrl: row.source_author_url ?? "",
+    sourceTitle: row.source_title ?? "",
+    sourceExcerpt: row.source_excerpt ?? "",
+    dataSource: row.data_source ?? "manual",
   };
 }
 

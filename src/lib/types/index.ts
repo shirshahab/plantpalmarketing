@@ -1252,6 +1252,8 @@ export interface CompetitorAlert {
   updatedAt?: string;
 }
 
+export type DataSource = "demo" | "seed" | "live_api" | "manual" | "imported";
+
 export interface ApprovalItem {
   id: string;
   type: ApprovalItemType;
@@ -1261,6 +1263,14 @@ export interface ApprovalItem {
   sourceId?: string | null;
   createdAt: string;
   updatedAt?: string;
+  // Phase 33 — source context + real vs demo labeling
+  sourcePlatform?: string;
+  sourceUrl?: string;
+  sourceAuthor?: string;
+  sourceAuthorUrl?: string;
+  sourceTitle?: string;
+  sourceExcerpt?: string;
+  dataSource?: DataSource | string;
 }
 
 export type BriefStatus = "generated" | "running" | "completed" | "failed" | "archived";

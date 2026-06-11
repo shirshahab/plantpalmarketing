@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   BarChart3,
   CalendarDays,
+  ChevronRight,
   ClipboardCheck,
   Crown,
   FileText,
@@ -22,6 +23,7 @@ import {
   Users,
   Workflow,
 } from "lucide-react";
+import { workflowHealthHref } from "@/lib/navigation/resolve-action-target";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -277,17 +279,23 @@ export function IvyExecutiveBrief({
             <SectionHeading icon={Workflow} number={3} title="Workflow Health" />
             <div className="grid gap-3 lg:grid-cols-2">
               {report.workflowSummary.all.map((wf) => (
-                <Card key={wf.workflowName} className="border-brand-border/40">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-brand-primary">{wf.workflowName}</p>
-                      <Badge variant={WORKFLOW_STATUS_VARIANT[wf.status] ?? "default"}>{wf.status}</Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-brand-muted">{wf.itemsMoved} items moved</p>
-                    {wf.bottleneck && <p className="mt-2 text-xs text-amber-800">Bottleneck: {wf.bottleneck}</p>}
-                    <p className="mt-1 text-xs text-brand-sage">{wf.recommendedFix}</p>
-                  </CardContent>
-                </Card>
+                <Link key={wf.workflowName} href={workflowHealthHref(wf.workflowName)} className="block">
+                  <Card className="border-brand-border/40 transition hover:border-brand-accent/60 hover:shadow-md">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-brand-primary">{wf.workflowName}</p>
+                        <span className="flex items-center gap-1.5">
+                          <Badge variant={WORKFLOW_STATUS_VARIANT[wf.status] ?? "default"}>{wf.status}</Badge>
+                          <ChevronRight className="h-3.5 w-3.5 text-brand-muted" />
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-brand-muted">{wf.itemsMoved} items moved</p>
+                      {wf.bottleneck && <p className="mt-2 text-xs text-amber-800">Bottleneck: {wf.bottleneck}</p>}
+                      <p className="mt-1 text-xs text-brand-sage">{wf.recommendedFix}</p>
+                      <p className="mt-1.5 text-[11px] font-medium text-brand-accent">View workflow details →</p>
+                    </CardContent>
+                  </Card>
+                </Link>
               ))}
             </div>
           </section>

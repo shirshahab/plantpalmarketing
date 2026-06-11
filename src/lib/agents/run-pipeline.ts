@@ -45,7 +45,7 @@ export async function runDailyContentPipeline(): Promise<PipelineRunResult> {
       (briefError?.message ?? "").toLowerCase().includes("schema cache");
     throw new Error(
       isMissingTable
-        ? "agent_daily_briefs table not found — run supabase/migrations/042_phase25_agent_daily_briefs.sql in the Supabase SQL Editor"
+        ? "System setup is still finishing. This section will populate once the backend is ready."
         : briefError?.message ?? "Failed to create daily brief"
     );
   }
@@ -83,7 +83,7 @@ export async function runDailyContentPipeline(): Promise<PipelineRunResult> {
           discError.message.toLowerCase().includes("schema cache");
         throw new Error(
           isMissingTable
-            ? "discovery_items table not found — run supabase/migrations/045_phase26_discovery_items.sql in the Supabase SQL Editor"
+            ? "System setup is still finishing. This section will populate once the backend is ready."
             : discError.message
         );
       }
@@ -128,7 +128,7 @@ export async function runDailyContentPipeline(): Promise<PipelineRunResult> {
       if (pipeError) {
         if (isMissingTableError(pipeError)) {
           throw new Error(
-            "pipeline_content table not found — run supabase/migrations/047_phase28_pipeline_and_feedback.sql in the Supabase SQL Editor"
+            "System setup is still finishing. This section will populate once the backend is ready."
           );
         }
         throw new Error(pipeError.message);

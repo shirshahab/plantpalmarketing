@@ -10,7 +10,7 @@ import type { Json } from "@/lib/supabase/database.types";
 type Result = { ok: true; message?: string } | { ok: false; error: string };
 
 const MIGRATION_HINT =
-  "generated_videos table not found — run supabase/migrations/048_phase29_missing_tables_and_assets.sql";
+  "System setup is still finishing. This section will populate once the backend is ready.";
 
 async function tryFeedback(row: Record<string, unknown>) {
   try {
@@ -166,6 +166,90 @@ export async function reviewGeneratedVideo(input: {
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Review failed" };
+  }
+}
+
+/**
+ * Phase 33 — attach the final video URL (manual upload or external host).
+ * Lets the founder review the actual video, not just the package.
+ */
+export async function attachVideoUrl(input: {
+  videoId: string;
+  videoUrl: string;
+  thumbnailUrl?: string;
+}): Promise<Result> {
+  try {
+    const videoUrl = input.videoUrl.trim();
+    if (!videoUrl) return { ok: false, error: "Paste a video URL first" };
+    if (!/^https?:\/\//i.test(videoUrl)) return { ok: false, error: "Video URL must start with http(s)://" };
+
+    const supabase = createServerClient();
+    const { error } = await supabase
+      .from("generated_videos")
+      .update({
+        video_url: videoUrl,
+        ...(input.thumbnailUrl?.trim() ? { thumbnail_url: input.thumbnailUrl.trim() } : {}),
+        status: "generated",
+        generation_provider: "manual",
+      })
+      .eq("id", input.videoId);
+    if (error) {
+      return { ok: false, error: isMissingTableError(error) ? MIGRATION_HINT : error.message };
+    }
+
+    revalidatePath("/video");
+    return { ok: true, message: "Final video attached — review it below" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Attach failed" };
+  }
+}
+
+/** Phase 33 — send the video package to Fern for creative rework. */
+export async function sendVideoToFern(videoId: string, note?: string): Promise<Result> {
+  try {
+    const supabase = createServerClient();
+    const remarks = (note ?? "").trim() || "Creative rework requested";
+
+    const { error } = await supabase
+      .from("generated_videos")
+      .update({ status: "needs_revision", revision_notes: remarks })
+      .eq("id", videoId);
+    if (error) {
+      return { ok: false, error: isMissingTableError(error) ? MIGRATION_HINT : error.message };
+    }
+
+    await tryFeedback({
+      source_table: "generated_videos",
+      source_id: videoId,
+      content_id: videoId,
+      content_type: "video_asset",
+      agent_id: "fern",
+      feedback_type: "video_review",
+      decision: "revision_requested",
+      feedback_category: "needs better visual",
+      feedback_text: remarks,
+      sent_back_to_agent: "fern",
+      created_by: "founder",
+    });
+
+    await recordHandoff({
+      fromAgent: "gate",
+      toAgent: "fern",
+      workflowName: "Gate → Fern",
+      triggerType: "video_revision",
+      triggerId: videoId,
+      taskType: "video_revision",
+      taskDescription: `Rework video creative. Founder remarks: ${remarks}`,
+      priority: "high",
+      messageTitle: "Video sent to Fern for creative rework",
+      messageBody: `Founder remarks: ${remarks}`,
+      activityDetail: "Founder sent a video package to Fern",
+    });
+
+    revalidatePath("/video");
+    return { ok: true, message: "Sent to Fern" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Send failed" };
   }
 }
 

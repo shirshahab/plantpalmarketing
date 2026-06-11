@@ -418,6 +418,14 @@ export interface Database {
           rejected_at?: string | null;
           sent_back_to_agent?: string;
           feedback_category?: string;
+          // Phase 33 — source context (optional until migration 054 runs)
+          source_platform?: string;
+          source_url?: string;
+          source_author?: string;
+          source_author_url?: string;
+          source_title?: string;
+          source_excerpt?: string;
+          data_source?: string;
         },
         {
           id?: string;
@@ -435,6 +443,13 @@ export interface Database {
           approved_at?: string | null;
           rejected_at?: string | null;
           sent_back_to_agent?: string;
+          source_platform?: string;
+          source_url?: string;
+          source_author?: string;
+          source_author_url?: string;
+          source_title?: string;
+          source_excerpt?: string;
+          data_source?: string;
           feedback_category?: string;
         },
         {

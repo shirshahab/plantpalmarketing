@@ -82,7 +82,7 @@ export async function runDailyReportGeneration(): Promise<{ report: DailyReport;
 
   if (error || !inserted) {
     if (error && isMissingTableError(error)) {
-      throw new Error("daily_reports table not found — run migration 036 in Supabase SQL Editor");
+      throw new Error("System setup is still finishing. This section will populate once the backend is ready.");
     }
     throw new Error(error?.message ?? "Failed to save daily report");
   }
@@ -117,7 +117,7 @@ export async function runDailyReportGeneration(): Promise<{ report: DailyReport;
   if (briefError) {
     if (isMissingTableError(briefError)) {
       console.error(
-        "[agent_daily_briefs] table not found — run supabase/migrations/042_phase25_agent_daily_briefs.sql"
+        "System setup is still finishing. This section will populate once the backend is ready."
       );
     } else {
       console.error("[agent_daily_briefs]", briefError.message);

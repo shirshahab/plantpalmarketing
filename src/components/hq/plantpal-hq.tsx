@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HQLivingWorld } from "@/components/hq/living/hq-living-world";
+import { HQCommandView } from "@/components/hq/hq-command-view";
+import { PanelErrorBoundary } from "@/components/shared/error-boundary";
 import { HQLivingAgentDrawer } from "@/components/hq/living/hq-living-agent-drawer";
 import { ActivityDetailDrawer } from "@/components/hq/agent-detail-drawer";
 import { approveCommunityReply, rejectCommunityReply } from "@/lib/actions/roots-agent";
@@ -28,6 +30,9 @@ import type {
 } from "@/lib/types";
 
 type DrawerMode = "agent" | "activity" | null;
+type HQViewMode = "compact" | "world";
+
+const VIEW_MODE_KEY = "plantpal-hq-view-mode";
 
 export function PlantPalHQ({
   initialAgents,
@@ -64,6 +69,34 @@ export function PlantPalHQ({
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>(null);
   const [workflowLabel, setWorkflowLabel] = useState<string | null>(null);
+
+  // Phase 33 — responsive view mode. Mobile defaults to the clean Command
+  // View; desktop keeps the full Living World. Choice persists per device.
+  const [viewMode, setViewMode] = useState<HQViewMode>("world");
+  const [viewReady, setViewReady] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(VIEW_MODE_KEY);
+      if (stored === "compact" || stored === "world") {
+        setViewMode(stored);
+      } else if (window.matchMedia("(max-width: 767px)").matches) {
+        setViewMode("compact");
+      }
+    } catch {
+      // ignore storage failures (private mode)
+    }
+    setViewReady(true);
+  }, []);
+
+  const switchViewMode = useCallback((mode: HQViewMode) => {
+    setViewMode(mode);
+    try {
+      window.localStorage.setItem(VIEW_MODE_KEY, mode);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const selectedAgent = useMemo(
     () => agents.find((a) => a.id === selectedAgentId) ?? null,
@@ -186,25 +219,79 @@ export function PlantPalHQ({
   }
 
   return (
-    <div className="relative h-[calc(100dvh-7.5rem)] min-h-[480px] w-full lg:h-[calc(100vh-6.5rem)] lg:min-h-[600px]">
-      <HQLivingWorld
-        agents={agents}
-        activity={activity}
-        selectedId={selectedAgentId}
-        onSelectAgent={openAgentDrawer}
-        onSelectActivity={openActivityDrawer}
-        onApproveActivity={handleApprove}
-        onRejectActivity={handleReject}
-        messageLines={messageLines}
-        collaborationTasks={collaborationTasks}
-        collaborationStats={collaborationStats}
-        weather={weather}
-        liveDataAvailable={liveDataAvailable}
-        liveActionLabel={liveActionLabel}
-        onWorkflowStarted={handleWorkflowStarted}
-        onDailyReportGenerated={handleDailyReportGenerated}
-        agentScheduleHealth={agentScheduleHealth}
-      />
+    <div
+      className={
+        viewMode === "world"
+          ? "relative h-[calc(100dvh-7.5rem)] min-h-[480px] w-full lg:h-[calc(100vh-6.5rem)] lg:min-h-[600px]"
+          : "relative w-full"
+      }
+    >
+      {/* Compact / Living World toggle */}
+      <div
+        className={
+          viewMode === "world"
+            ? "absolute left-2 top-2 z-40 sm:left-4 sm:top-3"
+            : "mb-3 flex justify-end"
+        }
+      >
+        <div className="inline-flex rounded-full border border-brand-border/60 bg-white/90 p-0.5 shadow-sm backdrop-blur">
+          <button
+            type="button"
+            onClick={() => switchViewMode("compact")}
+            className={
+              viewMode === "compact"
+                ? "rounded-full bg-brand-primary px-3 py-1.5 text-[11px] font-semibold text-white"
+                : "rounded-full px-3 py-1.5 text-[11px] font-medium text-brand-muted"
+            }
+          >
+            Compact
+          </button>
+          <button
+            type="button"
+            onClick={() => switchViewMode("world")}
+            className={
+              viewMode === "world"
+                ? "rounded-full bg-brand-primary px-3 py-1.5 text-[11px] font-semibold text-white"
+                : "rounded-full px-3 py-1.5 text-[11px] font-medium text-brand-muted"
+            }
+          >
+            Living World
+          </button>
+        </div>
+      </div>
+
+      {viewMode === "compact" ? (
+        <PanelErrorBoundary>
+          <HQCommandView
+            agents={agents}
+            activity={activity}
+            onSelectAgent={openAgentDrawer}
+            onSelectActivity={openActivityDrawer}
+            onOpenLivingWorld={() => switchViewMode("world")}
+          />
+        </PanelErrorBoundary>
+      ) : (
+        <div className={viewReady ? "h-full" : "h-full opacity-0"}>
+          <HQLivingWorld
+            agents={agents}
+            activity={activity}
+            selectedId={selectedAgentId}
+            onSelectAgent={openAgentDrawer}
+            onSelectActivity={openActivityDrawer}
+            onApproveActivity={handleApprove}
+            onRejectActivity={handleReject}
+            messageLines={messageLines}
+            collaborationTasks={collaborationTasks}
+            collaborationStats={collaborationStats}
+            weather={weather}
+            liveDataAvailable={liveDataAvailable}
+            liveActionLabel={liveActionLabel}
+            onWorkflowStarted={handleWorkflowStarted}
+            onDailyReportGenerated={handleDailyReportGenerated}
+            agentScheduleHealth={agentScheduleHealth}
+          />
+        </div>
+      )}
 
       {drawerMode === "agent" && (
         <HQLivingAgentDrawer

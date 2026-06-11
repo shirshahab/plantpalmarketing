@@ -17,6 +17,7 @@ import { HQDayNightOverlay } from "@/components/hq/living/hq-day-night-overlay";
 import { HQWorldControls } from "@/components/hq/living/hq-world-controls";
 import { HQHandoffBurst } from "@/components/hq/living/hq-handoff-burst";
 import { HQActivityDock } from "@/components/hq/living/hq-activity-dock";
+import { PanelErrorBoundary } from "@/components/shared/error-boundary";
 import { useWorldTime } from "@/components/hq/living/use-world-time";
 import { useWorldViewport } from "@/components/hq/living/use-world-viewport";
 import { useAmbientSound } from "@/components/hq/living/use-ambient-sound";
@@ -199,7 +200,9 @@ export function HQLivingWorld({
             />
           ))}
 
-          <HQCompanyOsPulse pulse={companyOsPulse} />
+          <PanelErrorBoundary fallback={null}>
+            <HQCompanyOsPulse pulse={companyOsPulse} />
+          </PanelErrorBoundary>
 
           {agents.map((agent) => {
             const motion = motions[agent.id];
@@ -237,12 +240,14 @@ export function HQLivingWorld({
           onToggleSound={toggleSound}
         />
 
-        <HQActivityDock
-          items={activity}
-          onSelect={onSelectActivity}
-          onApprove={onApproveActivity}
-          onReject={onRejectActivity}
-        />
+        <PanelErrorBoundary>
+          <HQActivityDock
+            items={activity}
+            onSelect={onSelectActivity}
+            onApprove={onApproveActivity}
+            onReject={onRejectActivity}
+          />
+        </PanelErrorBoundary>
       </div>
     </div>
   );

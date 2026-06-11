@@ -14,7 +14,7 @@ import type { Json } from "@/lib/supabase/database.types";
 type Result = { ok: true; message?: string } | { ok: false; error: string };
 
 const MIGRATION_HINT =
-  "generated_assets table not found — run supabase/migrations/048_phase29_missing_tables_and_assets.sql";
+  "System setup is still finishing. This section will populate once the backend is ready.";
 
 async function tryFeedback(row: Record<string, unknown>) {
   try {

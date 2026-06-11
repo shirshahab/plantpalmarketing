@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import type {
   CompanyOsPageData,
@@ -270,8 +270,61 @@ function WorkflowDrawer({
   );
 }
 
-export function CompanyOsPanel({ data }: { data: CompanyOsPageData }) {
+/**
+ * Match a Workflow Health label like "Scout → Oak" (or a workflow id/name
+ * fragment) to a recorded Company OS workflow.
+ */
+function findWorkflowByQuery(data: CompanyOsPageData, query: string): CompanyWorkflowRow | null {
+  const all = [...data.activeWorkflows, ...data.blockedWorkflows, ...data.completedWorkflows];
+  if (all.length === 0) return null;
+
+  const byId = all.find((w) => w.id === query);
+  if (byId) return byId;
+
+  const tokens = query
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter(Boolean);
+  if (tokens.length === 0) return null;
+
+  return (
+    all.find((w) => {
+      const haystack = [
+        w.workflowName,
+        w.workflowType,
+        w.sourceAgent,
+        w.currentAgent,
+        w.nextAgent,
+        ...w.steps.map((s) => `${s.agentId} ${s.stepName}`),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return tokens.every((t) => haystack.includes(t));
+    }) ?? null
+  );
+}
+
+export function CompanyOsPanel({
+  data,
+  workflowQuery,
+}: {
+  data: CompanyOsPageData;
+  workflowQuery?: string;
+}) {
   const [selected, setSelected] = useState<CompanyWorkflowRow | null>(null);
+  const [queryMissed, setQueryMissed] = useState(false);
+
+  // Phase 33 — deep link: /company-os?workflow=Scout → Oak opens the drawer.
+  useEffect(() => {
+    if (!workflowQuery) return;
+    const match = findWorkflowByQuery(data, workflowQuery);
+    if (match) {
+      setSelected(match);
+    } else {
+      setQueryMissed(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workflowQuery]);
 
   const { summary } = data;
   const scoreColor =
@@ -281,11 +334,14 @@ export function CompanyOsPanel({ data }: { data: CompanyOsPageData }) {
     return (
       <Card>
         <CardContent className="py-6">
-          <p className="text-sm font-medium text-brand-primary">Company OS tables not found.</p>
+          <p className="text-sm font-medium text-brand-primary">Company OS is setting up.</p>
           <p className="mt-1 text-sm text-brand-muted">
-            Run supabase/migrations/052_phase31a_company_os.sql, then reload. Workflows start recording
-            automatically the next time any agent hands off work.
+            System setup is still finishing. This section will populate once the backend is ready.
+            Workflows start recording automatically the next time any agent hands off work.
           </p>
+          <a href="/admin/setup-health" className="mt-2 inline-block text-xs font-medium text-brand-accent hover:underline">
+            Admin: view setup health →
+          </a>
         </CardContent>
       </Card>
     );
@@ -295,6 +351,15 @@ export function CompanyOsPanel({ data }: { data: CompanyOsPageData }) {
 
   return (
     <div className="space-y-6">
+      {queryMissed && (
+        <Card>
+          <CardContent className="py-4">
+            <p className="text-sm text-brand-muted">
+              No detailed workflow records yet for this handoff. Future handoffs will be tracked here.
+            </p>
+          </CardContent>
+        </Card>
+      )}
       {/* 9. Company Health Score + operating stats */}
       <Card>
         <CardContent className="py-6">

@@ -14,6 +14,9 @@ export function HQCompanyOsPulse({ pulse }: { pulse: CompanyOsPulse }) {
   const launchGate = getZone("launch_gate");
   const executiveGarden = getZone("executive_garden");
 
+  // Guard: missing zones or pulse data must never crash the world view
+  if (!pulse || !launchGate?.center || !executiveGarden?.center) return null;
+
   return (
     <div className="pointer-events-none absolute inset-0">
       {/* Gate station turns amber when work is blocked */}

@@ -228,7 +228,7 @@ export async function upsertCalendarItem(input: CalendarUpsertInput): Promise<st
     const err = e as { message?: string; code?: string };
     if (isMissingTableError(err)) {
       console.error(
-        "[content_calendar] table not found — run supabase/migrations/043_phase25_content_calendar.sql"
+        "System setup is still finishing. This section will populate once the backend is ready."
       );
     } else {
       console.error("[content_calendar] sync failed:", err.message ?? e);
@@ -447,6 +447,39 @@ export async function attachSageScoreToCalendar(
       .eq("id", existing.id);
   } catch {
     // non-blocking
+  }
+}
+
+/**
+ * Phase 33 — canonical entry point: any approved content must create or
+ * update a content_calendar row. Wraps the source-specific sync helpers so
+ * every approval action funnels through one place.
+ *
+ * Status rules:
+ *   approved public content → ready_to_publish
+ *   scheduled content       → scheduled
+ *   manually posted content → published
+ *   needs asset             → needs_asset
+ *   sent back               → needs_revision
+ */
+export async function upsertContentCalendarFromApproval(input: {
+  sourceTable: "approval_queue" | "pipeline_content" | "bloom_content_pieces";
+  sourceId: string;
+  approved: boolean;
+}): Promise<string | null> {
+  try {
+    switch (input.sourceTable) {
+      case "approval_queue":
+        return await syncApprovalQueueItemToCalendar(input.sourceId, input.approved);
+      case "pipeline_content":
+        return await syncPipelineContentToCalendar(input.sourceId, input.approved);
+      case "bloom_content_pieces":
+        return await syncBloomPieceToCalendar(input.sourceId, { approved: input.approved });
+      default:
+        return null;
+    }
+  } catch {
+    return null; // calendar sync must never break an approval
   }
 }
 

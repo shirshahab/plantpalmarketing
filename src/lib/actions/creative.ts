@@ -11,7 +11,7 @@ import { createCompanyOutput, recordCompanyDecision } from "@/lib/company-os/com
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
 
-const MIGRATION_HINT = "Creative tables not found — run supabase/migrations/051_phase31_autonomous_company.sql";
+const MIGRATION_HINT = "System setup is still finishing. This section will populate once the backend is ready.";
 
 /** Create a creative project from an approved calendar item or a manual brief. */
 export async function createCreativeProject(input: {

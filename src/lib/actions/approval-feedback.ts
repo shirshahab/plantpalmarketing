@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
-import { syncApprovalQueueItemToCalendar } from "@/lib/content-calendar/sync";
+import { upsertContentCalendarFromApproval } from "@/lib/content-calendar/sync";
 import { recordCompanyDecision } from "@/lib/company-os/company-os";
 import type { ApprovalFeedbackInput } from "@/lib/approvals/feedback-categories";
 
@@ -120,7 +120,11 @@ export async function submitApprovalDecision(input: ApprovalFeedbackInput): Prom
     }
 
     if (isApprove || isReject) {
-      await syncApprovalQueueItemToCalendar(input.id, isApprove);
+      await upsertContentCalendarFromApproval({
+        sourceTable: "approval_queue",
+        sourceId: input.id,
+        approved: isApprove,
+      });
     }
 
     // Phase 31A — every founder decision lands in Company OS

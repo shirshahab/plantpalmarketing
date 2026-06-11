@@ -16,6 +16,7 @@ import {
   updateRedditEngagement,
 } from "@/lib/actions/reddit";
 import type { RedditPageData } from "@/lib/db/reddit-queries";
+import { DataSourceBadge } from "@/components/shared/source-context";
 
 function EngagementEditor({ logId, upvotes, note }: { logId: string; upvotes: number; note: string }) {
   const [pending, startTransition] = useTransition();
@@ -110,6 +111,34 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
         </div>
       )}
 
+      {/* Setup status checklist */}
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-heading mr-2 text-sm font-semibold text-brand-primary">Setup status</h3>
+            <Badge variant={data.configured ? "success" : "muted"}>
+              {data.configured ? "Credentials present" : "Credentials missing"}
+            </Badge>
+            <Badge variant={data.account?.status === "connected" ? "success" : "muted"}>
+              {data.account?.status === "connected" ? "Read test passed" : "Read test pending"}
+            </Badge>
+            <Badge variant="warning">Publish: founder approval required</Badge>
+            <Badge variant="muted">
+              Rate limit: {data.postedToday}/{data.safetyRules.maxRepliesPerDay} today
+            </Badge>
+            <Badge variant="muted">
+              {data.account?.monitoredSubreddits.length ?? 0} subreddits monitored
+            </Badge>
+            {!data.configured && <DataSourceBadge dataSource="demo" platform="reddit" />}
+          </div>
+          {!data.configured && (
+            <p className="mt-2 text-xs text-amber-700">
+              Demo Data. Connect API to use real conversations. Auto-posting is disabled — draft-only mode.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Connection + safety status */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
@@ -188,6 +217,10 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="muted">r/{opp.subreddit}</Badge>
                       <Badge variant={STATUS_VARIANTS[opp.status] ?? "muted"}>{opp.status}</Badge>
+                      <DataSourceBadge
+                        dataSource={data.configured ? "live_api" : "demo"}
+                        platform="reddit"
+                      />
                       <span className="text-[11px] text-brand-muted">risk {opp.riskScore}</span>
                     </div>
                     <p className="mt-1 text-sm font-medium text-brand-primary">{opp.title}</p>
@@ -251,8 +284,14 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
                       </>
                     ) : (
                       <>
-                        <Button size="sm" disabled={pending} onClick={() => run(() => approveAndPostRedditReply(draft.id))}>
-                          <Check className="mr-1 h-3.5 w-3.5" /> Approve + post to Reddit
+                        <Button
+                          size="sm"
+                          disabled={pending || !data.configured}
+                          title={!data.configured ? "Connect the Reddit API to post. Draft-only mode is active." : undefined}
+                          onClick={() => run(() => approveAndPostRedditReply(draft.id))}
+                        >
+                          <Check className="mr-1 h-3.5 w-3.5" />
+                          {data.configured ? "Approve + post to Reddit" : "Posting disabled (demo)"}
                         </Button>
                         <Button size="sm" variant="secondary" onClick={() => { setEditingId(draft.id); setEditText(draft.draftReply); }}>
                           Edit
