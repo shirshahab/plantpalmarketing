@@ -1,6 +1,7 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { generateMockMentions } from "@/lib/agents/roots/mock-community";
 import { rootsMonitorXConversations } from "@/lib/integrations/agent-integrations";
+import { runVoiceCheck, VOICE_FAIL_REASON, VOICE_PASS_THRESHOLD } from "@/lib/brand/voice-check";
 import { recordHandoff } from "@/lib/collaboration/handoff";
 
 export interface RootsRunResult {
@@ -87,6 +88,11 @@ export async function runRootsAgent(): Promise<RootsRunResult> {
       metadata: { opportunity_id: opp.id, urgency: m.urgencyScore },
     });
 
+    // Phase 35 — Voice Check before anything reaches the approval queue.
+    // Corporate / robotic replies are rejected automatically and sent to Sage.
+    const voice = runVoiceCheck(m.reply);
+    const voicePassed = voice.score >= VOICE_PASS_THRESHOLD;
+
     const { data: draft, error: dError } = await supabase
       .from("community_reply_drafts")
       .insert({
@@ -95,7 +101,7 @@ export async function runRootsAgent(): Promise<RootsRunResult> {
         author: m.author,
         original_content: m.content,
         draft: m.reply,
-        status: "pending",
+        status: voicePassed ? "pending" : "rejected",
       })
       .select("id")
       .single();
@@ -103,17 +109,40 @@ export async function runRootsAgent(): Promise<RootsRunResult> {
     if (dError || !draft) throw new Error(dError?.message ?? "Failed to save reply draft");
     repliesDrafted++;
 
+    if (!voicePassed) {
+      await supabase.from("agent_activity_log").insert({
+        agent_id: "roots",
+        action: "voice_check_failed",
+        detail: `${VOICE_FAIL_REASON} (${voice.score}/10) — reply for ${m.author} sent to Sage for rewrite`,
+        metadata: { draft_id: draft.id, opportunity_id: opp.id, voice_score: voice.score },
+      });
+      await recordHandoff({
+        fromAgent: "roots",
+        toAgent: "sage",
+        workflowName: "Voice Gate → Sage",
+        triggerType: "voice_check_failed",
+        triggerId: draft.id,
+        taskType: "voice_revision",
+        taskDescription: `Community reply failed the PlantPal voice check (${voice.score}/10). Rewrite it: ${voice.violations.slice(0, 2).join("; ")}`,
+        priority: "medium",
+        messageTitle: `${VOICE_FAIL_REASON} — community reply (${m.platform})`,
+        messageBody: `Reply scored ${voice.score}/10.\nViolations: ${voice.violations.join("; ")}\n\nDraft:\n${m.reply}`,
+        activityDetail: `Voice gate rejected a community reply (${voice.score}/10) — sent to Sage`,
+      });
+      continue;
+    }
+
     await supabase.from("agent_activity_log").insert({
       agent_id: "roots",
       action: "drafted_reply",
-      detail: `Reply awaiting approval for ${m.author}`,
-      metadata: { draft_id: draft.id, opportunity_id: opp.id },
+      detail: `Reply awaiting approval for ${m.author} (PlantPal voice ${voice.score}/10)`,
+      metadata: { draft_id: draft.id, opportunity_id: opp.id, voice_score: voice.score },
     });
 
     approvalRows.push({
       type: "reply",
       channel: m.platform,
-      draft: `Reply to ${m.author}:\n\n${m.reply}\n\n---\nOriginal: ${m.content}`,
+      draft: `Reply to ${m.author} (PlantPal voice ${voice.score}/10):\n\n${m.reply}\n\n---\nOriginal: ${m.content}`,
       status: "pending",
       source_id: draft.id,
     });

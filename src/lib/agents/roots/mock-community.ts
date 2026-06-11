@@ -26,7 +26,7 @@ const POOL: MockMention[] = [
     opportunityType: "plant_problems",
     urgencyScore: 88,
     opportunityScore: 85,
-    reply: "Inside rot usually means overwatering — even when the top soil feels dry. Succulents need gritty, fast-draining soil and water only when leaves start to feel slightly soft. A per-plant schedule helps more than a weekly reminder. What potting mix are you using?",
+    reply: "Inside-out rot is almost always overwatering, even when the top soil feels bone dry. Succulents like a drink. They don't like living in a swamp. Gritty fast-draining mix, water only when the leaves feel slightly soft, and ignore every weekly-watering reminder you've ever seen. What mix are they in right now?",
   },
   {
     platform: "X",
@@ -39,7 +39,7 @@ const POOL: MockMention[] = [
     opportunityType: "beginner_questions",
     urgencyScore: 72,
     opportunityScore: 80,
-    reply: "FLFs love bright indirect light and hate being moved. Water when the top 2 inches are dry — usually every 7-10 days. Wipe leaves monthly for photosynthesis. The first month is the hardest; consistency beats perfection.",
+    reply: "Fair to be terrified. FLFs are drama queens with a reputation to maintain. Bright indirect light, never move it (it holds grudges), and water only when the top two inches are dry. Usually every 7-10 days. Survive the first month and it'll stop testing you.",
   },
   {
     platform: "Facebook Groups",
@@ -52,7 +52,7 @@ const POOL: MockMention[] = [
     opportunityType: "landscaping",
     urgencyScore: 65,
     opportunityScore: 70,
-    reply: "Many HOAs approve native gardens if you submit a plan with defined borders, mulch, and height limits. Start with a 4x4 pollinator bed as a pilot. Document maintenance — that often wins over skeptics.",
+    reply: "HOAs don't hate native plants. They hate surprises. Submit a plan with clean borders, mulch, and height limits and approval odds jump. Start with a 4x4 pollinator bed as the pilot, photograph how tidy it stays, and let the skeptics argue with the evidence.",
   },
   {
     platform: "Threads",
@@ -65,7 +65,7 @@ const POOL: MockMention[] = [
     opportunityType: "local_gardening",
     urgencyScore: 78,
     opportunityScore: 83,
-    reply: "Zone 9 fall is prime for broccoli, kale, carrots, and garlic. Start brassicas now, direct-sow root crops by mid-month. You're not behind — fall is the secret weapon season in zone 9.",
+    reply: "You're not behind. Zone 9 fall is the cheat code season. Broccoli, kale, carrots, garlic, all of it. Start brassicas now, direct-sow the root crops by mid-month, and enjoy growing things while the rest of the country scrapes ice.",
   },
   {
     platform: "YouTube Comments",
@@ -78,7 +78,7 @@ const POOL: MockMention[] = [
     opportunityType: "plant_identification",
     urgencyScore: 60,
     opportunityScore: 75,
-    reply: "Sounds like it could be bleeding heart (Dicentra) or a hardy hibiscus depending on the flower shape. A photo of the leaf underside and bloom close-up would help nail it. Happy to help ID if you share more details!",
+    reply: "Heart-shaped leaves, pink flowers, grows like it's plotting something? My money's on bleeding heart (Dicentra), maybe hardy hibiscus depending on the bloom. Drop a photo of the leaf underside and a flower close-up and we can settle it. Grandma clearly knew what she was doing.",
   },
 ];
 

@@ -52,6 +52,8 @@ export async function generateCreativeVariants(
   const result = await callOpenAIJson<{ variants: CreativeVariant[] }>(
     `You are Fern, Head of Creative at PlantPal, a plant care app that diagnoses sick plants from a photo.
 Brand voice: short, funny, edgy, helpful. Liquid Death energy for plants. Never corporate, never generic stock-photo energy.
+Banned words: confidence, empower, journey, unlock, revolutionize, transform, seamless, effortless, companion, assistant, ecosystem, leverage, optimize, synergy, innovation, game changer.
+The bar: observational plant-parent humor like "Your monstera isn't dramatic. You're watering it like a maniac."
 Generate distinct creative variants. Each variant needs:
 - "concept": one sentence a founder can approve at a glance
 - "prompt": a detailed image/video generation prompt (style, composition, lighting, mood)

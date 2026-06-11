@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { buildBrandVoicePrompt } from "@/lib/brand/brand-brain";
 import { callOpenAIJson } from "@/lib/openai/client";
 import { getOpenAIConfig, isOpenAIConfigured } from "@/lib/openai/config";
 import { createServerClient } from "@/lib/supabase/server";
@@ -73,6 +74,8 @@ const BRAIN_OUTPUT_SCHEMA = `Return ONLY valid JSON:
 
 function buildSystemPrompt(agentId: AgentSlug, profilePrompt: string, memory: string): string {
   return `${profilePrompt}
+
+${buildBrandVoicePrompt()}
 
 You are a real AI worker for PlantPal Marketing OS. You have:
 - MEMORY of previous work (reference and update it)

@@ -10,6 +10,7 @@ import {
   postRedditComment,
 } from "@/lib/reddit/client";
 import { checkReplySafety } from "@/lib/reddit/safety";
+import { runVoiceCheck, VOICE_FAIL_REASON, VOICE_PASS_THRESHOLD } from "@/lib/brand/voice-check";
 import { recordHandoff } from "@/lib/collaboration/handoff";
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
@@ -136,16 +137,37 @@ export async function draftRedditReply(opportunityId: string): Promise<Result> {
       return { ok: false, error: oppError && isMissingTableError(oppError) ? MIGRATION_HINT : (oppError?.message ?? "Opportunity not found") };
     }
 
-    // Help-first template — Bloom/Sage refine via the normal content pipeline
+    // Phase 35 — replies sound like a knowledgeable friend, never customer
+    // support, never ChatGPT. Help first, casual, no marketing language.
     const draft = [
-      `Sounds frustrating — a few things usually cause this:`,
+      `Overwatering is usually the culprit here. Plants like a drink. They don't like living in a swamp.`,
       ``,
-      `1. Check the soil moisture 2 inches down before watering (most yellowing comes from overwatering, not underwatering).`,
-      `2. Make sure the pot drains — roots sitting in water suffocate.`,
-      `3. Look at the newest leaves vs oldest: old-leaf yellowing is often normal aging.`,
+      `Quick checks before the next watering:`,
+      `Poke the soil two inches down. Damp? Walk away. Most yellowing is drowning, not thirst.`,
+      `Make sure the pot actually drains. Roots sitting in water give up fast.`,
+      `Old bottom leaves going yellow on their own is often just the plant retiring them. That part's fine.`,
       ``,
-      `If you can describe the light it gets and how often you water, happy to narrow it down further.`,
+      `Tell me the light situation and how often you water and I can narrow it down.`,
     ].join("\n");
+
+    // Voice gate — corporate or robotic drafts never reach the founder.
+    const voice = runVoiceCheck(draft);
+    if (voice.score < VOICE_PASS_THRESHOLD) {
+      await recordHandoff({
+        fromAgent: "gate",
+        toAgent: "sage",
+        workflowName: "Voice Gate → Sage",
+        triggerType: "voice_check_failed",
+        triggerId: opp.id,
+        taskType: "voice_revision",
+        taskDescription: `Reddit reply draft failed the PlantPal voice check (${voice.score}/10). Rewrite it: ${voice.violations.slice(0, 2).join("; ")}`,
+        priority: "medium",
+        messageTitle: `${VOICE_FAIL_REASON} — Reddit reply for r/${opp.subreddit}`,
+        messageBody: `Draft scored ${voice.score}/10.\n\nViolations: ${voice.violations.join("; ")}\n\nDraft:\n${draft}`,
+        activityDetail: `Voice gate rejected a Reddit reply draft (${voice.score}/10) — sent to Sage`,
+      });
+      return { ok: false, error: `${VOICE_FAIL_REASON} (${voice.score}/10) — sent back to Sage for a rewrite.` };
+    }
 
     const { error } = await supabase.from("reddit_reply_drafts").insert({
       opportunity_id: opp.id,

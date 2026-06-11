@@ -261,7 +261,7 @@ export async function attachAssetToCalendar(assetId: string): Promise<Result> {
         platform: (campaign.platform || asset.platform || "instagram") as never,
         contentType: "image_post",
         caption: fullCaption,
-        hook: campaign.caption,
+        hook: campaign.hook,
         cta: campaign.cta,
         copyText: fullCaption,
         assetUrl: asset.image_url,

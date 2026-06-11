@@ -13,6 +13,7 @@ import {
   attachAssetToCalendar,
 } from "@/lib/actions/asset-generation";
 import { FEEDBACK_CATEGORIES } from "@/lib/approvals/feedback-categories";
+import { VoiceScoreBadge } from "@/components/shared/voice-score-badge";
 import { getCampaignContext } from "@/lib/assets/campaign-context";
 import type { GeneratedAsset } from "@/lib/db/asset-queries";
 
@@ -243,8 +244,9 @@ function CampaignContextBlock({
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between text-left"
       >
-        <span className="text-[11px] font-bold uppercase tracking-wide text-brand-sage">
+        <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-brand-sage">
           Why this image exists
+          <VoiceScoreBadge score={campaign.voiceScore} compact />
         </span>
         <span className="text-[10px] text-brand-muted">{open ? "Hide" : "Show"}</span>
       </button>
@@ -253,11 +255,27 @@ function CampaignContextBlock({
           <ContextRow label="Campaign objective" value={campaign.objective} />
           <ContextRow label="Platform" value={campaign.platform} />
           <ContextRow label="Target audience" value={campaign.targetAudience} />
+          <ContextRow label="Hook" value={campaign.hook} />
           <ContextRow label="Caption" value={campaign.caption} />
           <ContextRow label="Hashtags" value={campaign.hashtags.join(" ")} />
           <ContextRow label="CTA" value={campaign.cta} />
           <ContextRow label="Asset prompt" value={prompt} clamp />
           <ContextRow label="Approval reason" value={campaign.approvalReason} />
+          <div>
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-brand-muted">
+              Platform captions (each network gets its own)
+            </dt>
+            <dd className="mt-1 space-y-1">
+              {Object.entries(campaign.platformCaptions).map(([platform, caption]) => (
+                <details key={platform} className="rounded border border-brand-border/50 bg-white/60 px-2 py-1">
+                  <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-wide text-brand-sage">
+                    {platform}
+                  </summary>
+                  <p className="mt-1 whitespace-pre-line text-brand-primary">{caption}</p>
+                </details>
+              ))}
+            </dd>
+          </div>
         </dl>
       )}
     </div>

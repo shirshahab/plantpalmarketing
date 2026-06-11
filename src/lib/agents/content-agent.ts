@@ -1,15 +1,16 @@
+import { buildBrandVoicePrompt } from "@/lib/brand/brand-brain";
 import { callOpenAIJson } from "@/lib/openai/client";
 import type { ContentDraft, DiscoveryItem } from "@/lib/agents/types";
 import { CONTENT_QUOTAS } from "@/lib/agents/types";
 
 const CONTENT_SYSTEM = `You are the PlantPal Content Agent — a top creator + copywriter.
 
-Write scroll-stopping content for PlantPal (gardening app, "Grow with confidence").
+Write scroll-stopping content for PlantPal, the plant care app for people whose plants have trust issues.
+
+${buildBrandVoicePrompt()}
 
 RULES:
 - Emotional, relatable, funny, surprising, story-driven
-- NEVER generic listicles or corporate tone
-- NEVER "Here are 5 tips"
 - Hooks must stop the scroll
 - CTAs feel natural, not desperate
 

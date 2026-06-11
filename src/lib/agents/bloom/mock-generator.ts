@@ -65,47 +65,50 @@ function score(base: number, variance: number): number {
   return Math.min(100, Math.max(1, base + Math.floor(Math.random() * variance * 2) - variance));
 }
 
+// Phase 35 — every template below is written through the PlantPal Brand
+// Brain: funny observation first, plant insight second, simple fix third.
+// No corporate language, no listicles, no "grow with confidence" energy.
 function buildHook(format: BloomContentFormat, topic: string, angle: string): string {
   const hooks: Record<BloomContentFormat, string[]> = {
     x_post: [
-      `Hot take: ${topic} isn't hard — you're just missing this one signal.`,
-      `POV: you finally understand why your ${topic} keeps failing.`,
-      `3 signs your ${topic} needs attention (most people ignore #2).`,
+      `Your ${topic} isn't being dramatic. It's filing a complaint.`,
+      `Hot take: most ${topic} problems are just the watering can's reign of terror.`,
+      `The ${topic} situation in this house is currently under investigation.`,
     ],
     threads_post: [
-      `Thread: everything I wish I knew about ${topic} before killing my third plant 🧵`,
-      `Unpopular opinion about ${topic} — and the data backs it up.`,
-      `I asked 500 plant parents about ${topic}. Here's what surprised me.`,
+      `Opinion: most ${topic} advice online was written by someone who's never killed a basil. I have. Several. 🧵`,
+      `The ${topic} discourse needs to hear this.`,
+      `Read every ${topic} thread in the community this week. The watering can is always the villain.`,
     ],
     tiktok_concept: [
-      `Day in the life: fixing ${topic} in 60 seconds`,
-      `"Plant parent check" — ${angle}`,
-      `Watch this before you touch your ${topic} again`,
+      `POV: your ${topic} survives despite you`,
+      `Your ${topic} is not okay. Here's the 10-second proof.`,
+      `Rating ${topic} fails until someone calls a plant ambulance`,
     ],
     reels_concept: [
-      `Before / after: ${topic} rescue in one week`,
-      `The ${angle} — cinematic plant care reel`,
-      `Stop scrolling if ${topic} is on your worry list`,
+      `Before: crime scene. After: ${topic} redemption arc.`,
+      `This ${topic} survived the roommate era. Respect.`,
+      `Stop scrolling. Your ${topic} is in this video.`,
     ],
     shorts_concept: [
-      `60-sec fix: ${topic} explained like you're five`,
-      `Garden hack: ${angle}`,
-      `Why your ${topic} looks sad (and the one fix)`,
+      `${topic} explained in 60 seconds, zero lectures`,
+      `Why your ${topic} looks sad (it's not what you think)`,
+      `The ${topic} mistake everyone makes by Wednesday`,
     ],
     carousel: [
-      `Swipe: 5-step ${topic} recovery guide`,
-      `Save this: ${topic} cheat sheet for beginners`,
-      `The ${angle} — slide-by-slide breakdown`,
+      `Your ${topic} cheat sheet. Screenshot it before your plant notices.`,
+      `Swipe: the ${topic} rescue plan, guilt not included`,
+      `${topic}: what the plant wishes you knew (${angle})`,
     ],
     blog_idea: [
-      `The complete guide to ${topic} without the guilt`,
-      `Why ${angle} matters more than fertilizer`,
-      `${topic}: mistakes, fixes, and what actually works`,
+      `${topic}: what's actually going wrong, and the boring fix that works`,
+      `The honest guide to ${topic}, written by someone who's killed a basil`,
+      `${topic} mistakes, ranked by how guilty you should feel`,
     ],
     email_idea: [
-      `Subject: Your ${topic} checklist for this week`,
-      `Subject: ${angle} — quick win inside`,
-      `Subject: Don't ignore these ${topic} warning signs`,
+      `Subject: Your ${topic} is judging you (a little)`,
+      `Subject: The ${topic} fix that takes 10 seconds`,
+      `Subject: RIP to last year's ${topic}. This year goes differently.`,
     ],
   };
   return pick(hooks[format], Math.floor(Math.random() * hooks[format].length));
@@ -114,30 +117,30 @@ function buildHook(format: BloomContentFormat, topic: string, angle: string): st
 function buildCaption(format: BloomContentFormat, topic: string, sourceDetail: string): string {
   const short = ["x_post", "threads_post"].includes(format);
   if (short) {
-    return `${topic} keeps showing up in our community. ${sourceDetail.slice(0, 120)} — PlantPal helps you act before it's too late.`;
+    return `${topic} keeps coming up in the community. ${sourceDetail.slice(0, 110)}. The fix is usually boring: stop doing the thing. PlantPal tells you which thing.`;
   }
   if (["tiktok_concept", "reels_concept", "shorts_concept"].includes(format)) {
-    return `Concept: Visual story around ${topic}. Open on the problem, show the fix with PlantPal's care timeline, close on the transformation. Source insight: ${sourceDetail.slice(0, 80)}.`;
+    return `Concept: open on the ${topic} crime scene, deliver the 10-second fix, end on the glow-up. Humor first. No lectures. Source: ${sourceDetail.slice(0, 80)}.`;
   }
   if (format === "carousel") {
-    return `Slide 1: Hook on ${topic}. Slides 2–4: diagnosis steps. Slide 5: PlantPal CTA. Inspired by: ${sourceDetail.slice(0, 60)}.`;
+    return `Slide 1: the ${topic} accusation. Slides 2-4: what the plant is actually saying. Slide 5: the fix. Slide 6: PlantPal, for the chronically guilty. From: ${sourceDetail.slice(0, 60)}.`;
   }
   if (format === "blog_idea") {
-    return `Outline: intro hook → common ${topic} mistakes → science-backed fixes → PlantPal workflow → reader checklist. Research angle from: ${sourceDetail.slice(0, 80)}.`;
+    return `Outline: funny observation → why ${topic} goes wrong → the boring fix that works → when to panic (rarely) → PlantPal CTA. Angle from: ${sourceDetail.slice(0, 80)}.`;
   }
-  return `Email body: personal opener about ${topic}, one actionable tip, social proof from community, soft CTA to open PlantPal. Triggered by: ${sourceDetail.slice(0, 80)}.`;
+  return `Email: open with the ${topic} guilt we all share, one fix, one community win, soft PlantPal CTA. No pep talk. Triggered by: ${sourceDetail.slice(0, 80)}.`;
 }
 
 function buildCta(format: BloomContentFormat): string {
   const ctas: Record<BloomContentFormat, string> = {
-    x_post: "Track your plant's care rhythm in PlantPal →",
-    threads_post: "Save the thread — link in bio for PlantPal free trial",
+    x_post: "PlantPal knows which plant is mad at you. Free.",
+    threads_post: "PlantPal is free and it never says 'I told you so.' Link in bio.",
     tiktok_concept: "Link sticker: 'Fix my plant' → PlantPal",
-    reels_concept: "Comment 'CARE' for the free care plan template",
-    shorts_concept: "Subscribe + try PlantPal — link below",
-    carousel: "Slide 6: Download PlantPal — never guess watering again",
-    blog_idea: "CTA block: Start your free PlantPal garden journal",
-    email_idea: "Button: Open PlantPal → see your plant's schedule",
+    reels_concept: "Comment 'GUILTY' and we'll send the care plan",
+    shorts_concept: "PlantPal — free, light judgment included",
+    carousel: "Slide 6: PlantPal, because guessing hasn't worked",
+    blog_idea: "CTA block: PlantPal keeps the schedule. You take the credit.",
+    email_idea: "Button: open PlantPal → see who actually needs water (not the cactus)",
   };
   return ctas[format];
 }

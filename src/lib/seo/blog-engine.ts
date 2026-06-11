@@ -25,6 +25,9 @@ Brand voice rules (non-negotiable):
 - No corporate gardening nonsense ("leverage", "comprehensive guide", "elevate your space").
 - Short sentences. Punchy subheads. Jokes that land, not puns that hurt.
 - 500 to 900 words total.
+- Banned words: confidence, empower, journey, unlock, revolutionize, transform, seamless, effortless, companion, assistant, ecosystem, leverage, optimize, synergy, innovation, game changer.
+- Banned formats: "Did you know...", "Here's why...", "5 tips for...", "Grow with confidence", "Transform your garden".
+- The bar: "Your monstera isn't dramatic. You're watering it like a maniac." Observational plant-parent humor. Funny observation, plant insight, simple fix.
 
 Structure:
 - Clear headline that answers the search

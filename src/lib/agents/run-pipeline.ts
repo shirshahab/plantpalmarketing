@@ -3,6 +3,7 @@ import { isMissingTableError } from "@/lib/integrations/db-safe";
 import { runDiscoveryAgent } from "@/lib/agents/discovery-agent";
 import { runContentAgent } from "@/lib/agents/content-agent";
 import { reviewAndRefineContent } from "@/lib/agents/creative-director-agent";
+import { runVoiceCheckOnFields, VOICE_FAIL_REASON, VOICE_PASS_THRESHOLD } from "@/lib/brand/voice-check";
 import type { ScoredContentDraft } from "@/lib/agents/types";
 import { getCompetitorAlerts } from "@/lib/db/queries";
 
@@ -94,6 +95,23 @@ export async function runDailyContentPipeline(): Promise<PipelineRunResult> {
 
     for (const draft of drafts) {
       const reviewed = await reviewAndRefineContent(draft);
+
+      // Phase 35 — Voice Check before anything reaches the approval queue.
+      const voice = runVoiceCheckOnFields({
+        hook: reviewed.hook,
+        caption: reviewed.caption,
+        cta: reviewed.cta,
+      });
+      if (voice.score < VOICE_PASS_THRESHOLD && reviewed.status !== "rejected") {
+        reviewed.status = "rejected";
+        reviewed.director_notes = [
+          `${VOICE_FAIL_REASON} (PlantPal score ${voice.score}/10): ${voice.violations.slice(0, 3).join("; ")}`,
+          reviewed.director_notes,
+        ]
+          .filter(Boolean)
+          .join("\n");
+      }
+
       scored.push(reviewed);
     }
 

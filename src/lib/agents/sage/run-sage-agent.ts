@@ -1,4 +1,5 @@
 import { scoreBloomPiece, SAGE_PASS_THRESHOLD } from "@/lib/agents/sage/mock-scorer";
+import { runVoiceCheckOnFields, VOICE_FAIL_REASON, VOICE_PASS_THRESHOLD } from "@/lib/brand/voice-check";
 import { mapBloomContentPiece } from "@/lib/supabase/mappers";
 import { createServerClient } from "@/lib/supabase/server";
 import { attachSageScoreToCalendar } from "@/lib/content-calendar/sync";
@@ -29,12 +30,13 @@ function formatDraft(piece: {
   viralScore: number;
   emotionalTrigger: string;
   aggregateScore: number;
+  voiceScore: number;
   hookSuggestion: string;
   ctaSuggestion: string;
 }): string {
   return [
     `[${piece.platform} · ${piece.format}] ${piece.title}`,
-    `Sage aggregate score: ${piece.aggregateScore}/100 ✓`,
+    `Sage aggregate score: ${piece.aggregateScore}/100 ✓ · PlantPal voice: ${piece.voiceScore}/10`,
     "",
     `Hook: ${piece.hook}`,
     `Sage hook note: ${piece.hookSuggestion}`,
@@ -79,6 +81,21 @@ export async function runSageAgent(): Promise<SageRunResult> {
     const piece = mapBloomContentPiece(row);
 
     const scores = scoreBloomPiece(piece);
+
+    // Phase 35 — Voice Check runs BEFORE anything reaches approval.
+    // Corporate / generic / AI-sounding copy is rejected automatically.
+    const voice = runVoiceCheckOnFields({
+      hook: piece.hook,
+      caption: piece.caption,
+      cta: piece.cta,
+    });
+    if (voice.score < VOICE_PASS_THRESHOLD) {
+      scores.recommendation = "reject";
+      scores.rejectionReason = `${VOICE_FAIL_REASON} (PlantPal score ${voice.score}/10): ${voice.violations
+        .slice(0, 3)
+        .join("; ")}`;
+    }
+
     scoreSum += scores.aggregateScore;
 
     const { error: reviewError } = await supabase.from("sage_content_reviews").insert({
@@ -129,6 +146,7 @@ export async function runSageAgent(): Promise<SageRunResult> {
           viralScore: piece.viralScore,
           emotionalTrigger: piece.emotionalTrigger,
           aggregateScore: scores.aggregateScore,
+          voiceScore: voice.score,
           hookSuggestion: scores.hookSuggestion,
           ctaSuggestion: scores.ctaSuggestion,
         }),
