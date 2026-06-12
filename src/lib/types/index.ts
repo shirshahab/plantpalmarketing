@@ -1094,7 +1094,7 @@ export interface BloomContentPerformance {
 
 export type AgentSlug =
   | "scout" | "roots" | "sentinel" | "bloom" | "sage" | "sprout"
-  | "oak" | "ivy" | "atlas" | "fern" | "echo" | "gate";
+  | "oak" | "ivy" | "atlas" | "fern" | "echo" | "gate" | "moss";
 
 export type AgentMessageType = "handoff" | "request" | "response" | "notification" | "status" | "broadcast";
 export type AgentMessageStatus = "unread" | "read" | "acknowledged" | "archived";
@@ -1526,7 +1526,8 @@ export type IntegrationProvider =
   | "plantnet"
   | "perenual"
   | "serpapi"
-  | "x";
+  | "x"
+  | "f5bot";
 
 export type IntegrationStatus = "connected" | "disconnected" | "degraded" | "error";
 

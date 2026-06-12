@@ -46,7 +46,7 @@ export function SourceLinks({
   compact?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
-  const isDemo = !sourceUrl || dataSource === "demo" || dataSource === "seed";
+  const isDemo = (!sourceUrl && dataSource !== "f5bot") || dataSource === "demo" || dataSource === "seed";
   const engagementEntries = Object.entries(engagement ?? {}).filter(
     ([, value]) => typeof value === "number" && value > 0
   );
@@ -66,6 +66,7 @@ export function SourceLinks({
     <div className={compact ? "mt-2" : "mt-2 rounded-xl border border-brand-border/40 bg-brand-bg/40 p-2.5"}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-brand-muted">
         {isDemo && <Badge variant="warning">DEMO</Badge>}
+        {dataSource === "f5bot" && <Badge variant="success">Live F5Bot Source</Badge>}
         {sourceTitle && <span className="font-medium text-brand-primary">{sourceTitle}</span>}
         {sourceAuthor && <span>by {sourceAuthor}</span>}
         {sourceSubreddit && <span>in r/{sourceSubreddit.replace(/^r\//, "")}</span>}

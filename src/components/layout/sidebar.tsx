@@ -8,9 +8,29 @@ import { isNavGroup, navMenu, type NavItem } from "@/components/layout/nav-items
 import { LogoutButton } from "@/components/auth/logout-button";
 import { cn } from "@/lib/utils";
 
-function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
+import type { NavBadgeCounts } from "@/lib/nav/badge-counts";
+
+const BADGE_BY_HREF: Partial<Record<string, keyof NavBadgeCounts>> = {
+  "/": "agents",
+  "/inbox": "inbox",
+  "/calendar": "calendar",
+  "/content": "content",
+  "/admin/setup-health": "system",
+};
+
+function NavLink({
+  item,
+  pathname,
+  badges,
+}: {
+  item: NavItem;
+  pathname: string;
+  badges?: NavBadgeCounts;
+}) {
   const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
   const Icon = item.icon;
+  const badgeKey = BADGE_BY_HREF[item.href];
+  const count = badgeKey && badges ? badges[badgeKey] : 0;
   return (
     <Link
       href={item.href}
@@ -22,12 +42,28 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />
-      <span className="truncate">{item.label}</span>
+      <span className="truncate flex-1">{item.label}</span>
+      {count > 0 && (
+        <span
+          className={cn(
+            "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold",
+            isActive ? "bg-white/20 text-white" : "bg-brand-accent text-white"
+          )}
+        >
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
     </Link>
   );
 }
 
-export function Sidebar({ userEmail }: { userEmail?: string | null }) {
+export function Sidebar({
+  userEmail,
+  badges,
+}: {
+  userEmail?: string | null;
+  badges?: NavBadgeCounts;
+}) {
   const pathname = usePathname();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     // Auto-expand the group containing the current page
@@ -60,7 +96,7 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
         {navMenu.map((entry) => {
           if (!isNavGroup(entry)) {
-            return <NavLink key={entry.href} item={entry} pathname={pathname} />;
+            return <NavLink key={entry.href} item={entry} pathname={pathname} badges={badges} />;
           }
           const GroupIcon = entry.icon;
           const open = openGroups[entry.label] ?? false;
@@ -81,7 +117,7 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
               {open && (
                 <div className="ml-3 space-y-0.5 border-l border-brand-border pl-2">
                   {entry.items.map((item) => (
-                    <NavLink key={`${entry.label}-${item.href}`} item={item} pathname={pathname} />
+                    <NavLink key={`${entry.label}-${item.href}`} item={item} pathname={pathname} badges={badges} />
                   ))}
                 </div>
               )}

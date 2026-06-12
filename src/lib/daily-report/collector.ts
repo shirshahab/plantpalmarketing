@@ -19,7 +19,7 @@ const REPORT_AGENTS: AgentSlug[] = [
 const AGENT_DISPLAY: Record<AgentSlug, string> = {
   scout: "Scout", roots: "Roots", sentinel: "Sentinel", bloom: "Bloom",
   sage: "Sage", sprout: "Sprout", oak: "Oak", gate: "Gate",
-  ivy: "Ivy", atlas: "Atlas", echo: "Echo", fern: "Fern",
+  ivy: "Ivy", atlas: "Atlas", echo: "Echo", fern: "Fern", moss: "Moss",
 };
 
 function last24h() {

@@ -145,6 +145,16 @@ async function gatherGateContext(supabase: ReturnType<typeof createServerClient>
   return { pendingApprovals: data ?? [] };
 }
 
+async function gatherMossContext(supabase: ReturnType<typeof createServerClient>) {
+  const { data } = await supabase
+    .from("generated_assets")
+    .select("id, status, review_feedback, metadata")
+    .in("status", ["generated", "needs_revision"])
+    .order("created_at", { ascending: false })
+    .limit(10);
+  return { pendingVoiceReview: data ?? [] };
+}
+
 const AGENT_CONTEXT_GATHERERS: Record<
   AgentSlug,
   (supabase: ReturnType<typeof createServerClient>) => Promise<Record<string, unknown>>
@@ -161,6 +171,7 @@ const AGENT_CONTEXT_GATHERERS: Record<
   fern: gatherFernContext,
   echo: gatherEchoContext,
   gate: gatherGateContext,
+  moss: gatherMossContext,
 };
 
 export async function gatherAgentContext(agentId: AgentSlug): Promise<AgentContextBundle> {

@@ -7,9 +7,15 @@ import {
   syncBloomPieceToCalendar,
 } from "@/lib/content-calendar/sync";
 import { recordHandoff } from "@/lib/collaboration/handoff";
+import { createNotification } from "@/lib/notifications/create";
+import { transitionContentWorkflow } from "@/lib/workflow/engine";
+import { destinationForIdeaApprove, destinationForReject } from "@/lib/workflow/destinations";
+import { founderSafeError } from "@/lib/integrations/founder-safe-error";
 import type { MarketingTable, Status } from "@/lib/types";
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult =
+  | { ok: true; message?: string; destination?: string; nextOwner?: string; nextStep?: string }
+  | { ok: false; error: string };
 
 export async function revalidateDashboard() {
   revalidatePath("/", "layout");
@@ -152,9 +158,76 @@ export async function updateStatus(
     }
 
     await revalidateDashboard();
+
+    if (status === "approved") {
+      const dest = table === "creative_content_ideas" ? destinationForIdeaApprove() : null;
+      if (dest) {
+        await transitionContentWorkflow({
+          sourceTable: table,
+          sourceId: id,
+          toStage: dest.stage,
+          event: dest.toast,
+          actor: "founder",
+          agent: dest.nextOwner,
+          destinationLabel: dest.strip,
+          currentOwner: dest.nextOwner,
+        }).catch(() => undefined);
+        await createNotification({
+          type: "agent_completed",
+          title: "Idea approved",
+          message: dest.toast,
+          targetRoute: "/content",
+          targetTable: table,
+          targetId: id,
+        });
+        return {
+          ok: true,
+          message: dest.toast,
+          destination: dest.destination,
+          nextOwner: dest.nextOwner,
+          nextStep: dest.nextStep,
+        };
+      }
+      if (table === "approval_queue") {
+        await createNotification({
+          type: "calendar_ready",
+          title: "Content approved",
+          message: "Approved. Moved to Calendar as Ready to Publish.",
+          targetRoute: "/calendar",
+          targetTable: table,
+          targetId: id,
+        });
+        return {
+          ok: true,
+          message: "Approved. Moved to Calendar as Ready to Publish.",
+          destination: "Calendar",
+          nextOwner: "Sprout",
+          nextStep: "Schedule publish slot",
+        };
+      }
+    }
+
+    if (status === "rejected") {
+      const dest = destinationForReject("sage", "content");
+      await createNotification({
+        type: "revision_ready",
+        title: "Revision requested",
+        message: dest.toast,
+        targetRoute: "/inbox",
+        targetTable: table,
+        targetId: id,
+      });
+      return {
+        ok: true,
+        message: dest.toast,
+        destination: dest.destination,
+        nextOwner: dest.nextOwner,
+      };
+    }
+
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
+    return { ok: false, error: founderSafeError(e instanceof Error ? e.message : "Unknown error") };
   }
 }
 

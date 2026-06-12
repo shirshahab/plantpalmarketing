@@ -8,6 +8,9 @@ import { Label, Textarea } from "@/components/ui/input";
 import { approveRecord, rejectRecord } from "@/lib/actions/shared";
 import { updateApprovalItem } from "@/lib/actions/approval-queue";
 import { updateCommunityOpportunity } from "@/lib/actions/community";
+import { useToast, showDestinationToast } from "@/components/shared/toast-provider";
+import { WorkflowStatusStrip } from "@/components/workflow/workflow-status-strip";
+import { founderSafeError } from "@/lib/integrations/founder-safe-error";
 import type { MarketingTable, Status } from "@/lib/types";
 
 type ApprovalActionsProps = {
@@ -32,6 +35,8 @@ export function ApprovalActions({
   const [draft, setDraft] = useState(editDraft ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { showToast } = useToast();
+  const [destinationStrip, setDestinationStrip] = useState<string | null>(null);
 
   function handleApprove() {
     startTransition(async () => {
@@ -39,8 +44,16 @@ export function ApprovalActions({
       if (result.ok) {
         setStatus("approved");
         setError(null);
+        const msg = "message" in result ? result.message : "Approved";
+        setDestinationStrip(msg ?? "Approved");
+        showDestinationToast(showToast, {
+          message: msg ?? "Approved",
+          destination: "message" in result ? result.destination : undefined,
+          nextOwner: "message" in result ? result.nextOwner : undefined,
+          nextStep: "message" in result ? result.nextStep : undefined,
+        });
       } else {
-        setError(result.error);
+        setError(founderSafeError(result.error));
       }
     });
   }
@@ -51,8 +64,15 @@ export function ApprovalActions({
       if (result.ok) {
         setStatus("rejected");
         setError(null);
+        const msg = "message" in result ? result.message : "Sent back for revision";
+        setDestinationStrip(msg ?? "Sent back for revision");
+        showDestinationToast(showToast, {
+          message: msg ?? "Sent back for revision",
+          tone: "warning",
+          destination: "message" in result ? result.destination : undefined,
+        });
       } else {
-        setError(result.error);
+        setError(founderSafeError(result.error));
       }
     });
   }
@@ -103,6 +123,14 @@ export function ApprovalActions({
     return (
       <div className="space-y-1">
         <StatusBadge status={status} />
+        {destinationStrip && (
+          <p className="rounded-lg bg-brand-bg px-2 py-1 text-xs font-medium text-brand-primary">{destinationStrip}</p>
+        )}
+        <WorkflowStatusStrip
+          sourceTable={table}
+          sourceId={id}
+          founderActionRequired={false}
+        />
         {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
     );

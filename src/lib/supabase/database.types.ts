@@ -1722,6 +1722,47 @@ export interface Database {
           error_message?: string;
         }
       >;
+      notifications: TableDef<
+        {
+          id: string;
+          type: string;
+          title: string;
+          message: string;
+          target_route: string;
+          target_table: string | null;
+          target_id: string | null;
+          priority: string;
+          read_at: string | null;
+          metadata: Json;
+          created_at: string;
+        },
+        {
+          id?: string;
+          type: string;
+          title: string;
+          message?: string;
+          target_route?: string;
+          target_table?: string | null;
+          target_id?: string | null;
+          priority?: string;
+          read_at?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          type?: string;
+          title?: string;
+          message?: string;
+          target_route?: string;
+          target_table?: string | null;
+          target_id?: string | null;
+          priority?: string;
+          read_at?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        }
+      >;
       content_workflows: TableDef<
         {
           id: string;
@@ -1730,9 +1771,13 @@ export interface Database {
           content_type: string;
           title: string;
           current_stage: string;
+          current_owner: string;
           assigned_agent: string;
           next_agent: string;
           next_action: string;
+          destination_label: string;
+          founder_action_required: boolean;
+          last_transition_at: string;
           history_log: Json;
           calendar_item_id: string | null;
           metadata: Json;
@@ -1746,9 +1791,13 @@ export interface Database {
           content_type?: string;
           title?: string;
           current_stage?: string;
+          current_owner?: string;
           assigned_agent?: string;
           next_agent?: string;
           next_action?: string;
+          destination_label?: string;
+          founder_action_required?: boolean;
+          last_transition_at?: string;
           history_log?: Json;
           calendar_item_id?: string | null;
           metadata?: Json;
@@ -1759,11 +1808,128 @@ export interface Database {
           id?: string;
           title?: string;
           current_stage?: string;
+          current_owner?: string;
           assigned_agent?: string;
           next_agent?: string;
           next_action?: string;
+          destination_label?: string;
+          founder_action_required?: boolean;
+          last_transition_at?: string;
           history_log?: Json;
           calendar_item_id?: string | null;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      f5bot_alerts: TableDef<
+        {
+          id: string;
+          external_id: string;
+          source: string;
+          source_url: string;
+          title: string;
+          body: string;
+          author: string;
+          matched_keyword: string;
+          keyword_group: string;
+          published_at: string | null;
+          received_at: string;
+          raw_payload: Json;
+          status: string;
+          data_source: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          external_id: string;
+          source?: string;
+          source_url?: string;
+          title?: string;
+          body?: string;
+          author?: string;
+          matched_keyword?: string;
+          keyword_group?: string;
+          published_at?: string | null;
+          received_at?: string;
+          raw_payload?: Json;
+          status?: string;
+          data_source?: string;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          external_id?: string;
+          source?: string;
+          source_url?: string;
+          title?: string;
+          body?: string;
+          author?: string;
+          matched_keyword?: string;
+          keyword_group?: string;
+          published_at?: string | null;
+          received_at?: string;
+          raw_payload?: Json;
+          status?: string;
+          data_source?: string;
+          updated_at?: string;
+        }
+      >;
+      intelligence_opportunities: TableDef<
+        {
+          id: string;
+          source_type: string;
+          source_table: string;
+          source_id: string;
+          platform: string;
+          title: string;
+          summary: string;
+          opportunity_type: string;
+          priority: string;
+          recommended_agent: string;
+          suggested_action: string;
+          source_url: string;
+          status: string;
+          workflow_id: string | null;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          source_type?: string;
+          source_table?: string;
+          source_id: string;
+          platform?: string;
+          title?: string;
+          summary?: string;
+          opportunity_type?: string;
+          priority?: string;
+          recommended_agent?: string;
+          suggested_action?: string;
+          source_url?: string;
+          status?: string;
+          workflow_id?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          source_type?: string;
+          source_table?: string;
+          source_id?: string;
+          platform?: string;
+          title?: string;
+          summary?: string;
+          opportunity_type?: string;
+          priority?: string;
+          recommended_agent?: string;
+          suggested_action?: string;
+          source_url?: string;
+          status?: string;
+          workflow_id?: string | null;
           metadata?: Json;
           updated_at?: string;
         }

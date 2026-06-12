@@ -1,7 +1,7 @@
 import type { AgentSlug } from "@/lib/types";
 
 export type SchedulableAgent =
-  | "scout" | "roots" | "sentinel" | "bloom" | "sage"
+  | "scout" | "roots" | "sentinel" | "bloom" | "sage" | "moss"
   | "oak" | "ivy" | "atlas" | "fern" | "echo"
   | "sprout" | "gate";
 
@@ -78,6 +78,7 @@ export const SCHEDULE_LABELS: Record<SchedulableAgent, string> = {
   sentinel: "Every 4 hours",
   bloom: "Event-driven + every 4 hours",
   sage: "Event-driven (content review)",
+  moss: "Every hour (brand voice)",
   gate: "Event-driven (approvals)",
   sprout: "Every 30 minutes",
   oak: "Every morning (9:00 AM UTC)",
@@ -103,6 +104,7 @@ export const PHASE24_SCHEDULED_AGENTS: SchedulableAgent[] = [
 
 export const SCHEDULABLE_AGENTS: SchedulableAgent[] = [
   ...PHASE24_SCHEDULED_AGENTS,
+  "moss",
   "sprout",
   "gate",
 ];

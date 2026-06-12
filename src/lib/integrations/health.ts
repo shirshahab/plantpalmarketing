@@ -6,7 +6,27 @@ import { healthCheckSerpApi } from "@/lib/integrations/providers/serpapi-provide
 import { healthCheckX } from "@/lib/integrations/x-service";
 import { updateProviderStatus, recordHealthCheck } from "@/lib/integrations/log";
 import type { HealthCheckResult, IntegrationProvider } from "@/lib/integrations/types";
-import { isProviderConfigured } from "@/lib/integrations/config";
+import { isProviderConfigured, isF5BotConfigured } from "@/lib/integrations/config";
+
+async function healthCheckF5Bot(): Promise<HealthCheckResult> {
+  const start = Date.now();
+  if (!isF5BotConfigured()) {
+    return {
+      provider: "f5bot",
+      status: "disconnected",
+      configured: false,
+      message: "F5BOT_JSON_FEED_URL or F5BOT_API_TOKEN not configured",
+      durationMs: Date.now() - start,
+    };
+  }
+  return {
+    provider: "f5bot",
+    status: "connected",
+    configured: true,
+    message: "F5Bot env configured — use /intelligence to poll or configure webhook",
+    durationMs: Date.now() - start,
+  };
+}
 
 const CHECKERS: Record<IntegrationProvider, () => Promise<HealthCheckResult>> = {
   openai: healthCheckOpenAI,
@@ -15,6 +35,7 @@ const CHECKERS: Record<IntegrationProvider, () => Promise<HealthCheckResult>> = 
   perenual: healthCheckPerenual,
   serpapi: healthCheckSerpApi,
   x: healthCheckX,
+  f5bot: healthCheckF5Bot,
 };
 
 export async function runProviderHealthCheck(provider: IntegrationProvider): Promise<HealthCheckResult> {

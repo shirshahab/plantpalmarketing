@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, ImageIcon, Inbox, Lightbulb, MessageSquare, Video } from "lucide-react";
+import { CalendarDays, ImageIcon, Inbox, Lightbulb, MessageSquare, Radar, Video } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,12 @@ const SECTION_META: Record<
     icon: CalendarDays,
     empty: "Nothing waiting to be scheduled.",
   },
+  intelligence: {
+    title: "F5Bot intelligence alerts",
+    description: "High-priority community signals from Reddit, HN, and Lobsters.",
+    icon: Radar,
+    empty: "No F5Bot alerts need founder action.",
+  },
 };
 
 function InboxSectionBlock({
@@ -91,6 +97,11 @@ function InboxSectionBlock({
                     {item.summary ? (
                       <p className="mt-0.5 line-clamp-2 text-sm text-brand-muted">{item.summary}</p>
                     ) : null}
+                    <div className="mt-2 space-y-0.5 text-[11px] text-brand-muted">
+                      <p><span className="font-medium text-brand-primary">Current:</span> Waiting on you</p>
+                      {item.ifApproved && <p><span className="font-medium text-emerald-700">If approved:</span> {item.ifApproved}</p>}
+                      {item.ifRejected && <p><span className="font-medium text-amber-700">If rejected:</span> {item.ifRejected}</p>}
+                    </div>
                   </div>
                   <span className="shrink-0 text-xs font-medium text-brand-accent">Review →</span>
                 </CardContent>
@@ -135,6 +146,7 @@ export default async function FounderInboxPage() {
         />
       ) : (
         <>
+          <InboxSectionBlock section="intelligence" items={inbox.intelligence} />
           <InboxSectionBlock section="ideas" items={inbox.ideas} />
           <InboxSectionBlock section="images" items={inbox.images} />
           <InboxSectionBlock section="videos" items={inbox.videos} />

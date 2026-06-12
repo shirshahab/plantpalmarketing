@@ -4,8 +4,11 @@ import { getContentWorkflow } from "@/lib/workflow/engine";
 import {
   STAGE_BADGE,
   type InboxItem,
+  type InboxSection,
   type WorkflowStage,
 } from "@/lib/workflow/types";
+import { getHighPriorityF5BotInboxAlerts } from "@/lib/intelligence/queries";
+import { inboxOutcome } from "@/lib/workflow/destinations";
 
 export interface FounderInbox {
   ideas: InboxItem[];
@@ -13,13 +16,27 @@ export interface FounderInbox {
   videos: InboxItem[];
   replies: InboxItem[];
   calendar: InboxItem[];
+  intelligence: InboxItem[];
   totalPending: number;
 }
 
 function item(
-  partial: Omit<InboxItem, "badge"> & { stage: WorkflowStage }
+  partial: Omit<InboxItem, "badge" | "ifApproved" | "ifRejected" | "whyAct" | "currentOwner" | "nextOwner"> & {
+    stage: WorkflowStage;
+    section: InboxSection;
+  }
 ): InboxItem {
-  return { ...partial, badge: STAGE_BADGE[partial.stage] };
+  const approve = inboxOutcome(partial.section, "approve");
+  const reject = inboxOutcome(partial.section, "reject");
+  return {
+    ...partial,
+    badge: STAGE_BADGE[partial.stage],
+    whyAct: "Founder decision required",
+    currentOwner: "founder",
+    nextOwner: partial.section === "ideas" ? "bloom" : partial.section === "replies" ? "sprout" : "atlas",
+    ifApproved: approve.detail,
+    ifRejected: reject.detail,
+  };
 }
 
 async function stageFor(sourceTable: string, sourceId: string, fallback: WorkflowStage): Promise<WorkflowStage> {
@@ -37,6 +54,7 @@ export async function getFounderInbox(): Promise<FounderInbox> {
   const videos: InboxItem[] = [];
   const replies: InboxItem[] = [];
   const calendar: InboxItem[] = [];
+  const intelligence: InboxItem[] = [];
 
   // Ideas awaiting approval — creative_content_ideas + approval_queue content types
   const [{ data: ideaRows }, { data: queueRows }] = await Promise.all([
@@ -224,6 +242,26 @@ export async function getFounderInbox(): Promise<FounderInbox> {
     if (!isMissingTableError(e instanceof Error ? e : { message: String(e) })) throw e;
   }
 
-  const totalPending = ideas.length + images.length + videos.length + replies.length + calendar.length;
-  return { ideas, images, videos, replies, calendar, totalPending };
+  const f5botAlerts = await getHighPriorityF5BotInboxAlerts();
+  for (const alert of f5botAlerts) {
+    if (alert.status !== "new") continue;
+    intelligence.push(
+      item({
+        id: alert.id,
+        section: "intelligence",
+        sourceTable: "f5bot_alerts",
+        sourceId: alert.id,
+        title: alert.title.slice(0, 100) || `${alert.source}: ${alert.matchedKeyword}`,
+        summary: alert.body.slice(0, 200),
+        stage: "PENDING_FOUNDER_REPLY_APPROVAL",
+        href: `/intelligence?alert=${alert.id}`,
+        channel: alert.source,
+        createdAt: alert.receivedAt,
+      })
+    );
+  }
+
+  const totalPending =
+    ideas.length + images.length + videos.length + replies.length + calendar.length + intelligence.length;
+  return { ideas, images, videos, replies, calendar, intelligence, totalPending };
 }

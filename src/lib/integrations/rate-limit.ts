@@ -8,6 +8,7 @@ const LIMITS: Record<IntegrationProvider, { maxPerMinute: number }> = {
   perenual: { maxPerMinute: 30 },
   serpapi: { maxPerMinute: 20 },
   x: { maxPerMinute: 15 },
+  f5bot: { maxPerMinute: 4 },
 };
 
 const buckets = new Map<IntegrationProvider, number[]>();

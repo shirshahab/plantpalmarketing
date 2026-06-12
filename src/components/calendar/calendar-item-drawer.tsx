@@ -185,6 +185,26 @@ export function CalendarItemDrawer({
           )}
         </div>
 
+        {item.assetUrl && item.assetType === "video" ? (
+          <div className="border-b border-brand-border bg-black">
+            <video src={item.assetUrl} controls className="max-h-64 w-full object-contain" />
+          </div>
+        ) : item.assetUrl ? (
+          <div className="border-b border-brand-border bg-brand-bg">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={item.assetUrl} alt="" className="max-h-64 w-full object-contain" />
+          </div>
+        ) : itemNeedsAsset(item) ? (
+          <div className="border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-900">
+            Missing asset. Send to Fern.
+          </div>
+        ) : null}
+        {!item.caption?.trim() && (
+          <div className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-xs text-amber-900">
+            Missing caption. Send to Bloom.
+          </div>
+        )}
+
         <div className="flex-1 space-y-6 px-6 py-5">
           {/* Copy actions */}
           <div className="flex flex-wrap gap-2">

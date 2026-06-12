@@ -7,6 +7,7 @@ import {
   FileBarChart,
   FileText,
   GitBranch,
+  Radar,
   Brain,
   Inbox,
   Rocket,
@@ -15,7 +16,6 @@ import {
   Image,
   LayoutDashboard,
   MessageSquare,
-  Radar,
   Search,
   Server,
   Sparkles,
@@ -59,6 +59,7 @@ export const navMenu: NavEntry[] = [
     label: "Content",
     icon: Sparkles,
     items: [
+      { href: "/intelligence", label: "Intelligence", icon: Radar },
       { href: "/creative", label: "Creative", icon: Image },
       { href: "/seo", label: "SEO", icon: Search },
       { href: "/reddit", label: "Reddit", icon: MessageSquare },

@@ -22,6 +22,7 @@ export const AGENT_SLUG_LABELS: Record<AgentSlug, string> = {
   fern: "Fern",
   echo: "Echo",
   gate: "Gate",
+  moss: "Moss",
 };
 
 export const HQ_ID_TO_SLUG: Record<AgentId, AgentSlug> = {
@@ -52,6 +53,7 @@ export const SLUG_TO_HQ_ID: Record<AgentSlug, AgentId> = {
   fern: "acquisition",
   echo: "customer_voice",
   gate: "approval",
+  moss: "creative_director",
 };
 
 /** Canonical inter-agent communication paths */
@@ -64,6 +66,8 @@ export const AGENT_RELATIONSHIPS: { from: AgentSlug; to: AgentSlug; label: strin
   { from: "echo", to: "atlas", label: "VoC → Growth" },
   { from: "atlas", to: "ivy", label: "Growth → Executive" },
   { from: "sage", to: "bloom", label: "Review → Content" },
+  { from: "fern", to: "moss", label: "Creative → Brand Guardian" },
+  { from: "moss", to: "gate", label: "Voice check → Approval" },
   { from: "gate", to: "sprout", label: "Approval → Publishing" },
 ];
 

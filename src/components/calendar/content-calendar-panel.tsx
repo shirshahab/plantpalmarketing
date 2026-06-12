@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
   AlertTriangle,
   Check,
@@ -25,6 +25,8 @@ import type {
   ContentPublishLog,
 } from "@/lib/types";
 import { CalendarItemDrawer } from "./calendar-item-drawer";
+import { rescheduleCalendarItem } from "@/lib/actions/content-calendar";
+import { useToast, showDestinationToast } from "@/components/shared/toast-provider";
 import {
   ALL_PLATFORMS,
   ALL_STATUSES,
@@ -113,15 +115,21 @@ function ItemChip({ item, onClick }: { item: ContentCalendarItem; onClick: () =>
 function ItemCard({
   item,
   onOpen,
+  draggable = false,
+  onDragStart,
 }: {
   item: ContentCalendarItem;
   onOpen: () => void;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
 }) {
   const platform = getPlatformMeta(item.platform);
   return (
     <div
       role="button"
       tabIndex={0}
+      draggable={draggable}
+      onDragStart={onDragStart}
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && onOpen()}
       className="cursor-pointer rounded-xl border border-brand-border bg-white p-3 shadow-sm transition-shadow hover:shadow-md"
@@ -212,6 +220,24 @@ export function ContentCalendarPanel({
     () => (initialStatus as CalendarStatus) || "all"
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dragItemId, setDragItemId] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const { showToast } = useToast();
+
+  const handleDropOnDay = (day: Date, itemId: string) => {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
+    const existing = item.scheduledFor ? new Date(item.scheduledFor) : new Date();
+    const scheduled = new Date(day);
+    scheduled.setHours(existing.getHours(), existing.getMinutes(), 0, 0);
+    const label = scheduled.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+    startTransition(async () => {
+      const res = await rescheduleCalendarItem(itemId, scheduled.toISOString());
+      if (res.ok) {
+        showDestinationToast(showToast, { message: `Moved to ${label}.`, destination: "Calendar" });
+      }
+    });
+  };
 
   const filtered = useMemo(
     () =>
@@ -249,6 +275,7 @@ export function ContentCalendarPanel({
     <div className="space-y-4">
       {/* Stats */}
       <div className="flex flex-wrap gap-3">
+        {pending && <p className="w-full text-xs text-brand-muted">Updating schedule…</p>}
         <StatChip label="Scheduled today" value={stats.scheduledToday} icon={<Send className="h-4 w-4" />} />
         <StatChip label="Ready to publish" value={stats.readyToPublish} icon={<Rocket className="h-4 w-4" />} tone="success" />
         <StatChip label="Missing assets" value={stats.missingAssets} icon={<ImageOff className="h-4 w-4" />} tone="warning" />
@@ -339,12 +366,21 @@ export function ContentCalendarPanel({
                     <div
                       key={i}
                       className={`min-h-[96px] rounded-lg border p-1.5 ${
+                        dragItemId ? "ring-1 ring-brand-accent/40" : ""
+                      } ${
                         isToday
                           ? "border-brand-accent bg-brand-accent/5"
                           : inMonth
                             ? "border-brand-border bg-white"
                             : "border-transparent bg-brand-bg/50"
                       }`}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const id = e.dataTransfer.getData("text/calendar-item");
+                        if (id) handleDropOnDay(day, id);
+                        setDragItemId(null);
+                      }}
                     >
                       <button
                         onClick={() => {
@@ -359,7 +395,17 @@ export function ContentCalendarPanel({
                       </button>
                       <div className="space-y-0.5">
                         {dayItems.slice(0, 3).map((item) => (
-                          <ItemChip key={item.id} item={item} onClick={() => setSelectedId(item.id)} />
+                          <div
+                            key={item.id}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData("text/calendar-item", item.id);
+                              setDragItemId(item.id);
+                            }}
+                            onDragEnd={() => setDragItemId(null)}
+                          >
+                            <ItemChip item={item} onClick={() => setSelectedId(item.id)} />
+                          </div>
                         ))}
                         {dayItems.length > 3 && (
                           <button
@@ -404,7 +450,18 @@ export function ContentCalendarPanel({
                   {dayItems.length === 0 ? (
                     <p className="px-1 text-[11px] text-brand-muted">No posts</p>
                   ) : (
-                    dayItems.map((item) => <ItemCard key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)
+                    dayItems.map((item) => (
+                      <ItemCard
+                        key={item.id}
+                        item={item}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/calendar-item", item.id);
+                          setDragItemId(item.id);
+                        }}
+                        onOpen={() => setSelectedId(item.id)}
+                      />
+                    ))
                   )}
                 </div>
               </div>

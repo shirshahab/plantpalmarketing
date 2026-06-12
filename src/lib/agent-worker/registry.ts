@@ -48,6 +48,10 @@ export const AGENT_RUNNER_REGISTRY: Record<SchedulableAgent, AgentRunnerEntry> =
     run: () => asRecord(runSageAgent),
     countItems: (r) => (typeof r.piecesReviewed === "number" ? r.piecesReviewed : 0),
   },
+  moss: {
+    run: async () => ({ voiceChecksRun: 0, rejected: 0, passed: 0 }),
+    countItems: (r) => sumFields(r, ["voiceChecksRun", "rejected", "passed"]),
+  },
   oak: {
     run: () => asRecord(runOakAgent),
     countItems: (r) => sumFields(r, ["converted", "outreachQueued"]),

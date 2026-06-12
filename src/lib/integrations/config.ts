@@ -94,6 +94,12 @@ export function isXConfigured(): boolean {
   return isXReadConfigured() || isXPublishConfigured();
 }
 
+export function isF5BotConfigured(): boolean {
+  const json = process.env.F5BOT_JSON_FEED_URL?.trim() ?? "";
+  const token = process.env.F5BOT_API_TOKEN?.trim() ?? "";
+  return json.length > 0 || token.length > 0;
+}
+
 export function isProviderConfigured(provider: IntegrationProvider): boolean {
   switch (provider) {
     case "openai": return isOpenAIIntegrationConfigured();
@@ -102,6 +108,7 @@ export function isProviderConfigured(provider: IntegrationProvider): boolean {
     case "perenual": return isPerenualConfigured();
     case "serpapi": return isSerpApiConfigured();
     case "x": return isXConfigured();
+    case "f5bot": return isF5BotConfigured();
   }
 }
 
@@ -178,6 +185,14 @@ export const PROVIDER_CATALOG: ProviderConfigInfo[] = [
     description: "Metrics, engagement, drafts, queue — publish only after Gate approval",
     envVars: ["X_BEARER_TOKEN", "X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_TOKEN_SECRET"],
     uses: ["Roots monitoring", "Scout discovery", "Sentinel intel", "Bloom → Sage → Gate → Sprout → X"],
+    configured: false,
+  },
+  {
+    provider: "f5bot",
+    label: "F5Bot Intelligence",
+    description: "Reddit, Hacker News, Lobsters alerts → community opportunities, replies, SEO, competitor intel",
+    envVars: ["F5BOT_API_TOKEN", "F5BOT_JSON_FEED_URL", "F5BOT_RSS_FEED_URL", "F5BOT_WEBHOOK_SECRET"],
+    uses: ["Intelligence feed", "Roots community routing", "Sentinel competitor alerts", "Founder Inbox"],
     configured: false,
   },
 ];

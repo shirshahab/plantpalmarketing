@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { BADGE_VARIANT, STAGE_BADGE, type WorkflowStage } from "@/lib/workflow/types";
 
-/** Phase 39 — unified workflow status badge visible everywhere. */
+/** Phase 39/40 — unified workflow status badge visible everywhere. */
 export function WorkflowStageBadge({ stage }: { stage: WorkflowStage | string }) {
   const s = stage as WorkflowStage;
   const label = STAGE_BADGE[s] ?? "In Production";
@@ -18,8 +18,9 @@ export function legacyStatusToStage(status: string): WorkflowStage {
     case "generating":
     case "pending_generation":
     case "package_ready":
-    case "needs_revision":
       return "IN_PRODUCTION";
+    case "needs_revision":
+      return "REVISION_REQUESTED";
     case "generated":
     case "generated_not_uploaded":
       return "PENDING_FOUNDER_ASSET_APPROVAL";
@@ -30,7 +31,8 @@ export function legacyStatusToStage(status: string): WorkflowStage {
     case "published":
       return "PUBLISHED";
     case "rejected":
-      return "REJECTED";
+    case "killed":
+      return "KILLED";
     default:
       return "IN_PRODUCTION";
   }

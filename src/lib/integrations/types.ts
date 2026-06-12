@@ -4,7 +4,8 @@ export type IntegrationProvider =
   | "plantnet"
   | "perenual"
   | "serpapi"
-  | "x";
+  | "x"
+  | "f5bot";
 
 export type IntegrationStatus = "connected" | "disconnected" | "degraded" | "error";
 

@@ -15,9 +15,13 @@ import {
   logWorkflowEvent,
   transitionContentWorkflow,
 } from "@/lib/workflow/engine";
+import { createNotification } from "@/lib/notifications/create";
+import { destinationForImageApprove, destinationForKill } from "@/lib/workflow/destinations";
+import { mossGateContent } from "@/lib/agents/moss";
+import { founderSafeError } from "@/lib/integrations/founder-safe-error";
 import type { Json } from "@/lib/supabase/database.types";
 
-type Result = { ok: true; message?: string } | { ok: false; error: string };
+type Result = { ok: true; message?: string; destination?: string; nextOwner?: string; nextStep?: string } | { ok: false; error: string };
 
 /** Phase 39 — image approval actions (Reject replaced with regeneration options). */
 export type ImageWorkflowDecision =
@@ -178,13 +182,50 @@ export async function generateImageAsset(assetId: string): Promise<Result> {
       })
       .eq("id", assetId);
 
+    const campaign = getCampaignContext(cleanMeta);
+    const mossResult = await mossGateContent({
+      text: campaign.caption,
+      contentType: "image_post",
+      sourceTable: "generated_assets",
+      sourceId: assetId,
+      producingAgent: "fern",
+    });
+    if (!mossResult.passed) {
+      await supabase
+        .from("generated_assets")
+        .update({ status: "needs_revision", review_feedback: "Failed Moss voice check" })
+        .eq("id", assetId);
+      await transitionContentWorkflow({
+        sourceTable: "generated_assets",
+        sourceId: assetId,
+        toStage: "WITH_AGENT",
+        event: "Moss rejected caption — sent back to Fern",
+        actor: "moss",
+        agent: "fern",
+        destinationLabel: "Waiting on Moss → Fern",
+      });
+      revalidatePath("/images");
+      return { ok: true, message: "Moss rejected the caption (score too low). Sent back to Fern." };
+    }
+
     await transitionContentWorkflow({
       sourceTable: "generated_assets",
       sourceId: assetId,
       toStage: "PENDING_FOUNDER_ASSET_APPROVAL",
-      event: "Fern generated image",
+      event: "Fern generated image — Moss approved",
       actor: "fern",
       agent: "gate",
+      destinationLabel: "Waiting on founder",
+    });
+
+    await createNotification({
+      type: "asset_ready",
+      title: "Image ready for review",
+      message: "Fern generated an image. Moss approved the caption.",
+      targetRoute: `/images?asset=${assetId}`,
+      targetTable: "generated_assets",
+      targetId: assetId,
+      priority: "high",
     });
 
     revalidatePath("/images");
@@ -216,6 +257,7 @@ export async function reviewGeneratedAsset(input: {
     const category = input.feedbackCategory || input.decision;
 
     if (input.decision === "approve") {
+      const dest = destinationForImageApprove();
       await supabase
         .from("generated_assets")
         .update({ status: "approved", review_feedback: note || "approved as-is", selected: true })
@@ -227,12 +269,23 @@ export async function reviewGeneratedAsset(input: {
       await transitionContentWorkflow({
         sourceTable: "generated_assets",
         sourceId: input.assetId,
-        toStage: "CALENDAR_READY",
+        toStage: dest.stage,
         event: "Founder approved asset — sent to calendar",
         actor: "founder",
         agent: "atlas",
         title: String(meta.title ?? "Image asset"),
         contentType: "image",
+        destinationLabel: dest.strip,
+        currentOwner: dest.nextOwner,
+      });
+
+      await createNotification({
+        type: "calendar_ready",
+        title: "Image moved to Calendar",
+        message: dest.toast,
+        targetRoute: "/calendar",
+        targetTable: "generated_assets",
+        targetId: input.assetId,
       });
 
       await tryFeedback({
@@ -251,10 +304,17 @@ export async function reviewGeneratedAsset(input: {
       revalidatePath("/images");
       revalidatePath("/inbox");
       revalidatePath("/calendar");
-      return { ok: true, message: "Approved — moved to Calendar. Removed from Creative Department." };
+      return {
+        ok: true,
+        message: dest.toast,
+        destination: dest.destination,
+        nextOwner: dest.nextOwner,
+        nextStep: dest.nextStep,
+      };
     }
 
     if (input.decision === "kill_campaign" || input.decision === "reject") {
+      const dest = destinationForKill();
       await supabase
         .from("generated_assets")
         .update({ status: "rejected", review_feedback: note || "Campaign killed" })
@@ -262,14 +322,15 @@ export async function reviewGeneratedAsset(input: {
       await transitionContentWorkflow({
         sourceTable: "generated_assets",
         sourceId: input.assetId,
-        toStage: "REJECTED",
+        toStage: "KILLED",
         event: "Kill campaign",
         actor: "founder",
         note: note || category,
+        destinationLabel: dest.strip,
       });
       revalidatePath("/images");
       revalidatePath("/inbox");
-      return { ok: true, message: "Campaign killed." };
+      return { ok: true, message: dest.toast, destination: dest.destination };
     }
 
     if (input.decision === "regenerate_caption" || input.decision === "regenerate_both") {
@@ -312,7 +373,7 @@ export async function reviewGeneratedAsset(input: {
       await transitionContentWorkflow({
         sourceTable: "generated_assets",
         sourceId: input.assetId,
-        toStage: "IN_PRODUCTION",
+        toStage: "REVISION_REQUESTED",
         event:
           input.decision === "regenerate_both"
             ? "Regenerate image and caption"
@@ -320,6 +381,8 @@ export async function reviewGeneratedAsset(input: {
         actor: "founder",
         agent: "fern",
         note,
+        destinationLabel: "Sent to Fern",
+        currentOwner: "fern",
       });
 
       await recordHandoff({
@@ -345,7 +408,7 @@ export async function reviewGeneratedAsset(input: {
     revalidatePath("/inbox");
     return { ok: true, message: "Sent back to production." };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Review failed" };
+    return { ok: false, error: founderSafeError(e instanceof Error ? e.message : "Review failed") };
   }
 }
 

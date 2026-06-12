@@ -8,6 +8,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { isNextBuildPhase } from "@/lib/build-phase";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { checkAllApiHealth } from "@/lib/setup/api-health";
+import { getF5BotDiagnostics } from "@/lib/intelligence/f5bot-diagnostics";
 import { formatDistanceToNow } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,7 @@ const TABLE_GROUPS: Record<string, string[]> = {
     "integration_events",
     "api_usage_logs",
   ],
+  Intelligence: ["f5bot_alerts", "intelligence_opportunities"],
 };
 
 type ProbeClient = {
@@ -78,7 +80,7 @@ export default async function SetupHealthPage() {
     );
   }
 
-  const [groups, apiHealth] = await Promise.all([
+  const [groups, apiHealth, f5bot] = await Promise.all([
     Promise.all(
       Object.entries(TABLE_GROUPS).map(async ([group, tables]) => ({
         group,
@@ -86,6 +88,7 @@ export default async function SetupHealthPage() {
       }))
     ),
     checkAllApiHealth().catch(() => []),
+    getF5BotDiagnostics().catch(() => null),
   ]);
 
   const missing = groups.flatMap((g) => g.results.filter((r) => !r.ok));
@@ -116,6 +119,37 @@ export default async function SetupHealthPage() {
           )}
         </CardContent>
       </Card>
+
+      {f5bot && (
+        <Card className="mb-4">
+          <CardContent className="py-4">
+            <p className="mb-2 text-sm font-semibold text-brand-primary">F5Bot Intelligence</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <F5BotHealthRow label="API token" ok={f5bot.apiTokenPresent} />
+              <F5BotHealthRow label="JSON feed URL" ok={f5bot.jsonFeedPresent} />
+              <F5BotHealthRow label="RSS feed URL" ok={f5bot.rssFeedPresent} />
+              <F5BotHealthRow label="Webhook secret" ok={f5bot.webhookSecretPresent} />
+            </div>
+            <p className="mt-3 text-xs text-brand-muted">
+              Webhook: <code className="rounded bg-brand-bg px-1">{f5bot.webhookUrl}</code>
+            </p>
+            <div className="mt-2 flex flex-wrap gap-4 text-xs text-brand-muted">
+              {f5bot.lastPoll && (
+                <span>Last poll {formatDistanceToNow(new Date(f5bot.lastPoll), { addSuffix: true })}</span>
+              )}
+              {f5bot.lastAlertReceived && (
+                <span>
+                  Last alert {formatDistanceToNow(new Date(f5bot.lastAlertReceived), { addSuffix: true })}
+                </span>
+              )}
+              <span>{f5bot.alertCount} alerts · {f5bot.opportunityCount} opportunities</span>
+            </div>
+            {f5bot.lastProcessError && (
+              <p className="mt-2 text-xs text-rose-700">Last process error: {f5bot.lastProcessError.slice(0, 200)}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="mb-4">
         <CardContent className="py-4">
@@ -186,6 +220,18 @@ export default async function SetupHealthPage() {
           </Card>
         ))}
       </div>
+    </div>
+  );
+}
+
+function F5BotHealthRow({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-brand-border/60 px-3 py-2 text-sm">
+      <span className={`h-2 w-2 rounded-full ${ok ? "bg-emerald-500" : "bg-rose-400"}`} />
+      <span>{label}</span>
+      <Badge variant={ok ? "success" : "muted"} className="ml-auto">
+        {ok ? "present" : "missing"}
+      </Badge>
     </div>
   );
 }

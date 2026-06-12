@@ -21,9 +21,13 @@ function mapRow(row: Record<string, unknown>): ContentWorkflowRow {
     contentType: String(row.content_type ?? "content"),
     title: String(row.title ?? ""),
     currentStage: String(row.current_stage) as WorkflowStage,
+    currentOwner: String(row.current_owner ?? ""),
     assignedAgent: String(row.assigned_agent ?? ""),
     nextAgent: String(row.next_agent ?? ""),
     nextAction: String(row.next_action ?? ""),
+    destinationLabel: String(row.destination_label ?? ""),
+    founderActionRequired: row.founder_action_required === true,
+    lastTransitionAt: String(row.last_transition_at ?? row.updated_at ?? row.created_at),
     historyLog: asHistory(row.history_log),
     calendarItemId: row.calendar_item_id ? String(row.calendar_item_id) : null,
     metadata: (row.metadata as Record<string, unknown>) ?? {},
@@ -36,10 +40,6 @@ function routingFor(stage: WorkflowStage) {
   return STAGE_ROUTING[stage] ?? STAGE_ROUTING.IDEA;
 }
 
-/**
- * Phase 39 — ensure a workflow row exists for any content item.
- * Gracefully no-ops if migration 058 hasn't run yet.
- */
 export async function ensureContentWorkflow(input: {
   sourceTable: string;
   sourceId: string;
@@ -49,6 +49,7 @@ export async function ensureContentWorkflow(input: {
   assignedAgent?: string;
   initialEvent?: string;
   actor?: string;
+  destinationLabel?: string;
 }): Promise<ContentWorkflowRow | null> {
   try {
     const supabase = createServerClient();
@@ -62,8 +63,9 @@ export async function ensureContentWorkflow(input: {
 
     const stage = input.stage ?? "IDEA";
     const route = routingFor(stage);
+    const now = new Date().toISOString();
     const entry: WorkflowHistoryEntry = {
-      at: new Date().toISOString(),
+      at: now,
       stage,
       event: input.initialEvent ?? "Workflow created",
       actor: input.actor ?? "system",
@@ -78,9 +80,13 @@ export async function ensureContentWorkflow(input: {
         content_type: input.contentType,
         title: input.title,
         current_stage: stage,
+        current_owner: route.owner,
         assigned_agent: input.assignedAgent ?? route.assigned,
         next_agent: route.next,
         next_action: route.action,
+        destination_label: input.destinationLabel ?? "",
+        founder_action_required: route.founderAction,
+        last_transition_at: now,
         history_log: [entry] as unknown as Json,
       })
       .select("*")
@@ -96,9 +102,6 @@ export async function ensureContentWorkflow(input: {
   }
 }
 
-/**
- * Transition a content item to a new workflow stage and append history.
- */
 export async function transitionContentWorkflow(input: {
   sourceTable: string;
   sourceId: string;
@@ -110,10 +113,13 @@ export async function transitionContentWorkflow(input: {
   calendarItemId?: string;
   title?: string;
   contentType?: string;
+  destinationLabel?: string;
+  currentOwner?: string;
 }): Promise<ContentWorkflowRow | null> {
   try {
     const supabase = createServerClient();
     const route = routingFor(input.toStage);
+    const now = new Date().toISOString();
 
     let row = await getContentWorkflow(input.sourceTable, input.sourceId);
     if (!row) {
@@ -125,25 +131,31 @@ export async function transitionContentWorkflow(input: {
         stage: input.toStage,
         initialEvent: input.event,
         actor: input.actor,
+        destinationLabel: input.destinationLabel,
       });
       if (!row) return null;
     }
 
     const entry: WorkflowHistoryEntry = {
-      at: new Date().toISOString(),
+      at: now,
       stage: input.toStage,
       event: input.event,
       actor: input.actor ?? "system",
       agent: input.agent,
       note: input.note,
+      destination: input.destinationLabel,
     };
     const history = [...row.historyLog, entry];
 
     const patch = {
       current_stage: input.toStage,
+      current_owner: input.currentOwner ?? route.owner,
       assigned_agent: input.agent ?? route.assigned,
       next_agent: route.next,
       next_action: route.action,
+      destination_label: input.destinationLabel ?? row.destinationLabel,
+      founder_action_required: route.founderAction,
+      last_transition_at: now,
       history_log: history as unknown as Json,
       ...(input.calendarItemId ? { calendar_item_id: input.calendarItemId } : {}),
       ...(input.title ? { title: input.title } : {}),
@@ -196,6 +208,7 @@ export async function logWorkflowEvent(input: {
   actor?: string;
   agent?: string;
   note?: string;
+  destination?: string;
 }): Promise<void> {
   const row = await getContentWorkflow(input.sourceTable, input.sourceId);
   if (!row) return;
@@ -206,6 +219,7 @@ export async function logWorkflowEvent(input: {
     actor: input.actor ?? "system",
     agent: input.agent,
     note: input.note,
+    destination: input.destination,
   };
   try {
     const supabase = createServerClient();

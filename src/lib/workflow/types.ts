@@ -1,5 +1,5 @@
 /**
- * Phase 39 — Unified Content Workflow types.
+ * Phase 39/40 — Unified Content Workflow types.
  */
 
 export const WORKFLOW_STAGES = [
@@ -7,9 +7,13 @@ export const WORKFLOW_STAGES = [
   "PENDING_FOUNDER_IDEA_APPROVAL",
   "IN_PRODUCTION",
   "PENDING_FOUNDER_ASSET_APPROVAL",
+  "PENDING_FOUNDER_REPLY_APPROVAL",
+  "REVISION_REQUESTED",
+  "WITH_AGENT",
   "CALENDAR_READY",
   "SCHEDULED",
   "PUBLISHED",
+  "KILLED",
   "ARCHIVED",
   "REJECTED",
 ] as const;
@@ -19,6 +23,8 @@ export type WorkflowStage = (typeof WORKFLOW_STAGES)[number];
 export type WorkflowBadge =
   | "Waiting Founder"
   | "In Production"
+  | "With Agent"
+  | "Needs Revision"
   | "Calendar Ready"
   | "Scheduled"
   | "Published"
@@ -31,6 +37,7 @@ export interface WorkflowHistoryEntry {
   actor: string;
   agent?: string;
   note?: string;
+  destination?: string;
 }
 
 export interface ContentWorkflowRow {
@@ -40,9 +47,13 @@ export interface ContentWorkflowRow {
   contentType: string;
   title: string;
   currentStage: WorkflowStage;
+  currentOwner: string;
   assignedAgent: string;
   nextAgent: string;
   nextAction: string;
+  destinationLabel: string;
+  founderActionRequired: boolean;
+  lastTransitionAt: string;
   historyLog: WorkflowHistoryEntry[];
   calendarItemId: string | null;
   metadata: Record<string, unknown>;
@@ -56,9 +67,13 @@ export const STAGE_BADGE: Record<WorkflowStage, WorkflowBadge> = {
   PENDING_FOUNDER_IDEA_APPROVAL: "Waiting Founder",
   IN_PRODUCTION: "In Production",
   PENDING_FOUNDER_ASSET_APPROVAL: "Waiting Founder",
+  PENDING_FOUNDER_REPLY_APPROVAL: "Waiting Founder",
+  REVISION_REQUESTED: "Needs Revision",
+  WITH_AGENT: "With Agent",
   CALENDAR_READY: "Calendar Ready",
   SCHEDULED: "Scheduled",
   PUBLISHED: "Published",
+  KILLED: "Rejected",
   ARCHIVED: "Rejected",
   REJECTED: "Rejected",
 };
@@ -69,6 +84,8 @@ export const BADGE_VARIANT: Record<
 > = {
   "Waiting Founder": "warning",
   "In Production": "info",
+  "With Agent": "info",
+  "Needs Revision": "warning",
   "Calendar Ready": "success",
   Scheduled: "success",
   Published: "success",
@@ -78,17 +95,21 @@ export const BADGE_VARIANT: Record<
 /** Default agent routing per stage. */
 export const STAGE_ROUTING: Record<
   WorkflowStage,
-  { assigned: string; next: string; action: string }
+  { assigned: string; next: string; action: string; owner: string; founderAction: boolean }
 > = {
-  IDEA: { assigned: "scout", next: "bloom", action: "Develop content idea" },
-  PENDING_FOUNDER_IDEA_APPROVAL: { assigned: "gate", next: "bloom", action: "Founder approves or rejects idea" },
-  IN_PRODUCTION: { assigned: "fern", next: "gate", action: "Produce asset (image or video)" },
-  PENDING_FOUNDER_ASSET_APPROVAL: { assigned: "gate", next: "atlas", action: "Founder approves asset" },
-  CALENDAR_READY: { assigned: "atlas", next: "sprout", action: "Schedule publish slot" },
-  SCHEDULED: { assigned: "sprout", next: "sprout", action: "Publish at scheduled time" },
-  PUBLISHED: { assigned: "sprout", next: "", action: "Monitor performance" },
-  ARCHIVED: { assigned: "", next: "", action: "Archived" },
-  REJECTED: { assigned: "", next: "", action: "Campaign killed" },
+  IDEA: { assigned: "scout", next: "bloom", action: "Develop content idea", owner: "scout", founderAction: false },
+  PENDING_FOUNDER_IDEA_APPROVAL: { assigned: "gate", next: "bloom", action: "Founder approves or rejects idea", owner: "founder", founderAction: true },
+  IN_PRODUCTION: { assigned: "fern", next: "moss", action: "Produce asset (image or video)", owner: "fern", founderAction: false },
+  PENDING_FOUNDER_ASSET_APPROVAL: { assigned: "gate", next: "atlas", action: "Founder approves asset", owner: "founder", founderAction: true },
+  PENDING_FOUNDER_REPLY_APPROVAL: { assigned: "gate", next: "sprout", action: "Founder approves reply", owner: "founder", founderAction: true },
+  REVISION_REQUESTED: { assigned: "bloom", next: "moss", action: "Revise based on founder feedback", owner: "bloom", founderAction: false },
+  WITH_AGENT: { assigned: "moss", next: "gate", action: "Agent working on revision", owner: "moss", founderAction: false },
+  CALENDAR_READY: { assigned: "atlas", next: "sprout", action: "Schedule publish slot", owner: "atlas", founderAction: false },
+  SCHEDULED: { assigned: "sprout", next: "sprout", action: "Publish at scheduled time", owner: "sprout", founderAction: false },
+  PUBLISHED: { assigned: "sprout", next: "", action: "Monitor performance", owner: "sprout", founderAction: false },
+  KILLED: { assigned: "", next: "", action: "Campaign killed", owner: "", founderAction: false },
+  ARCHIVED: { assigned: "", next: "", action: "Archived", owner: "", founderAction: false },
+  REJECTED: { assigned: "", next: "", action: "Campaign killed", owner: "", founderAction: false },
 };
 
 export type InboxSection =
@@ -96,7 +117,8 @@ export type InboxSection =
   | "images"
   | "videos"
   | "replies"
-  | "calendar";
+  | "calendar"
+  | "intelligence";
 
 export interface InboxItem {
   id: string;
@@ -110,6 +132,11 @@ export interface InboxItem {
   href: string;
   channel?: string;
   createdAt: string;
+  currentOwner?: string;
+  nextOwner?: string;
+  whyAct?: string;
+  ifApproved?: string;
+  ifRejected?: string;
 }
 
 /** Asset/video statuses that belong in Creative Department (production + review). */
@@ -125,4 +152,8 @@ export const CREATIVE_DEPARTMENT_ASSET_STATUSES = new Set([
 export function isInCreativeDepartment(status: string, calendarItemId?: string | null): boolean {
   if (calendarItemId) return false;
   return CREATIVE_DEPARTMENT_ASSET_STATUSES.has(status);
+}
+
+export function stageRequiresFounder(stage: WorkflowStage): boolean {
+  return STAGE_ROUTING[stage]?.founderAction ?? false;
 }
