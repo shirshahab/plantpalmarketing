@@ -2,17 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { HQLivingWorld } from "@/components/hq/living/hq-living-world";
-import { HQCommandCenter } from "@/components/hq/station/hq-command-center";
+import { HQVillageWorld } from "@/components/hq/world/hq-village-world";
+import { HQActivityList } from "@/components/hq/world/hq-activity-list";
 import { PanelErrorBoundary } from "@/components/shared/error-boundary";
 import { HQLivingAgentDrawer } from "@/components/hq/living/hq-living-agent-drawer";
 import { ActivityDetailDrawer } from "@/components/hq/agent-detail-drawer";
 import { approveCommunityReply, rejectCommunityReply } from "@/lib/actions/roots-agent";
 import { recordHQWorkflowEvent } from "@/lib/actions/hq-workflow";
 import {
-  activityToWorkflow,
   buildFeedConfirmationItem,
-  getLiveActionLabel,
   shouldConfirmFeedItem,
   type WorkflowChoreography,
 } from "@/lib/hq/activity-to-choreography";
@@ -30,7 +28,7 @@ import type {
 } from "@/lib/types";
 
 type DrawerMode = "agent" | "activity" | null;
-type HQViewMode = "command" | "world";
+type HQViewMode = "world" | "list";
 
 const VIEW_MODE_KEY = "plantpal-hq-view-mode";
 
@@ -68,18 +66,16 @@ export function PlantPalHQ({
   const [selectedAgentId, setSelectedAgentId] = useState<AgentId | null>(null);
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>(null);
-  const [workflowLabel, setWorkflowLabel] = useState<string | null>(null);
 
-  // Phase 34 — the Command Center (station map) is the default everywhere.
-  // The animated Living World stays one tap away. Choice persists per device.
-  const [viewMode, setViewMode] = useState<HQViewMode>("command");
+  // Phase 42 — Village is the default HQ. Activity list is the compact fallback.
+  const [viewMode, setViewMode] = useState<HQViewMode>("world");
   const [viewReady, setViewReady] = useState(false);
 
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(VIEW_MODE_KEY);
-      if (stored === "world") {
-        setViewMode("world");
+      if (stored === "list") {
+        setViewMode("list");
       }
     } catch {
       // ignore storage failures (private mode)
@@ -106,11 +102,6 @@ export function PlantPalHQ({
     [activity, selectedActivityId]
   );
 
-  const liveActionLabel = useMemo(
-    () => getLiveActionLabel(activity, workflowLabel ?? weather.gardening_tip),
-    [activity, workflowLabel, weather.gardening_tip]
-  );
-
   useEffect(() => {
     if (weatherWorkflowsLogged.current || !weather.live) return;
     weatherWorkflowsLogged.current = true;
@@ -122,8 +113,6 @@ export function PlantPalHQ({
   const handleWorkflowStarted = useCallback(
     (workflow: WorkflowChoreography) => {
       if (workflow.triggerType === "demo") return;
-
-      setWorkflowLabel(workflow.feedLabel);
 
       if (shouldConfirmFeedItem(activity, workflow)) {
         const item = buildFeedConfirmationItem(workflow);
@@ -184,7 +173,7 @@ export function PlantPalHQ({
     }
   }
 
-  function handleDailyReportGenerated() {
+  const handleDailyReportGenerated = useCallback(() => {
     const item: ActivityItem = {
       id: `ivy-daily-report-${Date.now()}`,
       type: "ivy_daily_report",
@@ -195,9 +184,7 @@ export function PlantPalHQ({
       status: "approved",
     };
     setActivity((prev) => [item, ...prev]);
-    const wf = activityToWorkflow(item);
-    if (wf) setWorkflowLabel(wf.feedLabel);
-  }
+  }, []);
 
   function handleEdit(id: string) {
     const item = activity.find((a) => a.id === id);
@@ -235,17 +222,6 @@ export function PlantPalHQ({
         <div className="inline-flex rounded-full border border-brand-border/60 bg-white/90 p-0.5 shadow-sm backdrop-blur">
           <button
             type="button"
-            onClick={() => switchViewMode("command")}
-            className={
-              viewMode === "command"
-                ? "rounded-full bg-brand-primary px-3 py-1.5 text-[11px] font-semibold text-white"
-                : "rounded-full px-3 py-1.5 text-[11px] font-medium text-brand-muted"
-            }
-          >
-            Command Center
-          </button>
-          <button
-            type="button"
             onClick={() => switchViewMode("world")}
             className={
               viewMode === "world"
@@ -253,45 +229,49 @@ export function PlantPalHQ({
                 : "rounded-full px-3 py-1.5 text-[11px] font-medium text-brand-muted"
             }
           >
-            Living World
+            Village
+          </button>
+          <button
+            type="button"
+            onClick={() => switchViewMode("list")}
+            className={
+              viewMode === "list"
+                ? "rounded-full bg-brand-primary px-3 py-1.5 text-[11px] font-semibold text-white"
+                : "rounded-full px-3 py-1.5 text-[11px] font-medium text-brand-muted"
+            }
+          >
+            Activity List
           </button>
         </div>
       </div>
 
-      {viewMode === "command" ? (
-        <PanelErrorBoundary>
-          <HQCommandCenter
-            agents={agents}
-            activity={activity}
-            selectedAgentId={selectedAgentId}
-            onSelectAgent={openAgentDrawer}
-            onSelectActivity={openActivityDrawer}
-            onApproveActivity={handleApprove}
-            onRejectActivity={handleReject}
-            onDailyReportGenerated={handleDailyReportGenerated}
-          />
-        </PanelErrorBoundary>
-      ) : (
+      {viewMode === "world" ? (
         <div className={viewReady ? "h-full" : "h-full opacity-0"}>
-          <HQLivingWorld
+          <HQVillageWorld
             agents={agents}
             activity={activity}
             selectedId={selectedAgentId}
             onSelectAgent={openAgentDrawer}
-            onSelectActivity={openActivityDrawer}
-            onApproveActivity={handleApprove}
-            onRejectActivity={handleReject}
             messageLines={messageLines}
             collaborationTasks={collaborationTasks}
-            collaborationStats={collaborationStats}
             weather={weather}
             liveDataAvailable={liveDataAvailable}
-            liveActionLabel={liveActionLabel}
             onWorkflowStarted={handleWorkflowStarted}
+            onOpenActivityList={() => switchViewMode("list")}
             onDailyReportGenerated={handleDailyReportGenerated}
+            collaborationStats={collaborationStats}
             agentScheduleHealth={agentScheduleHealth}
           />
         </div>
+      ) : (
+        <PanelErrorBoundary>
+          <HQActivityList
+            agents={agents}
+            activity={activity}
+            onSelectAgent={openAgentDrawer}
+            onSelectActivity={openActivityDrawer}
+          />
+        </PanelErrorBoundary>
       )}
 
       {drawerMode === "agent" && (

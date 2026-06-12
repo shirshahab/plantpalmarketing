@@ -36,6 +36,10 @@ export function useWorldViewport() {
     setPan({ x: 0, y: 0 });
   }, []);
 
+  const setPanPosition = useCallback((next: { x: number; y: number }) => {
+    setPan(next);
+  }, []);
+
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
@@ -111,6 +115,7 @@ export function useWorldViewport() {
     onTouchStart,
     onTouchMove,
     onTouchEnd,
+    setPan: setPanPosition,
     transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
   };
 }
