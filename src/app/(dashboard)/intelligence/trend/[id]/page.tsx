@@ -37,7 +37,54 @@ export default async function TrendDetailPage({
 
       <TrendClusterDetailActions clusterId={cluster.id} alertIds={cluster.alerts.map((a) => a.id)} />
 
+      <div className="mb-6 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-brand-border bg-white p-4">
+          <h3 className="text-sm font-semibold text-brand-primary">Source breakdown</h3>
+          <ul className="mt-2 space-y-1 text-sm text-brand-muted">
+            {Object.entries(cluster.sourceBreakdown).map(([src, count]) => (
+              <li key={src} className="flex justify-between">
+                <span className="capitalize">{src}</span>
+                <span className="font-semibold tabular-nums">{count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+          <h3 className="text-sm font-semibold text-brand-primary">Suggested PlantPal angle</h3>
+          {cluster.plantAngle.shouldUse ? (
+            <div className="mt-2 space-y-2 text-sm text-brand-muted">
+              <p>{cluster.plantAngle.plantAngle}</p>
+              {cluster.plantAngle.suggestedVideoHook && (
+                <p className="text-xs">
+                  <span className="font-semibold text-brand-primary">Video hook:</span> {cluster.plantAngle.suggestedVideoHook}
+                </p>
+              )}
+              {cluster.plantAngle.suggestedBlogIdea && (
+                <p className="text-xs">
+                  <span className="font-semibold text-brand-primary">Blog idea:</span> {cluster.plantAngle.suggestedBlogIdea}
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-brand-muted">{cluster.plantAngle.skipReason ?? "No safe plant angle for this trend."}</p>
+          )}
+        </div>
+      </div>
+
+      {cluster.competitorAlerts.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+          <h3 className="text-sm font-semibold text-brand-primary">Competitor mentions ({cluster.competitorAlerts.length})</h3>
+          <ul className="mt-2 space-y-1 text-sm text-brand-muted">
+            {cluster.competitorAlerts.slice(0, 5).map((a) => (
+              <li key={a.id}>{a.title}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-brand-primary">Related alerts</h3>
         {cluster.alerts.map((alert) => (
           <div key={alert.id} className="rounded-xl border border-brand-border bg-white p-4">
             <div className="flex flex-wrap items-center gap-2">

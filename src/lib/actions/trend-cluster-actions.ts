@@ -62,6 +62,53 @@ export async function sendTrendClusterToSeoAction(clusterId: string, alertIds: s
   }
 }
 
+export async function sendTrendClusterToVideoAction(clusterId: string, alertIds: string[]): Promise<ActionResult> {
+  const cluster = await getTrendClusterById(clusterId);
+  if (!cluster) return { ok: false, error: "Cluster not found" };
+  try {
+    const supabase = createServerClient();
+    await supabase.from("video_generation_queue").insert({
+      title: cluster.label.slice(0, 100),
+      concept: cluster.alerts.map((a) => a.title).join(". ").slice(0, 400),
+      hook: `Trending: ${cluster.label}`,
+      platform: "tiktok",
+      status: "pending",
+      priority: 78,
+      source_table: "trend_cluster",
+      source_id: clusterId,
+    });
+    if (alertIds.length > 0) {
+      await supabase.from("intelligence_alerts").update({ assigned_agent: "bloom", classification: "video_concept" }).in("id", alertIds);
+    }
+    revalidatePath("/video");
+    return { ok: true, message: "Sent to Video Studio" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed" };
+  }
+}
+
+export async function sendTrendClusterToImageAction(clusterId: string, alertIds: string[]): Promise<ActionResult> {
+  const cluster = await getTrendClusterById(clusterId);
+  if (!cluster) return { ok: false, error: "Cluster not found" };
+  try {
+    const supabase = createServerClient();
+    await supabase.from("image_prompts").insert({
+      title: `Trend: ${cluster.label}`.slice(0, 80),
+      category: "social_graphic",
+      prompt: `PlantPal social graphic about trending topic "${cluster.label}". Clean greens, educational, on-brand.`,
+      style: "Trend cluster",
+      status: "pending",
+    });
+    if (alertIds.length > 0) {
+      await supabase.from("intelligence_alerts").update({ assigned_agent: "bloom", classification: "image_prompt" }).in("id", alertIds);
+    }
+    revalidatePath("/images");
+    return { ok: true, message: "Sent to Image Studio" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed" };
+  }
+}
+
 export async function sendTrendClusterToCalendarAction(clusterId: string, alertIds: string[]): Promise<ActionResult> {
   const cluster = await getTrendClusterById(clusterId);
   if (!cluster) return { ok: false, error: "Cluster not found" };

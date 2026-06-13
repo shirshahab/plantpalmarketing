@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import {
   archiveTrendClusterAlertsAction,
   sendTrendClusterToBloomAction,
-  sendTrendClusterToCalendarAction,
+  sendTrendClusterToImageAction,
   sendTrendClusterToSeoAction,
+  sendTrendClusterToVideoAction,
 } from "@/lib/actions/trend-cluster-actions";
 
 export function TrendClusterDetailActions({
@@ -32,11 +33,14 @@ export function TrendClusterDetailActions({
       <Button size="sm" disabled={pending} onClick={() => run(() => sendTrendClusterToBloomAction(clusterId, alertIds))}>
         Send to Bloom
       </Button>
-      <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(() => sendTrendClusterToSeoAction(clusterId, alertIds))}>
-        Send to SEO
+      <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(() => sendTrendClusterToVideoAction(clusterId, alertIds))}>
+        Video Studio
       </Button>
-      <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(() => sendTrendClusterToCalendarAction(clusterId, alertIds))}>
-        Send to Content Calendar
+      <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(() => sendTrendClusterToImageAction(clusterId, alertIds))}>
+        Image Studio
+      </Button>
+      <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(() => sendTrendClusterToSeoAction(clusterId, alertIds))}>
+        SEO Factory
       </Button>
       <Button size="sm" variant="ghost" disabled={pending} onClick={() => run(() => archiveTrendClusterAlertsAction(alertIds))}>
         Archive

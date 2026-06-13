@@ -49,6 +49,8 @@ export async function getSavedIntelligenceAlerts(
     let query = supabase
       .from("intelligence_alerts")
       .select("*", { count: "exact" })
+      .not("status", "in", '("needs_review","archived","ignored","intelligence_rejected")')
+      .or("relevance_score.gte.80,relevance_score.eq.0")
       .order("created_at", { ascending: false })
       .limit(limit);
 

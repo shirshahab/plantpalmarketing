@@ -51,10 +51,13 @@ export function ApprovalActions({
           destination: result.destination,
           destinationLabel: result.destinationLabel,
           destinationUrl: result.destinationUrl,
-          workflowUrl: result.workflowUrl,
+          bloomUrl: result.destinationUrl ?? "/bloom",
+          videoUrl: "/video",
+          seoUrl: "/seo",
+          workflowUrl: result.workflowUrl ?? "/company-os",
           nextOwner: result.nextOwner,
           nextStep: result.nextStep,
-          withNavigation: table === "creative_content_ideas",
+          withNavigation: Boolean(result.destinationUrl || result.workflowUrl),
         });
       } else {
         setError(founderSafeError(result.error));

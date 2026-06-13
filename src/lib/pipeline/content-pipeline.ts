@@ -125,6 +125,37 @@ export async function getBloomPipelineItems(limit = 20): Promise<ContentPipeline
   }
 }
 
+export async function getBloomApprovalStats(): Promise<{ approvedToday: number; approvedThisWeek: number }> {
+  try {
+    const supabase = createServerClient();
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - 7);
+
+    const [today, week] = await Promise.all([
+      supabase
+        .from("content_pipeline")
+        .select("*", { count: "exact", head: true })
+        .eq("destination", "bloom")
+        .gte("updated_at", todayStart.toISOString()),
+      supabase
+        .from("content_pipeline")
+        .select("*", { count: "exact", head: true })
+        .eq("destination", "bloom")
+        .gte("updated_at", weekStart.toISOString()),
+    ]);
+
+    return {
+      approvedToday: today.count ?? 0,
+      approvedThisWeek: week.count ?? 0,
+    };
+  } catch {
+    return { approvedToday: 0, approvedThisWeek: 0 };
+  }
+}
+
 export async function getPipelineHistory(sourceTable: string, sourceId: string): Promise<PipelineHistoryEntry[]> {
   try {
     const supabase = createServerClient();

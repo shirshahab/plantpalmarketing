@@ -12,16 +12,17 @@ import {
   getBloomPerformance,
   getBloomStats,
 } from "@/lib/db/bloom-queries";
-import { getBloomPipelineItems } from "@/lib/pipeline/content-pipeline";
+import { getBloomPipelineItems, getBloomApprovalStats } from "@/lib/pipeline/content-pipeline";
 
 async function loadBloomData() {
-  const [pieces, calendarPieces, draftQueue, performance, stats, pipelineItems] = await Promise.all([
+  const [pieces, calendarPieces, draftQueue, performance, stats, pipelineItems, bloomApprovalStats] = await Promise.all([
     getBloomContentPieces(),
     getBloomCalendarPieces(),
     getBloomDraftQueue(),
     getBloomPerformance(),
     getBloomStats(),
     getBloomPipelineItems(20),
+    getBloomApprovalStats(),
   ]);
 
   return {
@@ -39,6 +40,7 @@ async function loadBloomData() {
       updatedAt: row.updatedAt,
       workflowHistory: row.workflowHistory,
     })),
+    bloomApprovalStats,
   };
 }
 
@@ -74,6 +76,7 @@ export default async function BloomPage() {
           latestRun={data.latestRun}
           stats={data.stats}
           founderIncoming={data.founderIncoming}
+          bloomApprovalStats={data.bloomApprovalStats}
         />
       ) : (
         !error && (

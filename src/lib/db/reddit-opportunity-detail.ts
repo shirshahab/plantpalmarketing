@@ -1,5 +1,6 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { isRedditConfigured } from "@/lib/reddit/client";
+import { matchRequiredTopics } from "@/lib/intelligence/plantpalRelevance";
 
 export interface RedditOpportunityDetail {
   id: string;
@@ -12,12 +13,29 @@ export interface RedditOpportunityDetail {
   author: string;
   createdAt: string;
   matchedKeyword: string;
+  matchedKeywords: string[];
   selectionReason: string;
-  confidenceScore: number;
+  relevanceScore: number;
+  plantConfidenceScore: number;
   priority: string | null;
   draftReply: string | null;
   draftId: string | null;
   oauthConfigured: boolean;
+}
+
+function extractMatchedKeywords(
+  title: string,
+  body: string,
+  alertName: string,
+  detected: unknown
+): string[] {
+  const blob = `${title} ${body} ${alertName}`.toLowerCase();
+  const fromTopics = matchRequiredTopics(blob);
+  const fromDetected = Array.isArray(detected)
+    ? detected.filter((k): k is string => typeof k === "string")
+    : [];
+  const fromAlert = alertName ? [alertName] : [];
+  return [...new Set([...fromTopics, ...fromDetected, ...fromAlert])].slice(0, 12);
 }
 
 export async function getRedditOpportunityDetail(
@@ -38,6 +56,14 @@ export async function getRedditOpportunityDetail(
       .limit(1)
       .maybeSingle();
 
+    const matchedKeywords = extractMatchedKeywords(
+      String(data.title),
+      String(data.body),
+      String(data.alert_name ?? ""),
+      data.detected_keywords
+    );
+    const relevanceScore = Number(data.relevance_score ?? 0);
+
     return {
       id: String(data.id),
       source: "f5bot",
@@ -48,9 +74,11 @@ export async function getRedditOpportunityDetail(
       url: String(data.url),
       author: String(data.author ?? ""),
       createdAt: String(data.created_at),
-      matchedKeyword: String(data.alert_name ?? ""),
-      selectionReason: String(data.classification_reason ?? data.classification ?? "Community opportunity"),
-      confidenceScore: data.priority === "high" ? 9 : data.priority === "medium" ? 6 : 4,
+      matchedKeyword: String(data.alert_name ?? matchedKeywords[0] ?? ""),
+      matchedKeywords,
+      selectionReason: String(data.relevance_reason ?? data.classification_reason ?? "Plant-care relevance match"),
+      relevanceScore,
+      plantConfidenceScore: relevanceScore,
       priority: data.priority ? String(data.priority) : null,
       draftReply: draft ? String(draft.draft_reply) : null,
       draftId: draft ? String(draft.id) : null,
@@ -69,6 +97,15 @@ export async function getRedditOpportunityDetail(
     .limit(1)
     .maybeSingle();
 
+  const matchedKeywords = extractMatchedKeywords(
+    String(opp.title),
+    String(opp.question),
+    "plant care",
+    []
+  );
+  const risk = Number(opp.risk_score ?? 5);
+  const plantConfidence = Math.max(0, Math.min(100, (10 - risk) * 10));
+
   return {
     id: String(opp.id),
     source: "oauth",
@@ -79,10 +116,12 @@ export async function getRedditOpportunityDetail(
     url: opp.permalink?.startsWith("http") ? String(opp.permalink) : `https://reddit.com${opp.permalink}`,
     author: String(opp.author ?? ""),
     createdAt: String(opp.created_at),
-    matchedKeyword: "plant question",
-    selectionReason: `Risk score ${opp.risk_score}. Matched plant-care question patterns.`,
-    confidenceScore: Math.max(1, 10 - Number(opp.risk_score ?? 5)),
-    priority: Number(opp.risk_score ?? 5) <= 3 ? "high" : "medium",
+    matchedKeyword: matchedKeywords[0] ?? "plant care",
+    matchedKeywords,
+    selectionReason: `Matched plant-care patterns in r/${opp.subreddit}. Risk score ${risk}/10.`,
+    relevanceScore: plantConfidence,
+    plantConfidenceScore: plantConfidence,
+    priority: risk <= 3 ? "high" : "medium",
     draftReply: draft ? String(draft.draft_reply) : null,
     draftId: draft ? String(draft.id) : null,
     oauthConfigured,

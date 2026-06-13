@@ -49,6 +49,7 @@ export function BloomPanel({
   latestRun,
   stats,
   founderIncoming = [],
+  bloomApprovalStats = { approvedToday: 0, approvedThisWeek: 0 },
 }: {
   pieces: BloomContentPiece[];
   calendarPieces: BloomContentPiece[];
@@ -71,6 +72,7 @@ export function BloomPanel({
     updatedAt: string;
     workflowHistory: PipelineHistoryEntry[];
   }>;
+  bloomApprovalStats?: { approvedToday: number; approvedThisWeek: number };
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("calendar");
@@ -121,10 +123,15 @@ export function BloomPanel({
         )}
       </div>
 
-      {founderIncoming.length > 0 && (
-        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
-          <h3 className="font-heading text-sm font-semibold text-brand-primary">Incoming from Founder ({founderIncoming.length})</h3>
-          <p className="mt-0.5 text-xs text-brand-muted">Approved ideas in content_pipeline, ready for Bloom production.</p>
+      <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+        <h3 className="font-heading text-sm font-semibold text-brand-primary">Incoming from Founder</h3>
+        <p className="mt-0.5 text-xs text-brand-muted">
+          {bloomApprovalStats.approvedToday} approved today · {bloomApprovalStats.approvedThisWeek} this week ·{" "}
+          {founderIncoming.length} in pipeline now
+        </p>
+        {founderIncoming.length === 0 ? (
+          <p className="mt-3 text-sm text-brand-muted">No approved ideas yet. Approve content from HQ or Approvals.</p>
+        ) : (
           <div className="mt-3 space-y-2">
             {founderIncoming.map((idea) => (
               <div
@@ -139,8 +146,8 @@ export function BloomPanel({
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Generated Today" value={stats.generatedToday} icon={Sparkles} />

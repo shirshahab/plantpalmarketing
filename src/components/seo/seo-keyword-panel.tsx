@@ -193,6 +193,7 @@ export function SeoKeywordPanel({ keywords, posts, logs, topics = [], clusters =
                     <th className="py-2 pr-4">Keyword</th>
                     <th className="py-2 pr-4">Status</th>
                     <th className="py-2 pr-4">Words</th>
+                    <th className="py-2 pr-4">Created</th>
                     <th className="py-2 pr-4">Voice</th>
                   </tr>
                 </thead>
@@ -207,6 +208,9 @@ export function SeoKeywordPanel({ keywords, posts, logs, topics = [], clusters =
                         </span>
                       </td>
                       <td className="py-2.5 pr-4 tabular-nums text-brand-muted">{post.wordCount}</td>
+                      <td className="py-2.5 pr-4 text-xs text-brand-muted">
+                        {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : "—"}
+                      </td>
                       <td className="py-2.5 pr-4 text-brand-muted">
                         {post.voiceCheckPassed ? "Passed" : "Needs fix"}
                       </td>

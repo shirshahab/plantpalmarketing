@@ -442,6 +442,12 @@ export interface Database {
           source_title?: string;
           source_excerpt?: string;
           data_source?: string;
+          title?: string;
+          summary?: string;
+          payload?: Json;
+          source_trace?: Json;
+          assigned_agent?: string;
+          destination?: string;
         },
         {
           id?: string;
@@ -466,6 +472,12 @@ export interface Database {
           source_title?: string;
           source_excerpt?: string;
           data_source?: string;
+          title?: string;
+          summary?: string;
+          payload?: Json;
+          source_trace?: Json;
+          assigned_agent?: string;
+          destination?: string;
           feedback_category?: string;
         },
         {
@@ -483,6 +495,12 @@ export interface Database {
           rejected_at?: string | null;
           sent_back_to_agent?: string;
           feedback_category?: string;
+          title?: string;
+          summary?: string;
+          payload?: Json;
+          source_trace?: Json;
+          assigned_agent?: string;
+          destination?: string;
           created_at?: string;
           updated_at?: string;
         }
@@ -1615,6 +1633,8 @@ export interface Database {
           published_at: string | null;
           backlinks: Json;
           metadata: Json;
+          source_trace: Json;
+          body: string;
           author: string;
           category: string;
           tags: Json;
@@ -1650,6 +1670,8 @@ export interface Database {
           published_at?: string | null;
           backlinks?: Json;
           metadata?: Json;
+          source_trace?: Json;
+          body?: string;
           author?: string;
           category?: string;
           tags?: Json;
@@ -1685,6 +1707,8 @@ export interface Database {
           published_at?: string | null;
           backlinks?: Json;
           metadata?: Json;
+          source_trace?: Json;
+          body?: string;
           author?: string;
           category?: string;
           tags?: Json;
@@ -1846,6 +1870,9 @@ export interface Database {
           raw_payload: Json;
           received_at: string;
           classification_reason: string;
+          relevance_score: number;
+          relevance_category: string;
+          relevance_reason: string;
         },
         {
           id?: string;
@@ -1871,6 +1898,9 @@ export interface Database {
           raw_payload?: Json;
           received_at?: string;
           classification_reason?: string;
+          relevance_score?: number;
+          relevance_category?: string;
+          relevance_reason?: string;
         },
         {
           id?: string;
@@ -1895,6 +1925,9 @@ export interface Database {
           received_at?: string;
           updated_at?: string;
           classification_reason?: string;
+          relevance_score?: number;
+          relevance_category?: string;
+          relevance_reason?: string;
         }
       >;
       intelligence_rejected: TableDef<
@@ -2031,6 +2064,98 @@ export interface Database {
           platform?: string;
           status?: string;
           priority?: number;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      social_content_posts: TableDef<
+        {
+          id: string;
+          platform: string;
+          format: string;
+          title: string;
+          copy: string;
+          hook: string;
+          caption: string;
+          hashtags: string[];
+          source_trace: Json;
+          status: string;
+          assigned_agent: string;
+          brand_score: number;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          platform?: string;
+          format?: string;
+          title?: string;
+          copy?: string;
+          hook?: string;
+          caption?: string;
+          hashtags?: string[];
+          source_trace?: Json;
+          status?: string;
+          assigned_agent?: string;
+          brand_score?: number;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          platform?: string;
+          format?: string;
+          title?: string;
+          copy?: string;
+          hook?: string;
+          caption?: string;
+          hashtags?: string[];
+          source_trace?: Json;
+          status?: string;
+          assigned_agent?: string;
+          brand_score?: number;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      meme_ideas: TableDef<
+        {
+          id: string;
+          title: string;
+          caption: string;
+          visual_prompt: string;
+          platform: string;
+          source_trace: Json;
+          risk_level: string;
+          status: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          title?: string;
+          caption?: string;
+          visual_prompt?: string;
+          platform?: string;
+          source_trace?: Json;
+          risk_level?: string;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          title?: string;
+          caption?: string;
+          visual_prompt?: string;
+          platform?: string;
+          source_trace?: Json;
+          risk_level?: string;
+          status?: string;
           metadata?: Json;
           updated_at?: string;
         }
@@ -2363,6 +2488,9 @@ export interface Database {
           detail: string;
           error_message: string;
           metadata: Json;
+          run_type: string;
+          summary: Json;
+          errors: Json;
           started_at: string;
           completed_at: string | null;
           created_at: string;
@@ -2378,6 +2506,9 @@ export interface Database {
           detail?: string;
           error_message?: string;
           metadata?: Json;
+          run_type?: string;
+          summary?: Json;
+          errors?: Json;
           started_at?: string;
           completed_at?: string | null;
           created_at?: string;

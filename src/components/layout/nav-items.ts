@@ -59,6 +59,7 @@ export const navMenu: NavEntry[] = [
     label: "Content",
     icon: Sparkles,
     items: [
+      { href: "/content-factory", label: "Content Factory", icon: Zap },
       { href: "/intelligence", label: "Intelligence", icon: Radar },
       { href: "/creative", label: "Creative", icon: Image },
       { href: "/seo", label: "SEO", icon: Search },

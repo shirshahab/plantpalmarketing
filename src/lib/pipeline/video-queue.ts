@@ -30,13 +30,16 @@ function mapRow(row: Record<string, unknown>): VideoQueueItem {
   };
 }
 
-export async function getVideoQueueItems(limit = 30): Promise<VideoQueueItem[]> {
+export async function getVideoQueueItems(limit = 30, status?: string | string[]): Promise<VideoQueueItem[]> {
   try {
     const supabase = createServerClient();
-    const { data, error } = await supabase
-      .from("video_generation_queue")
-      .select("*")
-      .in("status", ["pending", "script_generated", "in_production"])
+    let query = supabase.from("video_generation_queue").select("*");
+    if (status) {
+      query = Array.isArray(status) ? query.in("status", status) : query.eq("status", status);
+    } else {
+      query = query.in("status", ["pending", "script_generated", "in_production", "review", "approved", "scheduled"]);
+    }
+    const { data, error } = await query
       .order("priority", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -250,4 +253,36 @@ export async function materializeVideoScriptsFromQueue(limit = 10): Promise<{ cr
   } catch (e) {
     return { created: 0, error: e instanceof Error ? e.message : "Script creation failed" };
   }
+}
+
+const MIN_VIDEO_QUEUE = 20;
+
+export async function countPendingVideoQueue(): Promise<number> {
+  try {
+    const supabase = createServerClient();
+    const { count, error } = await supabase
+      .from("video_generation_queue")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["pending", "script_generated", "in_production"]);
+    if (error) {
+      if (isMissingTableError(error)) return 0;
+      return 0;
+    }
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Auto-refill video queue when below minimum pending count. */
+export async function ensureMinimumVideoQueue(min = MIN_VIDEO_QUEUE): Promise<{ refilled: number }> {
+  const pending = await countPendingVideoQueue();
+  if (pending >= min) return { refilled: 0 };
+  const need = min - pending;
+  const batch = Math.min(25, Math.max(10, need));
+  const result = await populateVideoQueue(batch);
+  if (result.inserted > 0) {
+    await materializeVideoScriptsFromQueue(Math.min(result.inserted, 10));
+  }
+  return { refilled: result.inserted };
 }

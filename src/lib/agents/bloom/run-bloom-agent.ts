@@ -3,6 +3,7 @@ import {
   generateDailyContent,
   TOTAL_DAILY_PIECES,
 } from "@/lib/agents/bloom/mock-generator";
+import { shouldShowDemoData } from "@/lib/demo/shouldShowDemoData";
 import { createServerClient } from "@/lib/supabase/server";
 import { bloomDraftXPost, bloomEnrichContentContext } from "@/lib/integrations/agent-integrations";
 import { syncBloomPieceToCalendar } from "@/lib/content-calendar/sync";
@@ -35,6 +36,17 @@ export async function runBloomAgent(): Promise<BloomRunResult> {
   const sentinelTopics = (alerts.data ?? []).map((a) => `${a.competitor}: ${a.title}`);
 
   const signals = buildInputSignals({ scoutTopics, rootsTopics, sentinelTopics });
+  if (!shouldShowDemoData() && signals.length === 0) {
+    return {
+      runId: "",
+      piecesGenerated: 0,
+      piecesAwaitingReview: 0,
+      scoutInputs: 0,
+      rootsInputs: 0,
+      sentinelInputs: 0,
+      seasonalInputs: 0,
+    };
+  }
   let enrichment = "";
   try {
     enrichment = await bloomEnrichContentContext(rootsTopics[0] ?? "houseplants");

@@ -204,6 +204,10 @@ export function useAgentChoreography({
   }, [activityItems, agents, messageLines, runStep, tasks]);
 
   const tryRunDemo = useCallback(() => {
+    const demoAllowed =
+      process.env.NODE_ENV !== "production" &&
+      process.env.NEXT_PUBLIC_SHOW_DEMO_DATA === "true";
+    if (!demoAllowed) return;
     if (busyRef.current) return;
     if (liveDataAvailable && Date.now() - lastRealEventAt.current < DEMO_IDLE_MS) return;
 

@@ -14,7 +14,7 @@ import { fetchPageData } from "@/lib/db/fetch-page-data";
 import { getVideoScripts } from "@/lib/db/queries";
 import { getVideosByScript } from "@/lib/db/asset-queries";
 import { getVideoProviderStatus } from "@/lib/video/video-provider";
-import { getVideoQueueItems } from "@/lib/pipeline/video-queue";
+import { getVideoQueueItems, ensureMinimumVideoQueue } from "@/lib/pipeline/video-queue";
 import { VideoQueuePanel } from "@/components/video/video-queue-panel";
 import { formatDate } from "@/lib/utils";
 
@@ -26,7 +26,8 @@ export default async function VideoScriptsPage({
   const { video: highlightVideoId } = await searchParams;
   const { data, error, configured } = await fetchPageData(getVideoScripts);
   const videosByScript = configured ? await getVideosByScript().catch(() => new Map()) : new Map();
-  const queueItems = configured ? await getVideoQueueItems().catch(() => []) : [];
+  if (configured) await ensureMinimumVideoQueue(20).catch(() => ({ refilled: 0 }));
+  const queueItems = configured ? await getVideoQueueItems(50).catch(() => []) : [];
   const providerStatus = getVideoProviderStatus();
 
   if (!configured) {

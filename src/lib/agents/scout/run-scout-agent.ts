@@ -2,6 +2,7 @@ import { runAgentBrain } from "@/lib/agents/ai/agent-brain-engine";
 import { isOpenAIConfigured } from "@/lib/openai/config";
 import { createServerClient } from "@/lib/supabase/server";
 import { generateMockCreators } from "@/lib/agents/scout/mock-creators";
+import { shouldShowDemoData } from "@/lib/demo/shouldShowDemoData";
 import { scoutDiscoverCreatorsOnX } from "@/lib/integrations/agent-integrations";
 import { recordHandoff } from "@/lib/collaboration/handoff";
 
@@ -21,7 +22,7 @@ export async function runScoutAgent(): Promise<ScoutRunResult> {
 
   const supabase = createServerClient();
   const xCreators = await scoutDiscoverCreatorsOnX().catch(() => []);
-  const creators = generateMockCreators(5);
+  const creators = shouldShowDemoData() ? generateMockCreators(5) : [];
 
   for (const hit of xCreators.slice(0, 2)) {
     await supabase.from("agent_activity_log").insert({

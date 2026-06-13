@@ -7,6 +7,14 @@
     {
       "path": "/api/intelligence/f5bot/cron",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/hq/daily-engine/cron",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/ivy/daily-brief/cron",
+      "schedule": "30 14 * * *"
     }
   ],
   "headers": [

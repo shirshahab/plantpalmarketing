@@ -191,6 +191,10 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
                     <div className="flex flex-wrap items-center gap-2">
                       {alert.subreddit && <Badge variant="muted">r/{alert.subreddit}</Badge>}
                       <Badge variant="info">F5Bot</Badge>
+                      {alert.matchedKeyword && <Badge variant="success">Matched: {alert.matchedKeyword}</Badge>}
+                      {alert.relevanceScore != null && (
+                        <Badge variant="info">Relevance {alert.relevanceScore}/100</Badge>
+                      )}
                       {alert.priority && <Badge variant="warning">{alert.priority}</Badge>}
                     </div>
                     <p className="mt-1 text-sm font-medium text-brand-primary">{alert.title}</p>

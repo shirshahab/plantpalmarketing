@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
 import { runF5BotCronFromDashboard } from "@/lib/actions/agent-operations-cron";
+import { DailyEngineButton } from "@/components/hq/daily-engine-button";
 import type { AgentOperationsHealth, IntelligenceRunSummary } from "@/lib/agent-operations/health";
 
 export function AgentOperationsHealthPanel({ health }: { health: AgentOperationsHealth }) {
@@ -65,6 +66,7 @@ export function AgentOperationsHealthPanel({ health }: { health: AgentOperations
               {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Radar className="h-3.5 w-3.5" />}
               Run F5Bot Cron Now
             </Button>
+            <DailyEngineButton />
           </div>
           {message && <p className="mt-3 text-sm text-brand-primary">{message}</p>}
         </CardContent>

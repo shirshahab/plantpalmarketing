@@ -77,6 +77,8 @@ export interface RedditPageData {
     subreddit: string;
     url: string;
     priority: string | null;
+    matchedKeyword: string;
+    relevanceScore: number | null;
     createdAt: string;
   }>;
 }
@@ -101,10 +103,11 @@ export async function getRedditPageData(): Promise<RedditPageData> {
     getRedditF5BotIntelligence(),
     supabase
       .from("intelligence_alerts")
-      .select("id, title, body, subreddit, url, priority, created_at")
+      .select("id, title, body, subreddit, url, priority, alert_name, relevance_score, created_at")
       .eq("classification", "community_opportunity")
       .or("source.ilike.%reddit%,subreddit.neq.")
       .neq("status", "archived")
+      .gte("relevance_score", 80)
       .order("created_at", { ascending: false })
       .limit(15),
   ]);
@@ -188,6 +191,8 @@ export async function getRedditPageData(): Promise<RedditPageData> {
       subreddit: String(row.subreddit ?? ""),
       url: String(row.url ?? ""),
       priority: row.priority ? String(row.priority) : null,
+      matchedKeyword: String(row.alert_name ?? ""),
+      relevanceScore: row.relevance_score != null ? Number(row.relevance_score) : null,
       createdAt: String(row.created_at),
     })),
   };

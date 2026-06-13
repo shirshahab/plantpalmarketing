@@ -177,6 +177,9 @@ export function showDestinationToast(
     destination?: string;
     destinationLabel?: string;
     destinationUrl?: string;
+    bloomUrl?: string;
+    videoUrl?: string;
+    seoUrl?: string;
     workflowUrl?: string;
     nextOwner?: string;
     nextStep?: string;
@@ -186,8 +189,14 @@ export function showDestinationToast(
 ) {
   const actions: ToastAction[] | undefined = opts.withNavigation
     ? [
-        ...(opts.destinationUrl
-          ? [{ label: "Open Bloom Studio", href: opts.destinationUrl, variant: "primary" as const }]
+        ...(opts.bloomUrl ?? opts.destinationUrl
+          ? [{ label: "Open Bloom", href: opts.bloomUrl ?? opts.destinationUrl!, variant: "primary" as const }]
+          : []),
+        ...(opts.videoUrl
+          ? [{ label: "Open Video", href: opts.videoUrl, variant: "secondary" as const }]
+          : []),
+        ...(opts.seoUrl
+          ? [{ label: "Open SEO", href: opts.seoUrl, variant: "secondary" as const }]
           : []),
         ...(opts.workflowUrl
           ? [{ label: "View Workflow", href: opts.workflowUrl, variant: "secondary" as const }]
@@ -200,12 +209,12 @@ export function showDestinationToast(
     title: "Approved",
     message: opts.message,
     destination: opts.destination,
-    destinationLabel: opts.destinationLabel,
+    destinationLabel: opts.destinationLabel ?? "Now in:",
     nextOwner: opts.nextOwner,
     nextStep: opts.nextStep,
     tone: opts.tone ?? "success",
     actions,
-    autoRedirectMs: opts.withNavigation && opts.destinationUrl ? 3000 : undefined,
-    autoRedirectHref: opts.withNavigation ? opts.destinationUrl : undefined,
+    autoRedirectMs: opts.withNavigation && (opts.bloomUrl ?? opts.destinationUrl) ? 5000 : undefined,
+    autoRedirectHref: opts.withNavigation ? (opts.bloomUrl ?? opts.destinationUrl) : undefined,
   });
 }

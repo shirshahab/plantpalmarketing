@@ -6,8 +6,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfigBanner } from "@/components/ui/config-banner";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { ImageStudioBatchPanel } from "@/components/images/image-studio-batch-panel";
-import { getImageStudioCounters } from "@/lib/actions/image-batch-actions";
+import { ImageStudioTabs } from "@/components/images/image-studio-tabs";
+import { getImageStudioCounters, ensureMinimumImageQueue } from "@/lib/actions/image-batch-actions";
 import { DeleteButton } from "@/components/shared/delete-button";
 import { ApprovalActions } from "@/components/shared/approval-actions";
 import { ImageAssetPanel } from "@/components/assets/image-asset-panel";
@@ -22,17 +22,29 @@ const categoryLabels: Record<string, string> = {
   educational: "Educational Visual", before_after: "Before / After",
 };
 
+type ImageTab = "pending" | "approved" | "rejected" | "scheduled";
+
 export default async function ImagePromptsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ asset?: string }>;
+  searchParams: Promise<{ asset?: string; tab?: string }>;
 }) {
-  const { asset: highlightAssetId } = await searchParams;
+  const { asset: highlightAssetId, tab: tabParam } = await searchParams;
+  const activeTab = (["pending", "approved", "rejected", "scheduled"].includes(tabParam ?? "")
+    ? tabParam
+    : "pending") as ImageTab;
+
   const { data, error, configured } = await fetchPageData(getImagePrompts);
   const assetsByPrompt = configured ? await getAssetsByPrompt().catch(() => new Map()) : new Map();
+  if (configured) await ensureMinimumImageQueue(50).catch(() => ({ refilled: 0 }));
   const counters = configured ? await getImageStudioCounters().catch(() => ({
     pendingReview: 0, approvedToday: 0, rejectedToday: 0, scheduled: 0, published: 0,
   })) : { pendingReview: 0, approvedToday: 0, rejectedToday: 0, scheduled: 0, published: 0 };
+
+  const filtered = (data ?? []).filter((p) => {
+    if (activeTab === "scheduled") return p.status === "approved";
+    return p.status === activeTab;
+  });
 
   if (!configured) {
     return (<div><PageHeader title="Image Prompt Generator" /><ConfigBanner /></div>);
@@ -41,7 +53,7 @@ export default async function ImagePromptsPage({
   return (
     <div>
       <PageHeader title="Image Asset Studio" description="Creative Department — prompts in production and assets awaiting your review. Approved work moves to Calendar." />
-      {configured && <ImageStudioBatchPanel counters={counters} />}
+      <ImageStudioTabs counters={counters} activeTab={activeTab} />
       {error && <ErrorBanner message={error} />}
 
       <div className="mb-8 flex flex-wrap gap-2">
@@ -50,11 +62,11 @@ export default async function ImagePromptsPage({
         ))}
       </div>
 
-      {!data || data.length === 0 ? (
-        <EmptyState icon={ImageIcon} title="No image prompts" description="Create your first prompt to get started." />
+      {filtered.length === 0 ? (
+        <EmptyState icon={ImageIcon} title={`No ${activeTab} prompts`} description="Use batch generation above to fill the queue." />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {data.map((prompt) => {
+          {filtered.map((prompt) => {
             const asset = assetsByPrompt.get(prompt.id) ?? null;
             const highlighted = asset?.id === highlightAssetId;
             return (

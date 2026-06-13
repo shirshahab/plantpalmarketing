@@ -2,9 +2,10 @@ import { unstable_noStore as noStore } from "next/cache";
 import { connection } from "next/server";
 import { PlantPalHQ } from "@/components/hq/plantpal-hq";
 import { ConfigBanner } from "@/components/ui/config-banner";
+import { LiveEmptyState } from "@/components/shared/live-empty-state";
 import { buildHQActivity, buildHQAgents } from "@/lib/hq/build-hq-data";
 import { HQ_AGENTS, HQ_ACTIVITY } from "@/lib/hq/mock-data";
-import Link from "next/link";
+import { shouldShowDemoData } from "@/lib/demo/shouldShowDemoData";
 import { getHQAgentScheduleHealth } from "@/lib/db/agent-operations-queries";
 import { getHQAgentData } from "@/lib/db/scout-roots-queries";
 import { getAgentDecisions, getAgentMemories } from "@/lib/db/agent-brain-queries";
@@ -32,8 +33,8 @@ export default async function PlantPalHQPage() {
   const configured = isSupabaseConfigured();
   const skipLiveFetch = isNextBuildPhase();
 
-  let agents = HQ_AGENTS;
-  let activity = HQ_ACTIVITY;
+  let agents = shouldShowDemoData() ? HQ_AGENTS : [];
+  let activity = shouldShowDemoData() ? HQ_ACTIVITY : [];
   let liveData = false;
   let messageLines: MessageLine[] = [];
   let collaborationStats: { unreadMessages: number; activeTasks: number } | undefined;
@@ -42,14 +43,15 @@ export default async function PlantPalHQPage() {
   let agentMemories: AgentMemory[] = [];
   let agentDecisions: AgentDecision[] = [];
   let hqLoadError: string | null = null;
-  let hqDebugSummary: string | null = null;
   let weather = defaultHQWeatherState();
   let agentScheduleHealth: HQAgentScheduleHealth[] = [];
   let internetPulse: InternetPulseDashboard | null = null;
 
   if (!skipLiveFetch) {
     weather = await fetchHQWeather();
-    activity = mergeWeatherActivity(activity, weather);
+    if (activity.length > 0) {
+      activity = mergeWeatherActivity(activity, weather);
+    }
   }
 
   if (configured && !skipLiveFetch) {
@@ -75,15 +77,8 @@ export default async function PlantPalHQPage() {
       liveData = true;
     } catch (e) {
       hqLoadError = e instanceof Error ? e.message : String(e);
-      console.error("[HQ] getHQAgentData failed — demo mode active:", hqLoadError);
-      const probe = await probeHQLiveData();
-      hqDebugSummary = probe.summary;
-      if (probe.failedStep) {
-        console.error("[HQ] failed query:", probe.failedStep.label);
-        console.error("[HQ] table:", probe.failedStep.table);
-        console.error("[HQ] supabase code:", probe.failedStep.errorCode);
-        console.error("[HQ] supabase error:", probe.failedStep.errorMessage);
-      }
+      console.error("[HQ] getHQAgentData failed:", hqLoadError);
+      await probeHQLiveData();
     }
   }
 
@@ -95,22 +90,29 @@ export default async function PlantPalHQPage() {
         </div>
       )}
       {configured && !liveData && !skipLiveFetch && (
-        <div className="mb-4 mx-4 sm:mx-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 space-y-2">
-          <p>
-            <strong>Demo mode active.</strong> Condition: <code className="rounded bg-white px-1">getHQAgentData()</code> threw — see error below (server console also logs details).
-          </p>
-          {hqLoadError && (
-            <p className="font-mono text-xs text-rose-800 bg-white/80 rounded-lg px-2 py-1.5 break-all">
-              Error: {hqLoadError}
-            </p>
+        <div className="mb-4 mx-4 sm:mx-6">
+          {shouldShowDemoData() ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 space-y-2">
+              <p>
+                <strong>Demo mode active.</strong> Set <code className="rounded bg-white px-1">NEXT_PUBLIC_SHOW_DEMO_DATA=false</code> for live-only HQ.
+              </p>
+              {hqLoadError && (
+                <p className="font-mono text-xs text-rose-800 bg-white/80 rounded-lg px-2 py-1.5 break-all">
+                  Error: {hqLoadError}
+                </p>
+              )}
+            </div>
+          ) : (
+            <LiveEmptyState
+              title="HQ waiting for live data"
+              description="Connect Supabase and run the daily engine to populate agents, activity, and intelligence."
+              actions={[
+                { label: "Run Daily Engine", href: "/agent-operations" },
+                { label: "System Health", href: "/system-health" },
+                { label: "Check Integrations", href: "/integrations" },
+              ]}
+            />
           )}
-          {hqDebugSummary && <p>{hqDebugSummary}</p>}
-          <p>
-            <Link href="/debug/database" className="font-medium text-amber-900 underline">
-              Open /debug/database
-            </Link>{" "}
-            for full table + column diagnostics.
-          </p>
         </div>
       )}
       <PlantPalHQ

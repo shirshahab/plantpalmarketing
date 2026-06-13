@@ -3,7 +3,7 @@ import { isMissingTableError } from "@/lib/integrations/db-safe";
 import { normalizeF5BotAlert } from "@/lib/intelligence/f5bot";
 import { classifyF5BotAlert } from "@/lib/intelligence/classifyF5BotAlert";
 import { fetchF5BotFeedItems } from "@/lib/intelligence/f5bot-feed";
-import { assessPlantPalRelevance } from "@/lib/intelligence/plantpal-relevance";
+import { scorePlantRelevance } from "@/lib/intelligence/plantpalRelevance";
 import type { Json } from "@/lib/supabase/database.types";
 import type { F5BotRawAlert } from "@/lib/intelligence/f5bot-types";
 
@@ -98,8 +98,9 @@ export async function ingestF5BotAlerts(): Promise<F5BotIngestResult> {
         continue;
       }
 
-      const relevance = assessPlantPalRelevance(normalized, subreddit);
-      if (!relevance.relevant) {
+      const relevance = scorePlantRelevance(normalized, subreddit);
+
+      if (!relevance.isRelevant) {
         rejectedOffTopic += 1;
         await supabase.from("intelligence_rejected").insert({
           source: normalized.source,
@@ -112,7 +113,7 @@ export async function ingestF5BotAlerts(): Promise<F5BotIngestResult> {
           alert_name: alertName(raw, normalized),
           detected_keywords: detectedKeywords(raw, []),
           reject_reason: relevance.reason,
-          reject_category: relevance.category,
+          reject_category: relevance.rejectCategory ?? "off_topic",
           raw_payload: raw as Json,
           external_id: normalized.externalId,
         });
@@ -148,6 +149,9 @@ export async function ingestF5BotAlerts(): Promise<F5BotIngestResult> {
         assigned_agent: classified.assignedAgent,
         classification_reason: classified.reason,
         status,
+        relevance_score: relevance.score,
+        relevance_category: String(relevance.category),
+        relevance_reason: relevance.reason,
         raw: raw as Json,
         raw_payload: raw as Json,
         external_id: normalized.externalId,

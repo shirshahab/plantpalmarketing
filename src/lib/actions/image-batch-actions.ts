@@ -6,18 +6,22 @@ import { isMissingTableError } from "@/lib/integrations/db-safe";
 import type { ActionResult } from "@/lib/actions/shared";
 import type { ImagePromptCategory } from "@/lib/types";
 
-const DEFAULT_KEYWORDS = [
-  "monstera yellow leaves",
-  "pothos propagation",
-  "overwatering signs",
-  "grow light setup",
-  "root rot rescue",
-  "humidity for ferns",
-  "succulent watering",
-  "spring repotting",
-  "spider mites treatment",
-  "compost for houseplants",
-];
+import { shouldShowDemoData } from "@/lib/demo/shouldShowDemoData";
+
+const DEFAULT_KEYWORDS = shouldShowDemoData()
+  ? [
+      "monstera yellow leaves",
+      "pothos propagation",
+      "overwatering signs",
+      "grow light setup",
+      "root rot rescue",
+      "humidity for ferns",
+      "succulent watering",
+      "spring repotting",
+      "spider mites treatment",
+      "compost for houseplants",
+    ]
+  : [];
 
 interface PromptSeed {
   title: string;
@@ -128,6 +132,9 @@ async function insertPrompts(seeds: PromptSeed[]): Promise<{ inserted: number; e
 
 export async function generateImageAssetsBatchAction(count: number): Promise<ActionResult> {
   const seeds = [...(await seedsFromF5Bot(count)), ...fallbackSeeds(count)].slice(0, count);
+  if (seeds.length === 0) {
+    return { ok: false, error: "No live content sources. Run Daily Engine or F5Bot ingest first." };
+  }
   const result = await insertPrompts(seeds);
   revalidatePath("/images");
   revalidatePath("/system-health");
@@ -150,15 +157,6 @@ export async function generateImageFromSeoAction(): Promise<ActionResult> {
   revalidatePath("/images");
   return result.inserted
     ? { ok: true, message: `Generated ${result.inserted} prompts from SEO keywords` }
-    : { ok: false, error: result.error ?? "Failed" };
-}
-
-export async function generateImageFromBloomAction(): Promise<ActionResult> {
-  const seeds = await seedsFromBloom(10);
-  const result = await insertPrompts(seeds.length ? seeds : fallbackSeeds(5));
-  revalidatePath("/images");
-  return result.inserted
-    ? { ok: true, message: `Generated ${result.inserted} prompts from Bloom pipeline` }
     : { ok: false, error: result.error ?? "Failed" };
 }
 
@@ -189,4 +187,32 @@ export async function getImageStudioCounters(): Promise<{
     scheduled: scheduled.count ?? 0,
     published: published.count ?? 0,
   };
+}
+
+const MIN_IMAGE_QUEUE = 50;
+
+export async function countPendingImagePrompts(): Promise<number> {
+  const supabase = createServerClient();
+  const { count } = await supabase
+    .from("image_prompts")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "pending");
+  return count ?? 0;
+}
+
+export async function ensureMinimumImageQueue(min = MIN_IMAGE_QUEUE): Promise<{ refilled: number }> {
+  const pending = await countPendingImagePrompts();
+  if (pending >= min) return { refilled: 0 };
+  const need = Math.min(25, min - pending);
+  const result = await generateImageAssetsBatchAction(need);
+  return { refilled: result.ok ? need : 0 };
+}
+
+export async function generateImageFromBloomAction(): Promise<ActionResult> {
+  const seeds = await seedsFromBloom(10);
+  const result = await insertPrompts(seeds.length ? seeds : fallbackSeeds(5));
+  revalidatePath("/images");
+  return result.inserted
+    ? { ok: true, message: `Generated ${result.inserted} prompts from Bloom pipeline` }
+    : { ok: false, error: result.error ?? "Failed" };
 }

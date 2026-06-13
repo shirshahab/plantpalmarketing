@@ -1,5 +1,6 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { generateMockMentions } from "@/lib/agents/roots/mock-community";
+import { shouldShowDemoData } from "@/lib/demo/shouldShowDemoData";
 import { rootsMonitorXConversations } from "@/lib/integrations/agent-integrations";
 import { runVoiceCheck, VOICE_FAIL_REASON, VOICE_PASS_THRESHOLD } from "@/lib/brand/voice-check";
 import { recordHandoff } from "@/lib/collaboration/handoff";
@@ -14,7 +15,7 @@ export interface RootsRunResult {
 export async function runRootsAgent(): Promise<RootsRunResult> {
   const supabase = createServerClient();
   const xConversations = await rootsMonitorXConversations().catch(() => []);
-  const mentions = generateMockMentions(4);
+  const mentions = shouldShowDemoData() ? generateMockMentions(4) : [];
 
   for (const tweet of xConversations.slice(0, 3)) {
     await supabase.from("community_mentions").insert({

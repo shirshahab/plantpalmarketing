@@ -4,6 +4,8 @@ import {
   buildDailyBrief,
   pickMockAlerts,
 } from "@/lib/agents/sentinel/mock-signals";
+import { discoverCompetitorNews } from "@/lib/integrations/providers/serpapi-provider";
+import { shouldShowDemoData } from "@/lib/demo/shouldShowDemoData";
 import { sentinelMonitorCompetitorX } from "@/lib/integrations/agent-integrations";
 import { recordHandoff } from "@/lib/collaboration/handoff";
 
@@ -16,7 +18,26 @@ export interface SentinelRunResult {
 
 export async function runSentinelAgent(): Promise<SentinelRunResult> {
   const supabase = createServerClient();
-  const alerts = pickMockAlerts(3);
+  const alerts = shouldShowDemoData()
+    ? pickMockAlerts(3)
+    : await (async () => {
+        const live: ReturnType<typeof pickMockAlerts> = [];
+        for (const competitor of TRACKED_COMPETITORS.slice(0, 3)) {
+          const news = await discoverCompetitorNews(competitor, "sentinel").catch(() => []);
+          for (const item of news.slice(0, 1)) {
+            live.push({
+              competitor,
+              alertType: "viral_post" as const,
+              title: item.title.slice(0, 120),
+              description: item.snippet.slice(0, 280),
+              severity: "medium" as const,
+              source: item.link,
+              recommendedAction: `Review ${competitor} mention and decide if PlantPal should respond.`,
+            });
+          }
+        }
+        return live;
+      })();
   let approvalQueueCount = 0;
 
   for (const alert of alerts) {
