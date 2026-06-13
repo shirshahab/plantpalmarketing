@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ function TopicForm({ onMessage }: { onMessage: (m: string) => void }) {
 }
 
 export function SeoKeywordPanel({ keywords, posts, logs, topics = [], clusters = [], rankRows = [], stats }: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -74,6 +76,9 @@ export function SeoKeywordPanel({ keywords, posts, logs, topics = [], clusters =
   const [newCluster, setNewCluster] = useState("plant care");
 
   const published = posts.filter((p) => p.status === "published");
+  const recentDrafts = posts
+    .filter((p) => ["draft", "gate_review", "voice_check_failed", "pending_review"].includes(p.status))
+    .slice(0, 10);
 
   const statCards = [
     { label: "Keywords", value: stats.totalKeywords },
@@ -109,6 +114,7 @@ export function SeoKeywordPanel({ keywords, posts, logs, topics = [], clusters =
       const result = await runSeoFactoryBatch(count);
       setMessage(result.ok ? (result.message ?? "Factory done") : result.error);
       setBusyId(null);
+      if (result.ok) router.refresh();
     });
   }
 
@@ -164,6 +170,52 @@ export function SeoKeywordPanel({ keywords, posts, logs, topics = [], clusters =
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Drafts */}
+      <Card>
+        <CardContent className="py-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-heading font-semibold text-brand-primary">Recent Drafts</h3>
+            <Link href="/blog-pipeline" className="text-sm font-medium text-brand-accent hover:underline">
+              Open blog pipeline →
+            </Link>
+          </div>
+          {recentDrafts.length === 0 ? (
+            <p className="mt-2 text-sm text-brand-muted">No drafts yet. Click Draft 5 posts to generate immediately.</p>
+          ) : (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-brand-border text-xs uppercase tracking-wide text-brand-muted">
+                    <th className="py-2 pr-4">Title</th>
+                    <th className="py-2 pr-4">Keyword</th>
+                    <th className="py-2 pr-4">Status</th>
+                    <th className="py-2 pr-4">Words</th>
+                    <th className="py-2 pr-4">Voice</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentDrafts.map((post) => (
+                    <tr key={post.id} className="border-b border-brand-border/50 last:border-0">
+                      <td className="py-2.5 pr-4 font-medium text-brand-primary">{post.headline}</td>
+                      <td className="py-2.5 pr-4 text-brand-muted">{post.keyword}</td>
+                      <td className="py-2.5 pr-4">
+                        <span className="rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">
+                          {post.status}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-4 tabular-nums text-brand-muted">{post.wordCount}</td>
+                      <td className="py-2.5 pr-4 text-brand-muted">
+                        {post.voiceCheckPassed ? "Passed" : "Needs fix"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
 

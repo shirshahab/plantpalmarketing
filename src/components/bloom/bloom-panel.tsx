@@ -13,6 +13,8 @@ import { DraftQueue } from "@/components/bloom/draft-queue";
 import { PerformanceTracker } from "@/components/bloom/performance-tracker";
 import { runBloomProduction } from "@/lib/actions/bloom-agent";
 import { TOTAL_DAILY_PIECES } from "@/lib/agents/bloom/run-bloom-agent";
+import { ContentPipelineHistory } from "@/components/pipeline/content-pipeline-history";
+import type { PipelineHistoryEntry } from "@/lib/pipeline/content-pipeline";
 import type {
   BloomContentPerformance,
   BloomContentPiece,
@@ -61,7 +63,14 @@ export function BloomPanel({
     highViralCount: number;
     totalPieces: number;
   };
-  founderIncoming?: Array<{ id: string; title: string; hook: string; updatedAt: string }>;
+  founderIncoming?: Array<{
+    id: string;
+    pipelineId: string;
+    title: string;
+    hook: string;
+    updatedAt: string;
+    workflowHistory: PipelineHistoryEntry[];
+  }>;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("calendar");
@@ -114,18 +123,20 @@ export function BloomPanel({
 
       {founderIncoming.length > 0 && (
         <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
-          <h3 className="font-heading text-sm font-semibold text-brand-primary">Incoming from Founder</h3>
-          <p className="mt-0.5 text-xs text-brand-muted">Ideas approved by the founder, ready for Bloom production.</p>
+          <h3 className="font-heading text-sm font-semibold text-brand-primary">Incoming from Founder ({founderIncoming.length})</h3>
+          <p className="mt-0.5 text-xs text-brand-muted">Approved ideas in content_pipeline, ready for Bloom production.</p>
           <div className="mt-3 space-y-2">
             {founderIncoming.map((idea) => (
-              <a
-                key={idea.id}
-                href={`/content?itemId=${idea.id}`}
-                className="block rounded-lg border border-emerald-200/60 bg-white px-3 py-2 transition hover:shadow-sm"
+              <div
+                key={idea.pipelineId}
+                className="rounded-lg border border-emerald-200/60 bg-white px-3 py-2"
               >
-                <p className="text-sm font-medium text-brand-primary">{idea.title}</p>
-                {idea.hook && <p className="mt-0.5 line-clamp-2 text-xs text-brand-muted">{idea.hook}</p>}
-              </a>
+                <a href={`/content?itemId=${idea.id}`} className="block transition hover:opacity-90">
+                  <p className="text-sm font-medium text-brand-primary">{idea.title}</p>
+                  {idea.hook && <p className="mt-0.5 line-clamp-2 text-xs text-brand-muted">{idea.hook}</p>}
+                </a>
+                <ContentPipelineHistory history={idea.workflowHistory} />
+              </div>
             ))}
           </div>
         </div>

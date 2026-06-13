@@ -3,6 +3,7 @@ import { isMissingTableError } from "@/lib/integrations/db-safe";
 import { normalizeF5BotAlert } from "@/lib/intelligence/f5bot";
 import { classifyF5BotAlert } from "@/lib/intelligence/classifyF5BotAlert";
 import { fetchF5BotFeedItems } from "@/lib/intelligence/f5bot-feed";
+import { assessPlantPalRelevance } from "@/lib/intelligence/plantpal-relevance";
 import type { Json } from "@/lib/supabase/database.types";
 import type { F5BotRawAlert } from "@/lib/intelligence/f5bot-types";
 
@@ -24,6 +25,7 @@ export interface F5BotIngestResult {
   totalFromFeed: number;
   inserted: number;
   skippedDuplicates: number;
+  rejectedOffTopic: number;
   errors: string[];
   latestAlerts: IngestedAlertSummary[];
   error?: string;
@@ -67,6 +69,7 @@ export async function ingestF5BotAlerts(): Promise<F5BotIngestResult> {
     totalFromFeed: 0,
     inserted: 0,
     skippedDuplicates: 0,
+    rejectedOffTopic: 0,
     errors: [],
     latestAlerts: [],
   };
@@ -81,15 +84,38 @@ export async function ingestF5BotAlerts(): Promise<F5BotIngestResult> {
   const errors: string[] = [];
   let inserted = 0;
   let skippedDuplicates = 0;
+  let rejectedOffTopic = 0;
   const insertedIds: string[] = [];
 
   for (const raw of items) {
     try {
       const normalized = normalizeF5BotAlert(raw);
       const url = normalized.sourceUrl.trim();
+      const subreddit = extractSubreddit(url);
 
       if (!url) {
         errors.push(`Skipped alert without URL: ${normalized.title.slice(0, 60) || "(untitled)"}`);
+        continue;
+      }
+
+      const relevance = assessPlantPalRelevance(normalized, subreddit);
+      if (!relevance.relevant) {
+        rejectedOffTopic += 1;
+        await supabase.from("intelligence_rejected").insert({
+          source: normalized.source,
+          source_type: "f5bot",
+          title: normalized.title,
+          body: normalized.body,
+          url,
+          author: normalized.author,
+          subreddit,
+          alert_name: alertName(raw, normalized),
+          detected_keywords: detectedKeywords(raw, []),
+          reject_reason: relevance.reason,
+          reject_category: relevance.category,
+          raw_payload: raw as Json,
+          external_id: normalized.externalId,
+        });
         continue;
       }
 
@@ -114,7 +140,7 @@ export async function ingestF5BotAlerts(): Promise<F5BotIngestResult> {
         body: normalized.body,
         url,
         author: normalized.author,
-        subreddit: extractSubreddit(url),
+        subreddit,
         alert_name: alertName(raw, normalized),
         detected_keywords: detectedKeywords(raw, classified.tags),
         classification: classified.classification,
@@ -181,6 +207,7 @@ export async function ingestF5BotAlerts(): Promise<F5BotIngestResult> {
     totalFromFeed: items.length,
     inserted,
     skippedDuplicates,
+    rejectedOffTopic,
     errors,
     latestAlerts,
   };

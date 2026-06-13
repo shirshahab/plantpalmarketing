@@ -100,6 +100,7 @@ export const navMenu: NavEntry[] = [
       { href: "/brand", label: "Brand Brain", icon: Brain },
       { href: "/integrations", label: "Integrations", icon: Plug },
       { href: "/agent-operations", label: "Operations", icon: Server },
+      { href: "/system-health", label: "System Health", icon: Server },
       { href: "/automation/schedules", label: "Schedules", icon: Zap },
       { href: "/automation", label: "Automation", icon: Zap },
       { href: "/collaboration", label: "Collaboration", icon: GitBranch },

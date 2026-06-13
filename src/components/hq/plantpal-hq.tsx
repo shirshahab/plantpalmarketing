@@ -251,7 +251,7 @@ export function PlantPalHQ({
 
       {viewMode === "world" ? (
         <div className={viewReady ? "h-full" : "h-full opacity-0"}>
-          <div className="absolute left-2 right-2 top-12 z-40 sm:left-4 sm:right-4 sm:top-14">
+          <div className="pointer-events-none absolute left-2 right-2 top-12 z-40 sm:left-4 sm:right-auto sm:top-14 sm:max-w-md">
             <HQInternetPulse dashboard={internetPulse ?? null} />
           </div>
           <HQVillageWorld

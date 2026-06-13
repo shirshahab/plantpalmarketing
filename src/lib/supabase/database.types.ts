@@ -1897,6 +1897,144 @@ export interface Database {
           classification_reason?: string;
         }
       >;
+      intelligence_rejected: TableDef<
+        {
+          id: string;
+          source: string;
+          source_type: string;
+          title: string;
+          body: string;
+          url: string;
+          author: string;
+          subreddit: string;
+          alert_name: string;
+          detected_keywords: string[];
+          reject_reason: string;
+          reject_category: string;
+          raw_payload: Json;
+          external_id: string;
+          received_at: string;
+          created_at: string;
+        },
+        {
+          id?: string;
+          source?: string;
+          source_type?: string;
+          title?: string;
+          body?: string;
+          url?: string;
+          author?: string;
+          subreddit?: string;
+          alert_name?: string;
+          detected_keywords?: string[];
+          reject_reason?: string;
+          reject_category?: string;
+          raw_payload?: Json;
+          external_id?: string;
+          received_at?: string;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          source?: string;
+          source_type?: string;
+          title?: string;
+          body?: string;
+          url?: string;
+          author?: string;
+          subreddit?: string;
+          alert_name?: string;
+          detected_keywords?: string[];
+          reject_reason?: string;
+          reject_category?: string;
+          raw_payload?: Json;
+          external_id?: string;
+          received_at?: string;
+        }
+      >;
+      content_pipeline: TableDef<
+        {
+          id: string;
+          source_table: string;
+          source_id: string;
+          title: string;
+          body: string;
+          status: string;
+          destination: string;
+          workflow_history: Json;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          source_table?: string;
+          source_id?: string;
+          title?: string;
+          body?: string;
+          status?: string;
+          destination?: string;
+          workflow_history?: Json;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          source_table?: string;
+          source_id?: string;
+          title?: string;
+          body?: string;
+          status?: string;
+          destination?: string;
+          workflow_history?: Json;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
+      video_generation_queue: TableDef<
+        {
+          id: string;
+          source_table: string;
+          source_id: string | null;
+          title: string;
+          concept: string;
+          hook: string;
+          platform: string;
+          status: string;
+          priority: number;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          source_table?: string;
+          source_id?: string | null;
+          title?: string;
+          concept?: string;
+          hook?: string;
+          platform?: string;
+          status?: string;
+          priority?: number;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          source_table?: string;
+          source_id?: string | null;
+          title?: string;
+          concept?: string;
+          hook?: string;
+          platform?: string;
+          status?: string;
+          priority?: number;
+          metadata?: Json;
+          updated_at?: string;
+        }
+      >;
       intelligence_runs: TableDef<
         {
           id: string;

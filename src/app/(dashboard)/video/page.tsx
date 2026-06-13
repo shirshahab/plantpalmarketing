@@ -14,6 +14,8 @@ import { fetchPageData } from "@/lib/db/fetch-page-data";
 import { getVideoScripts } from "@/lib/db/queries";
 import { getVideosByScript } from "@/lib/db/asset-queries";
 import { getVideoProviderStatus } from "@/lib/video/video-provider";
+import { getVideoQueueItems } from "@/lib/pipeline/video-queue";
+import { VideoQueuePanel } from "@/components/video/video-queue-panel";
 import { formatDate } from "@/lib/utils";
 
 export default async function VideoScriptsPage({
@@ -24,6 +26,7 @@ export default async function VideoScriptsPage({
   const { video: highlightVideoId } = await searchParams;
   const { data, error, configured } = await fetchPageData(getVideoScripts);
   const videosByScript = configured ? await getVideosByScript().catch(() => new Map()) : new Map();
+  const queueItems = configured ? await getVideoQueueItems().catch(() => []) : [];
   const providerStatus = getVideoProviderStatus();
 
   if (!configured) {
@@ -48,6 +51,8 @@ export default async function VideoScriptsPage({
         </Link>
       </div>
       {error && <ErrorBanner message={error} />}
+
+      {configured && <VideoQueuePanel items={queueItems} />}
 
       {!data || data.length === 0 ? (
         <EmptyState icon={Clapperboard} title="No video scripts" description="Seed data or add scripts via Supabase." />

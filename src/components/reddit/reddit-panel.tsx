@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ExternalLink, Loader2, MessageSquare, RefreshCw, Shield, X } from "lucide-react";
@@ -181,7 +182,11 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
             <p className="mt-1 text-xs text-brand-muted">Draft replies from intelligence alerts. Posting still requires OAuth and founder approval.</p>
             <div className="mt-3 space-y-2">
               {data.f5botCommunityAlerts.slice(0, 8).map((alert) => (
-                <div key={alert.id} className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-brand-border p-3">
+                <Link
+                  key={alert.id}
+                  href={`/reddit/opportunity/${alert.id}?source=f5bot`}
+                  className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-brand-border p-3 transition hover:border-brand-accent hover:shadow-sm"
+                >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       {alert.subreddit && <Badge variant="muted">r/{alert.subreddit}</Badge>}
@@ -195,11 +200,14 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
                     size="sm"
                     variant="secondary"
                     disabled={pending}
-                    onClick={() => run(() => draftRedditReplyFromIntelligence(alert.id))}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      run(() => draftRedditReplyFromIntelligence(alert.id));
+                    }}
                   >
                     <MessageSquare className="mr-1 h-3.5 w-3.5" /> Draft reply
                   </Button>
-                </div>
+                </Link>
               ))}
             </div>
           </CardContent>
@@ -283,7 +291,11 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
           ) : (
             <div className="mt-3 space-y-2">
               {data.opportunities.slice(0, 10).map((opp) => (
-                <div key={opp.id} className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-brand-border p-3">
+                <Link
+                  key={opp.id}
+                  href={`/reddit/opportunity/${opp.id}?source=oauth`}
+                  className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-brand-border p-3 transition hover:border-brand-accent hover:shadow-sm"
+                >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="muted">r/{opp.subreddit}</Badge>
@@ -304,12 +316,20 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
                       </a>
                     )}
                     {opp.status === "found" && (
-                      <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(() => draftRedditReply(opp.id))}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={pending}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          run(() => draftRedditReply(opp.id));
+                        }}
+                      >
                         <MessageSquare className="mr-1 h-3.5 w-3.5" /> Draft reply
                       </Button>
                     )}
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}

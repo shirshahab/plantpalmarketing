@@ -150,6 +150,16 @@ export async function writeBlogDraft(keywordId: string): Promise<Result> {
       approvalRequired: true,
     });
 
+    await supabase.from("approval_queue").insert({
+      type: "content",
+      channel: "blog",
+      draft: `${draft.headline}\n\nKeyword: ${kw.keyword}\nWords: ${wordCount}\nStatus: ${status}`,
+      status: "pending",
+      source_title: draft.headline,
+      source_excerpt: draft.intro.slice(0, 280),
+      data_source: "seo_factory",
+    });
+
     revalidatePath("/seo");
     revalidatePath("/blog-pipeline");
     return {
@@ -430,7 +440,7 @@ export async function runSeoFactoryBatch(count: number): Promise<Result> {
   const batchSize = Math.min(10, Math.max(1, count));
   try {
     const supabase = createServerClient();
-    const { data: keywords, error } = await supabase
+    let { data: keywords, error } = await supabase
       .from("seo_blog_keywords")
       .select("id, keyword")
       .in("status", ["new", "queued"])
@@ -440,8 +450,37 @@ export async function runSeoFactoryBatch(count: number): Promise<Result> {
       if (isMissingTableError(error)) return { ok: false, error: MIGRATION_HINT };
       return { ok: false, error: error.message };
     }
+
     if (!keywords || keywords.length === 0) {
-      return { ok: false, error: "No queued keywords left. Add more on /seo or promote topics." };
+      const seedKeywords = [
+        "why are my monstera leaves yellow",
+        "how often to water pothos",
+        "best grow lights for houseplants",
+        "signs of overwatering succulents",
+        "how to propagate snake plant",
+      ].slice(0, batchSize);
+      for (const kw of seedKeywords) {
+        await supabase.from("seo_blog_keywords").insert({
+          keyword: kw,
+          topic_cluster: "plant care",
+          source: "seo_factory",
+          priority_score: 70,
+          status: "queued",
+        });
+      }
+      const retry = await supabase
+        .from("seo_blog_keywords")
+        .select("id, keyword")
+        .in("status", ["new", "queued"])
+        .order("priority_score", { ascending: false })
+        .limit(batchSize);
+      keywords = retry.data;
+      error = retry.error;
+      if (error) return { ok: false, error: error.message };
+    }
+
+    if (!keywords || keywords.length === 0) {
+      return { ok: false, error: "Could not seed keywords. Check seo_blog_keywords table." };
     }
 
     let drafted = 0;
@@ -458,9 +497,10 @@ export async function runSeoFactoryBatch(count: number): Promise<Result> {
 
     revalidatePath("/seo");
     revalidatePath("/blog-pipeline");
+    revalidatePath("/approvals");
     return {
       ok: true,
-      message: `Factory run complete — ${drafted} drafted${failed > 0 ? `, ${failed} failed (${notes[0]})` : ""}. Review them on /blog-pipeline.`,
+      message: `Factory run complete — ${drafted} drafted${failed > 0 ? `, ${failed} failed (${notes[0]})` : ""}. See Recent Drafts below and /blog-pipeline.`,
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Factory run failed" };

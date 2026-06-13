@@ -1,6 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
+import { PlantyAvatar } from "@/components/planty/planty-avatar";
 import { AgentCharacter } from "@/components/hq/agent-character";
 import { HQStatusPill, agentStatusToVillage } from "@/components/hq/world/hq-status-pill";
 import type { VillageBuilding } from "@/lib/hq/hq-village-layout";
@@ -56,8 +57,12 @@ export function HQBuildingInterior({
           <div className="absolute bottom-24 left-1/2 h-8 w-16 -translate-x-1/2 rounded border border-[#64748b] bg-[#1e293b]" />
 
           {/* Plants */}
-          <div className="absolute bottom-14 right-8 text-3xl">🪴</div>
-          <div className="absolute bottom-20 left-8 text-2xl">🌱</div>
+          <div className="absolute bottom-14 right-8 scale-75">
+            <PlantyAvatar size="sm" />
+          </div>
+          <div className="absolute bottom-16 left-6 scale-[0.55] opacity-80">
+            <PlantyAvatar size="sm" />
+          </div>
 
           {/* Bookshelf */}
           <div className="absolute bottom-14 right-20 h-24 w-14 rounded border-2 border-[#78350f] bg-[#92400e]">

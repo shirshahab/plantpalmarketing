@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { IntelligenceMetrics, IntelligenceScoreLevel } from "@/lib/intelligence/intelligence-engine";
 import type { TrendCluster } from "@/lib/intelligence/trend-clusters";
 
@@ -38,7 +39,11 @@ export function IntelligenceMetricsPanel({
           <h2 className="mb-3 font-heading text-lg font-semibold text-brand-primary">Trend clusters</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             {clusters.map((cluster) => (
-              <div key={cluster.id} className="rounded-xl border border-brand-border/60 bg-white px-4 py-3">
+              <Link
+                key={cluster.id}
+                href={`/intelligence/trend/${cluster.id}`}
+                className="block rounded-xl border border-brand-border/60 bg-white px-4 py-3 transition hover:border-brand-accent hover:shadow-md"
+              >
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium text-brand-primary">{cluster.label}</p>
                   <span className={`text-xs font-bold ${cluster.growthPercent >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
@@ -50,7 +55,7 @@ export function IntelligenceMetricsPanel({
                 {cluster.latestMentions[0] && (
                   <p className="mt-2 line-clamp-2 text-xs text-brand-muted">{cluster.latestMentions[0].title}</p>
                 )}
-              </div>
+              </Link>
             ))}
           </div>
         </div>

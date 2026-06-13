@@ -11,6 +11,7 @@ import { createNotification } from "@/lib/notifications/create";
 import { recordFounderApprovalEvent } from "@/lib/workflow/founder-approval-events";
 import { getContentWorkflow, transitionContentWorkflow } from "@/lib/workflow/engine";
 import { destinationForIdeaApprove, destinationForReject } from "@/lib/workflow/destinations";
+import { enqueueApprovedIdea } from "@/lib/pipeline/content-pipeline";
 import { founderSafeError } from "@/lib/integrations/founder-safe-error";
 import type { MarketingTable, Status } from "@/lib/types";
 
@@ -172,6 +173,20 @@ export async function updateStatus(
     if (status === "approved") {
       const dest = table === "creative_content_ideas" ? destinationForIdeaApprove(id) : null;
       if (dest) {
+        const supabase = createServerClient();
+        const { data: ideaRow } = await supabase
+          .from("creative_content_ideas")
+          .select("title, body, hook")
+          .eq("id", id)
+          .maybeSingle();
+
+        await enqueueApprovedIdea({
+          sourceTable: table,
+          sourceId: id,
+          title: String(ideaRow?.title ?? "Approved idea"),
+          body: String(ideaRow?.body ?? ideaRow?.hook ?? ""),
+        });
+
         const existing = await getContentWorkflow(table, id);
         const fromStage = existing?.currentStage ?? "PENDING_FOUNDER_IDEA_APPROVAL";
         const workflow = await transitionContentWorkflow({

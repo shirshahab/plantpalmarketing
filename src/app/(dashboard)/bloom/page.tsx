@@ -5,7 +5,6 @@ import { ConfigBanner } from "@/components/ui/config-banner";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { BloomPanel } from "@/components/bloom/bloom-panel";
 import { fetchPageData } from "@/lib/db/fetch-page-data";
-import { createServerClient } from "@/lib/supabase/server";
 import {
   getBloomCalendarPieces,
   getBloomContentPieces,
@@ -13,21 +12,16 @@ import {
   getBloomPerformance,
   getBloomStats,
 } from "@/lib/db/bloom-queries";
+import { getBloomPipelineItems } from "@/lib/pipeline/content-pipeline";
 
 async function loadBloomData() {
-  const supabase = createServerClient();
-  const [pieces, calendarPieces, draftQueue, performance, stats, founderIncomingRes] = await Promise.all([
+  const [pieces, calendarPieces, draftQueue, performance, stats, pipelineItems] = await Promise.all([
     getBloomContentPieces(),
     getBloomCalendarPieces(),
     getBloomDraftQueue(),
     getBloomPerformance(),
     getBloomStats(),
-    supabase
-      .from("creative_content_ideas")
-      .select("id, title, hook, status, created_at, updated_at")
-      .eq("status", "approved")
-      .order("updated_at", { ascending: false })
-      .limit(12),
+    getBloomPipelineItems(20),
   ]);
 
   return {
@@ -37,11 +31,13 @@ async function loadBloomData() {
     performance,
     stats,
     latestRun: stats.latestRun,
-    founderIncoming: (founderIncomingRes.data ?? []).map((row) => ({
-      id: String(row.id),
-      title: String(row.title ?? "Approved idea"),
-      hook: String(row.hook ?? ""),
-      updatedAt: String(row.updated_at ?? row.created_at),
+    founderIncoming: pipelineItems.map((row) => ({
+      id: row.sourceId,
+      pipelineId: row.id,
+      title: row.title,
+      hook: row.body.slice(0, 200),
+      updatedAt: row.updatedAt,
+      workflowHistory: row.workflowHistory,
     })),
   };
 }
