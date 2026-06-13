@@ -10,6 +10,8 @@ export interface ScoutRunResult {
   highPriority: number;
   partnershipsRecommended: number;
   approvalQueueCount: number;
+  duplicatesSkipped: number;
+  leadsAdded: number;
 }
 
 export async function runScoutAgent(): Promise<ScoutRunResult> {
@@ -145,5 +147,7 @@ export async function runScoutAgent(): Promise<ScoutRunResult> {
     highPriority,
     partnershipsRecommended,
     approvalQueueCount: approvalRows.length,
+    duplicatesSkipped: 0,
+    leadsAdded: creators.length,
   };
 }

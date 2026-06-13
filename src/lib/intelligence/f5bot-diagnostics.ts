@@ -21,10 +21,10 @@ export async function getF5BotDiagnostics(): Promise<F5BotDiagnostics> {
   try {
     const supabase = createServerClient();
     const [{ count: alerts }, { count: opps }, { data: latest }] = await Promise.all([
-      supabase.from("f5bot_alerts").select("*", { count: "exact", head: true }),
+      supabase.from("intelligence_alerts").select("*", { count: "exact", head: true }),
       supabase.from("intelligence_opportunities").select("*", { count: "exact", head: true }),
       supabase
-        .from("f5bot_alerts")
+        .from("intelligence_alerts")
         .select("received_at")
         .order("received_at", { ascending: false })
         .limit(1)
@@ -43,7 +43,12 @@ export async function getF5BotDiagnostics(): Promise<F5BotDiagnostics> {
     rssFeedPresent: envPresent("F5BOT_RSS_FEED_URL"),
     webhookSecretPresent: envPresent("F5BOT_WEBHOOK_SECRET"),
     webhookUrl: getF5BotWebhookUrl(),
-    lastPoll: typeof meta.last_poll_at === "string" ? meta.last_poll_at : f5botStatus?.lastSuccessAt ?? null,
+    lastPoll:
+      typeof meta.last_fetch_at === "string"
+        ? meta.last_fetch_at
+        : typeof meta.last_poll_at === "string"
+          ? meta.last_poll_at
+          : f5botStatus?.lastSuccessAt ?? null,
     lastWebhookReceived:
       typeof meta.last_webhook_at === "string" ? meta.last_webhook_at : null,
     lastAlertReceived,

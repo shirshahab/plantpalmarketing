@@ -6,7 +6,12 @@ import { fetchPageData } from "@/lib/db/fetch-page-data";
 import { getCreativeContentIdeas } from "@/lib/db/queries";
 import { isOpenAIConfigured } from "@/lib/openai/config";
 
-export default async function ContentEnginePage() {
+export default async function ContentEnginePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ itemId?: string }>;
+}) {
+  const params = await searchParams;
   const { data, error, configured } = await fetchPageData(getCreativeContentIdeas);
   const openaiReady = isOpenAIConfigured();
 
@@ -35,7 +40,7 @@ export default async function ContentEnginePage() {
 
       {error && <ErrorBanner message={error} />}
 
-      <CreativeEngine ideas={data ?? []} />
+      <CreativeEngine ideas={data ?? []} highlightItemId={params.itemId} />
     </div>
   );
 }

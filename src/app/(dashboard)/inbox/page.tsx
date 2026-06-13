@@ -6,14 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { ConfigBanner } from "@/components/ui/config-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { WorkflowStageBadge } from "@/components/workflow/workflow-stage-badge";
+import { LiveIntelligenceSection } from "@/components/inbox/live-intelligence-section";
 import { getFounderInbox } from "@/lib/workflow/inbox-queries";
+import { getLiveIntelligenceAlerts } from "@/lib/intelligence/saved-alerts-queries";
 import { formatDate } from "@/lib/utils";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { InboxItem, InboxSection } from "@/lib/workflow/types";
 import type { LucideIcon } from "lucide-react";
 
 const SECTION_META: Record<
-  InboxSection,
+  Exclude<InboxSection, "intelligence">,
   { title: string; description: string; icon: LucideIcon; empty: string }
 > = {
   ideas: {
@@ -46,19 +48,13 @@ const SECTION_META: Record<
     icon: CalendarDays,
     empty: "Nothing waiting to be scheduled.",
   },
-  intelligence: {
-    title: "F5Bot intelligence alerts",
-    description: "High-priority community signals from Reddit, HN, and Lobsters.",
-    icon: Radar,
-    empty: "No F5Bot alerts need founder action.",
-  },
 };
 
 function InboxSectionBlock({
   section,
   items,
 }: {
-  section: InboxSection;
+  section: Exclude<InboxSection, "intelligence">;
   items: InboxItem[];
 }) {
   const meta = SECTION_META[section];
@@ -97,11 +93,6 @@ function InboxSectionBlock({
                     {item.summary ? (
                       <p className="mt-0.5 line-clamp-2 text-sm text-brand-muted">{item.summary}</p>
                     ) : null}
-                    <div className="mt-2 space-y-0.5 text-[11px] text-brand-muted">
-                      <p><span className="font-medium text-brand-primary">Current:</span> Waiting on you</p>
-                      {item.ifApproved && <p><span className="font-medium text-emerald-700">If approved:</span> {item.ifApproved}</p>}
-                      {item.ifRejected && <p><span className="font-medium text-amber-700">If rejected:</span> {item.ifRejected}</p>}
-                    </div>
                   </div>
                   <span className="shrink-0 text-xs font-medium text-brand-accent">Review →</span>
                 </CardContent>
@@ -124,29 +115,45 @@ export default async function FounderInboxPage() {
     );
   }
 
-  const inbox = await getFounderInbox();
+  const [inbox, liveIntelligence] = await Promise.all([getFounderInbox(), getLiveIntelligenceAlerts()]);
+  const totalPending = inbox.totalPending;
 
   return (
     <div>
       <PageHeader
         title="Founder Inbox"
-        description="Everything that needs your decision — ideas, assets, replies, and calendar slots."
+        description="Everything that needs your decision — ideas, assets, replies, and live intelligence."
       />
 
       <div className="mb-8 rounded-2xl border border-brand-primary/20 bg-brand-primary/5 px-4 py-3 text-sm text-brand-primary">
-        <strong>{inbox.totalPending} items</strong> need founder action. Approve assets here and they move to Calendar
-        automatically — they leave Creative Department immediately.
+        <strong>{totalPending} items</strong> need founder action.
       </div>
 
-      {inbox.totalPending === 0 ? (
+      {totalPending === 0 ? (
         <EmptyState
           icon={Inbox}
           title="Inbox clear"
-          description="Nothing waiting on you right now. Check Calendar for scheduled content."
+          description="Nothing waiting on you right now."
         />
       ) : (
         <>
-          <InboxSectionBlock section="intelligence" items={inbox.intelligence} />
+          <section className="mb-10">
+            <div className="mb-4 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-primary/8 text-brand-primary">
+                <Radar className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-heading text-lg font-semibold text-brand-primary">Live Intelligence</h2>
+                <p className="mt-0.5 text-sm text-brand-muted">
+                  High-priority F5Bot signals only — newest first.
+                </p>
+              </div>
+              <Badge variant={liveIntelligence.length > 0 ? "warning" : "muted"} className="ml-auto shrink-0">
+                {liveIntelligence.length}
+              </Badge>
+            </div>
+            <LiveIntelligenceSection alerts={liveIntelligence} />
+          </section>
           <InboxSectionBlock section="ideas" items={inbox.ideas} />
           <InboxSectionBlock section="images" items={inbox.images} />
           <InboxSectionBlock section="videos" items={inbox.videos} />

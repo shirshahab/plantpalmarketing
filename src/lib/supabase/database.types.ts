@@ -1821,6 +1821,123 @@ export interface Database {
           updated_at?: string;
         }
       >;
+      intelligence_alerts: TableDef<
+        {
+          id: string;
+          source: string;
+          source_type: string;
+          title: string;
+          body: string;
+          url: string;
+          author: string;
+          subreddit: string;
+          alert_name: string;
+          detected_keywords: string[];
+          classification: string | null;
+          priority: string | null;
+          assigned_agent: string | null;
+          status: string;
+          raw: Json;
+          external_created_at: string | null;
+          created_at: string;
+          updated_at: string;
+          processed_at: string | null;
+          external_id: string;
+          raw_payload: Json;
+          received_at: string;
+          classification_reason: string;
+        },
+        {
+          id?: string;
+          source?: string;
+          source_type?: string;
+          title?: string;
+          body?: string;
+          url?: string;
+          author?: string;
+          subreddit?: string;
+          alert_name?: string;
+          detected_keywords?: string[];
+          classification?: string | null;
+          priority?: string | null;
+          assigned_agent?: string | null;
+          status?: string;
+          raw?: Json;
+          external_created_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          processed_at?: string | null;
+          external_id?: string;
+          raw_payload?: Json;
+          received_at?: string;
+          classification_reason?: string;
+        },
+        {
+          id?: string;
+          source?: string;
+          source_type?: string;
+          title?: string;
+          body?: string;
+          url?: string;
+          author?: string;
+          subreddit?: string;
+          alert_name?: string;
+          detected_keywords?: string[];
+          classification?: string | null;
+          priority?: string | null;
+          assigned_agent?: string | null;
+          status?: string;
+          raw?: Json;
+          external_created_at?: string | null;
+          processed_at?: string | null;
+          external_id?: string;
+          raw_payload?: Json;
+          received_at?: string;
+          updated_at?: string;
+          classification_reason?: string;
+        }
+      >;
+      intelligence_runs: TableDef<
+        {
+          id: string;
+          started_at: string;
+          completed_at: string | null;
+          fetched_count: number;
+          inserted_count: number;
+          duplicate_count: number;
+          error_count: number;
+          status: string;
+          error_message: string;
+          metadata: Json;
+          created_at: string;
+        },
+        {
+          id?: string;
+          started_at?: string;
+          completed_at?: string | null;
+          fetched_count?: number;
+          inserted_count?: number;
+          duplicate_count?: number;
+          error_count?: number;
+          status?: string;
+          error_message?: string;
+          metadata?: Json;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          started_at?: string;
+          completed_at?: string | null;
+          fetched_count?: number;
+          inserted_count?: number;
+          duplicate_count?: number;
+          error_count?: number;
+          status?: string;
+          error_message?: string;
+          metadata?: Json;
+          created_at?: string;
+        }
+      >;
       f5bot_alerts: TableDef<
         {
           id: string;
@@ -4417,6 +4534,7 @@ export interface Database {
           growth_report?: Json;
           action_plan?: Json;
           founder_review?: Json;
+          intelligence_brief?: Json;
           created_at: string;
         },
         {
@@ -4434,6 +4552,7 @@ export interface Database {
           growth_report?: Json;
           action_plan?: Json;
           founder_review?: Json;
+          intelligence_brief?: Json;
           created_at?: string;
         },
         {
@@ -4451,6 +4570,7 @@ export interface Database {
           growth_report?: Json;
           action_plan?: Json;
           founder_review?: Json;
+          intelligence_brief?: Json;
           created_at?: string;
         }
       >;

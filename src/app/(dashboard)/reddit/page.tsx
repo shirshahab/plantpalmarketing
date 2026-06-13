@@ -36,12 +36,12 @@ export default async function RedditPage() {
   return (
     <div>
       <PageHeader
-        title="Reddit — Help-First Automation"
-        description="Roots finds questions → drafts helpful replies → founder approves → reply posts. Hard safety limits, every action logged."
+        title="Reddit. Help-First Automation"
+        description="Roots finds questions, drafts helpful replies, founder approves, then reply posts. Hard safety limits, every action logged."
       />
       <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         No spam, no mass commenting, no hidden automation. Respect subreddit rules and Reddit Developer Terms.
-        Auto-posting stays off until the safety record is proven — every reply needs your click.
+        Auto-posting stays off until the safety record is proven. Every reply needs your click.
       </div>
       {error && <ErrorBanner message={error} />}
       {data && <RedditPanel data={data} />}

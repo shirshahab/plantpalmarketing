@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HQVillageWorld } from "@/components/hq/world/hq-village-world";
 import { HQActivityList } from "@/components/hq/world/hq-activity-list";
+import { HQInternetPulse } from "@/components/hq/hq-internet-pulse";
+import type { InternetPulseDashboard } from "@/lib/intelligence/intelligence-engine";
 import { PanelErrorBoundary } from "@/components/shared/error-boundary";
 import { HQLivingAgentDrawer } from "@/components/hq/living/hq-living-agent-drawer";
 import { ActivityDetailDrawer } from "@/components/hq/agent-detail-drawer";
@@ -44,6 +46,7 @@ export function PlantPalHQ({
   weather,
   liveDataAvailable = true,
   agentScheduleHealth = [],
+  internetPulse = null,
 }: {
   initialAgents: HQAgent[];
   initialActivity: ActivityItem[];
@@ -56,6 +59,7 @@ export function PlantPalHQ({
   weather: HQWeatherState;
   liveDataAvailable?: boolean;
   agentScheduleHealth?: HQAgentScheduleHealth[];
+  internetPulse?: InternetPulseDashboard | null;
 }) {
   const router = useRouter();
   const [agents] = useState<HQAgent[]>(initialAgents);
@@ -247,6 +251,9 @@ export function PlantPalHQ({
 
       {viewMode === "world" ? (
         <div className={viewReady ? "h-full" : "h-full opacity-0"}>
+          <div className="absolute left-2 right-2 top-12 z-40 sm:left-4 sm:right-4 sm:top-14">
+            <HQInternetPulse dashboard={internetPulse ?? null} />
+          </div>
           <HQVillageWorld
             agents={agents}
             activity={activity}
@@ -265,6 +272,9 @@ export function PlantPalHQ({
         </div>
       ) : (
         <PanelErrorBoundary>
+          <div className="px-4 pt-4">
+            <HQInternetPulse dashboard={internetPulse ?? null} />
+          </div>
           <HQActivityList
             agents={agents}
             activity={activity}

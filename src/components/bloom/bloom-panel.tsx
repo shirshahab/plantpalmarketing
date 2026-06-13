@@ -46,6 +46,7 @@ export function BloomPanel({
   performance,
   latestRun,
   stats,
+  founderIncoming = [],
 }: {
   pieces: BloomContentPiece[];
   calendarPieces: BloomContentPiece[];
@@ -60,6 +61,7 @@ export function BloomPanel({
     highViralCount: number;
     totalPieces: number;
   };
+  founderIncoming?: Array<{ id: string; title: string; hook: string; updatedAt: string }>;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("calendar");
@@ -109,6 +111,25 @@ export function BloomPanel({
           </p>
         )}
       </div>
+
+      {founderIncoming.length > 0 && (
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+          <h3 className="font-heading text-sm font-semibold text-brand-primary">Incoming from Founder</h3>
+          <p className="mt-0.5 text-xs text-brand-muted">Ideas approved by the founder, ready for Bloom production.</p>
+          <div className="mt-3 space-y-2">
+            {founderIncoming.map((idea) => (
+              <a
+                key={idea.id}
+                href={`/content?itemId=${idea.id}`}
+                className="block rounded-lg border border-emerald-200/60 bg-white px-3 py-2 transition hover:shadow-sm"
+              >
+                <p className="text-sm font-medium text-brand-primary">{idea.title}</p>
+                {idea.hook && <p className="mt-0.5 line-clamp-2 text-xs text-brand-muted">{idea.hook}</p>}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Generated Today" value={stats.generatedToday} icon={Sparkles} />

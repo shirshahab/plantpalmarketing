@@ -8,13 +8,23 @@ import {
 } from "@/lib/content-calendar/sync";
 import { recordHandoff } from "@/lib/collaboration/handoff";
 import { createNotification } from "@/lib/notifications/create";
-import { transitionContentWorkflow } from "@/lib/workflow/engine";
+import { recordFounderApprovalEvent } from "@/lib/workflow/founder-approval-events";
+import { getContentWorkflow, transitionContentWorkflow } from "@/lib/workflow/engine";
 import { destinationForIdeaApprove, destinationForReject } from "@/lib/workflow/destinations";
 import { founderSafeError } from "@/lib/integrations/founder-safe-error";
 import type { MarketingTable, Status } from "@/lib/types";
 
 export type ActionResult =
-  | { ok: true; message?: string; destination?: string; nextOwner?: string; nextStep?: string }
+  | {
+      ok: true;
+      message?: string;
+      destination?: string;
+      destinationLabel?: string;
+      destinationUrl?: string;
+      workflowUrl?: string;
+      nextOwner?: string;
+      nextStep?: string;
+    }
   | { ok: false; error: string };
 
 export async function revalidateDashboard() {
@@ -160,30 +170,53 @@ export async function updateStatus(
     await revalidateDashboard();
 
     if (status === "approved") {
-      const dest = table === "creative_content_ideas" ? destinationForIdeaApprove() : null;
+      const dest = table === "creative_content_ideas" ? destinationForIdeaApprove(id) : null;
       if (dest) {
-        await transitionContentWorkflow({
+        const existing = await getContentWorkflow(table, id);
+        const fromStage = existing?.currentStage ?? "PENDING_FOUNDER_IDEA_APPROVAL";
+        const workflow = await transitionContentWorkflow({
           sourceTable: table,
           sourceId: id,
           toStage: dest.stage,
-          event: dest.toast,
+          event: "FOUNDERS_APPROVED_IDEA",
           actor: "founder",
           agent: dest.nextOwner,
           destinationLabel: dest.strip,
           currentOwner: dest.nextOwner,
-        }).catch(() => undefined);
+        }).catch(() => null);
+
+        await recordFounderApprovalEvent({
+          itemId: id,
+          sourceTable: table,
+          fromStage,
+          toStage: dest.stage,
+          fromOwner: "founder",
+          toOwner: dest.nextOwner,
+          destinationUrl: dest.destinationUrl,
+        });
+
+        const workflowUrl = workflow?.id
+          ? `/company-os?workflow=${workflow.id}`
+          : dest.workflowUrl;
+
         await createNotification({
           type: "agent_completed",
           title: "Idea approved",
           message: dest.toast,
-          targetRoute: "/content",
+          targetRoute: dest.destinationUrl,
           targetTable: table,
           targetId: id,
         });
+        revalidatePath("/content");
+        revalidatePath("/bloom");
+        revalidatePath("/company-os");
         return {
           ok: true,
           message: dest.toast,
           destination: dest.destination,
+          destinationLabel: dest.destinationLabel,
+          destinationUrl: dest.destinationUrl,
+          workflowUrl,
           nextOwner: dest.nextOwner,
           nextStep: dest.nextStep,
         };

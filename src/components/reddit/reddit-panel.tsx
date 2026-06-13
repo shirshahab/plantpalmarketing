@@ -10,6 +10,7 @@ import {
   approveAndPostRedditReply,
   checkRedditAccountConnection,
   draftRedditReply,
+  draftRedditReplyFromIntelligence,
   rejectRedditDraft,
   scanRedditOpportunities,
   updateRedditDraft,
@@ -17,6 +18,7 @@ import {
 } from "@/lib/actions/reddit";
 import type { RedditPageData } from "@/lib/db/reddit-queries";
 import { DataSourceBadge } from "@/components/shared/source-context";
+import { formatDate } from "@/lib/utils";
 
 function EngagementEditor({ logId, upvotes, note }: { logId: string; upvotes: number; note: string }) {
   const [pending, startTransition] = useTransition();
@@ -102,6 +104,8 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
   const rules = data.safetyRules;
   const pendingDrafts = data.drafts.filter((d) => d.status === "pending_approval" || d.status === "draft");
   const postedDrafts = data.drafts.filter((d) => d.status === "posted");
+  const f5botLive = data.f5botIntelligence.active && data.f5botIntelligence.totalRedditAlerts > 0;
+  const hasRealConversations = data.configured || f5botLive;
 
   return (
     <div className="space-y-6">
@@ -127,17 +131,80 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
               Rate limit: {data.postedToday}/{data.safetyRules.maxRepliesPerDay} today
             </Badge>
             <Badge variant="muted">
-              {data.account?.monitoredSubreddits.length ?? 0} subreddits monitored
+              OAuth scanner: {data.account?.monitoredSubreddits.length ?? 0} subreddits monitored
             </Badge>
-            {!data.configured && <DataSourceBadge dataSource="demo" platform="reddit" />}
+            {data.f5botIntelligence.active && (
+              <Badge variant="success">F5Bot Reddit feed: active</Badge>
+            )}
+            {!data.configured && !f5botLive && <DataSourceBadge dataSource="demo" platform="reddit" />}
           </div>
           {!data.configured && (
             <p className="mt-2 text-xs text-amber-700">
-              Demo Data. Connect API to use real conversations. Auto-posting is disabled — draft-only mode.
+              {f5botLive
+                ? "Reddit OAuth not connected. F5Bot intelligence is active, so Reddit conversations are available in read-only mode."
+                : "Reddit OAuth not connected. Connect credentials for posting. Draft-only mode until OAuth is set up."}
+              {" "}Auto-posting stays off until founder approval and OAuth setup.
             </p>
           )}
         </CardContent>
       </Card>
+
+      {data.f5botIntelligence.active && (
+        <Card>
+          <CardContent className="py-5">
+            <h3 className="font-heading font-semibold text-brand-primary">F5Bot Reddit Intelligence</h3>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <MiniStat label="Total Reddit alerts" value={data.f5botIntelligence.totalRedditAlerts} />
+              <MiniStat label="High priority" value={data.f5botIntelligence.highPriorityRedditAlerts} />
+              <MiniStat label="Community opportunities" value={data.f5botIntelligence.communityOpportunities} />
+              <MiniStat
+                label="Latest subreddit"
+                value={data.f5botIntelligence.latestSubreddit ? `r/${data.f5botIntelligence.latestSubreddit}` : "—"}
+              />
+              <MiniStat
+                label="Last ingested"
+                value={
+                  data.f5botIntelligence.lastIngestedAt
+                    ? formatDate(data.f5botIntelligence.lastIngestedAt)
+                    : "—"
+                }
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {data.f5botCommunityAlerts.length > 0 && (
+        <Card>
+          <CardContent className="py-5">
+            <h3 className="font-heading font-semibold text-brand-primary">F5Bot community questions</h3>
+            <p className="mt-1 text-xs text-brand-muted">Draft replies from intelligence alerts. Posting still requires OAuth and founder approval.</p>
+            <div className="mt-3 space-y-2">
+              {data.f5botCommunityAlerts.slice(0, 8).map((alert) => (
+                <div key={alert.id} className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-brand-border p-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {alert.subreddit && <Badge variant="muted">r/{alert.subreddit}</Badge>}
+                      <Badge variant="info">F5Bot</Badge>
+                      {alert.priority && <Badge variant="warning">{alert.priority}</Badge>}
+                    </div>
+                    <p className="mt-1 text-sm font-medium text-brand-primary">{alert.title}</p>
+                    <p className="mt-0.5 line-clamp-2 break-words text-xs text-brand-muted">{alert.body}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={pending}
+                    onClick={() => run(() => draftRedditReplyFromIntelligence(alert.id))}
+                  >
+                    <MessageSquare className="mr-1 h-3.5 w-3.5" /> Draft reply
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Connection + safety status */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -208,7 +275,11 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
         <CardContent className="py-5">
           <h3 className="font-heading font-semibold text-brand-primary">Community questions found</h3>
           {data.opportunities.length === 0 ? (
-            <p className="mt-2 text-sm text-brand-muted">No opportunities yet — run a read-only scan.</p>
+            <p className="mt-2 text-sm text-brand-muted">
+              {data.opportunities.length === 0 && f5botLive
+                ? "No OAuth scan results yet. Use F5Bot community questions above to draft replies."
+                : "No opportunities yet. Run a read-only OAuth scan."}
+            </p>
           ) : (
             <div className="mt-3 space-y-2">
               {data.opportunities.slice(0, 10).map((opp) => (
@@ -218,7 +289,7 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
                       <Badge variant="muted">r/{opp.subreddit}</Badge>
                       <Badge variant={STATUS_VARIANTS[opp.status] ?? "muted"}>{opp.status}</Badge>
                       <DataSourceBadge
-                        dataSource={data.configured ? "live_api" : "demo"}
+                        dataSource={hasRealConversations ? "live_api" : "demo"}
                         platform="reddit"
                       />
                       <span className="text-[11px] text-brand-muted">risk {opp.riskScore}</span>
@@ -333,7 +404,7 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
               <div className="mt-3 space-y-2">
                 {postedDrafts.slice(0, 8).map((d) => (
                   <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-brand-border px-3 py-2 text-xs">
-                    <span className="min-w-0 truncate text-brand-primary">r/{d.subreddit} — {d.question.slice(0, 60)}</span>
+                    <span className="min-w-0 truncate text-brand-primary">r/{d.subreddit}: {d.question.slice(0, 60)}</span>
                     {d.publishedUrl && (
                       <a href={d.publishedUrl} target="_blank" rel="noreferrer" className="text-brand-accent underline">
                         permalink
@@ -375,6 +446,15 @@ export function RedditPanel({ data }: { data: RedditPageData }) {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-xl border border-brand-border/60 bg-brand-bg/30 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-muted">{label}</p>
+      <p className="mt-0.5 text-lg font-bold tabular-nums text-brand-primary">{value}</p>
     </div>
   );
 }

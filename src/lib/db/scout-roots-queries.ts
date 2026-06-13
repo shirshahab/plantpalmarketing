@@ -76,17 +76,28 @@ export async function getAgentActivityLog(agentId: "scout" | "roots", limit = 20
 export async function getScoutStats() {
   const supabase = createServerClient();
   const today = todayStart();
-  const [foundToday, highPriority, outreach, partnerships] = await Promise.all([
+  const [foundToday, highPriority, outreach, partnerships, scoutRunToday] = await Promise.all([
     supabase.from("creator_leads").select("*", { count: "exact", head: true }).gte("created_at", today),
-    supabase.from("creator_leads").select("*", { count: "exact", head: true }).eq("priority", "high"),
+    supabase
+      .from("creator_leads")
+      .select("*", { count: "exact", head: true })
+      .eq("priority", "high")
+      .neq("status", "rejected")
+      .neq("partnership_status", "declined"),
     supabase.from("creator_leads").select("*", { count: "exact", head: true }).eq("partnership_status", "outreach_pending"),
     supabase.from("creator_partnerships").select("*", { count: "exact", head: true }).eq("status", "active"),
+    supabase
+      .from("agent_runs")
+      .select("*", { count: "exact", head: true })
+      .eq("agent_id", "scout")
+      .gte("started_at", today),
   ]);
   return {
     foundToday: foundToday.count ?? 0,
     highPriority: highPriority.count ?? 0,
     pendingOutreach: outreach.count ?? 0,
     partnershipsCreated: partnerships.count ?? 0,
+    scoutRunToday: (scoutRunToday.count ?? 0) > 0,
     totalLeads: (await supabase.from("creator_leads").select("*", { count: "exact", head: true })).count ?? 0,
     recommendedPartnerships: (await supabase.from("creator_partnerships").select("*", { count: "exact", head: true }).eq("status", "recommended")).count ?? 0,
   };

@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { updateSupabaseSession } from "@/lib/supabase/middleware";
 
-const PUBLIC_PREFIXES = ["/login", "/api/cron/", "/api/health", "/api/intelligence/f5bot/webhook"];
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/api/cron/",
+  "/api/health",
+  "/api/intelligence/f5bot/webhook",
+  "/api/intelligence/f5bot/cron",
+];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));

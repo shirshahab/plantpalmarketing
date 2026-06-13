@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchF5BotRssFeed, normalizeF5BotAlert, upsertF5BotAlert } from "@/lib/intelligence/f5bot";
+import { fetchF5BotRssFeed, normalizeF5BotAlert, upsertIntelligenceAlert } from "@/lib/intelligence/f5bot";
 import { isAuthorizedF5BotPoll } from "@/lib/intelligence/f5bot-poll-auth";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     for (const raw of items) {
       const normalized = normalizeF5BotAlert(raw);
-      const upserted = await upsertF5BotAlert(normalized);
+      const upserted = await upsertIntelligenceAlert(normalized);
       if (!upserted) continue;
       if (upserted.inserted) inserted += 1;
       else duplicates += 1;

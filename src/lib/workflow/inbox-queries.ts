@@ -7,7 +7,7 @@ import {
   type InboxSection,
   type WorkflowStage,
 } from "@/lib/workflow/types";
-import { getHighPriorityF5BotInboxAlerts } from "@/lib/intelligence/queries";
+import { getLiveIntelligenceAlerts } from "@/lib/intelligence/saved-alerts-queries";
 import { inboxOutcome } from "@/lib/workflow/destinations";
 
 export interface FounderInbox {
@@ -242,21 +242,20 @@ export async function getFounderInbox(): Promise<FounderInbox> {
     if (!isMissingTableError(e instanceof Error ? e : { message: String(e) })) throw e;
   }
 
-  const f5botAlerts = await getHighPriorityF5BotInboxAlerts();
-  for (const alert of f5botAlerts) {
-    if (alert.status !== "new") continue;
+  const liveAlerts = await getLiveIntelligenceAlerts();
+  for (const alert of liveAlerts) {
     intelligence.push(
       item({
         id: alert.id,
         section: "intelligence",
-        sourceTable: "f5bot_alerts",
+        sourceTable: "intelligence_alerts",
         sourceId: alert.id,
-        title: alert.title.slice(0, 100) || `${alert.source}: ${alert.matchedKeyword}`,
+        title: alert.title.slice(0, 100) || alert.source,
         summary: alert.body.slice(0, 200),
         stage: "PENDING_FOUNDER_REPLY_APPROVAL",
         href: `/intelligence?alert=${alert.id}`,
-        channel: alert.source,
-        createdAt: alert.receivedAt,
+        channel: alert.subreddit ? `r/${alert.subreddit}` : alert.source,
+        createdAt: alert.createdAt,
       })
     );
   }

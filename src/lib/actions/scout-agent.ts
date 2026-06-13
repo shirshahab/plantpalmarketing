@@ -6,7 +6,15 @@ import { createServerClient } from "@/lib/supabase/server";
 import type { CreatorPartnershipStatus, Status } from "@/lib/types";
 
 export type ScoutRunActionResult =
-  | { ok: true; creatorsFound: number; highPriority: number; partnershipsRecommended: number; approvalQueueCount: number }
+  | {
+      ok: true;
+      creatorsFound: number;
+      highPriority: number;
+      partnershipsRecommended: number;
+      approvalQueueCount: number;
+      duplicatesSkipped?: number;
+      leadsAdded?: number;
+    }
   | { ok: false; error: string };
 
 export async function runScoutDiscovery(): Promise<ScoutRunActionResult> {

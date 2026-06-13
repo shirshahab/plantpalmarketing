@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
-import { pollF5BotAlerts, processF5BotAlert } from "@/lib/intelligence/f5bot";
+import { fetchF5BotAlerts, processF5BotAlert } from "@/lib/intelligence/f5bot";
 import { recordHandoff } from "@/lib/collaboration/handoff";
 import type { ActionResult } from "@/lib/actions/shared";
 
@@ -10,7 +10,7 @@ export async function fetchLatestF5BotAlertsAction(): Promise<
   ActionResult & { counts?: Record<string, number> }
 > {
   try {
-    const result = await pollF5BotAlerts();
+    const result = await fetchF5BotAlerts();
     revalidatePath("/intelligence");
     revalidatePath("/inbox");
     revalidatePath("/admin/setup-health");
@@ -33,8 +33,8 @@ export async function ignoreF5BotAlertAction(alertId: string): Promise<ActionRes
   try {
     const supabase = createServerClient();
     const { error } = await supabase
-      .from("f5bot_alerts")
-      .update({ status: "ignored" })
+      .from("intelligence_alerts")
+      .update({ status: "ignored", classification: "ignore" })
       .eq("id", alertId);
     if (error) return { ok: false, error: error.message };
     revalidatePath("/intelligence");
@@ -46,19 +46,32 @@ export async function ignoreF5BotAlertAction(alertId: string): Promise<ActionRes
 
 export async function sendF5BotAlertToAgentAction(
   alertId: string,
-  agent: "roots" | "bloom" | "sentinel"
+  agent: "roots" | "bloom" | "sentinel" | "atlas" | "oak"
 ): Promise<ActionResult> {
   try {
     const supabase = createServerClient();
     const { data: row, error } = await supabase
-      .from("f5bot_alerts")
+      .from("intelligence_alerts")
       .select("*")
       .eq("id", alertId)
       .maybeSingle();
     if (error || !row) return { ok: false, error: error?.message ?? "Alert not found" };
 
     const taskType =
-      agent === "sentinel" ? "competitor_analysis" : agent === "bloom" ? "content_brief" : "community_response";
+      agent === "sentinel"
+        ? "competitor_analysis"
+        : agent === "bloom"
+          ? "content_brief"
+          : agent === "oak"
+            ? "partnership_outreach"
+            : agent === "atlas"
+              ? "growth_recommendation"
+              : "community_response";
+
+    await supabase
+      .from("intelligence_alerts")
+      .update({ assigned_agent: agent, status: "routed" })
+      .eq("id", alertId);
 
     await recordHandoff({
       fromAgent: "scout",
@@ -72,7 +85,7 @@ export async function sendF5BotAlertToAgentAction(
       messageTitle: `F5Bot alert sent to ${agent}`,
       messageBody: String(row.body).slice(0, 400),
       activityDetail: `Founder manually routed F5Bot alert to ${agent}`,
-      metadata: { source_url: row.source_url },
+      metadata: { source_url: row.url },
     });
 
     if (row.status === "new") {

@@ -48,9 +48,13 @@ export function ApprovalActions({
         setDestinationStrip(msg ?? "Approved");
         showDestinationToast(showToast, {
           message: msg ?? "Approved",
-          destination: "message" in result ? result.destination : undefined,
-          nextOwner: "message" in result ? result.nextOwner : undefined,
-          nextStep: "message" in result ? result.nextStep : undefined,
+          destination: result.destination,
+          destinationLabel: result.destinationLabel,
+          destinationUrl: result.destinationUrl,
+          workflowUrl: result.workflowUrl,
+          nextOwner: result.nextOwner,
+          nextStep: result.nextStep,
+          withNavigation: table === "creative_content_ideas",
         });
       } else {
         setError(founderSafeError(result.error));

@@ -62,7 +62,7 @@ export function AgentOperationsPanel({
       const res = await triggerScheduledBatch();
       if (res.ok) {
         setMessage(
-          `Batch complete — ${res.triggered} agents ran, ${res.skipped} still waiting.${res.errors.length ? ` Errors: ${res.errors.join("; ")}` : ""}`
+          `Batch complete. ${res.triggered} agents ran, ${res.skipped} still waiting.${res.errors.length ? ` Errors: ${res.errors.join("; ")}` : ""}`
         );
         router.refresh();
       } else {
@@ -94,7 +94,7 @@ export function AgentOperationsPanel({
             <div>
               <h2 className="font-heading font-semibold text-brand-primary">Autonomous Agent Scheduler</h2>
               <p className="text-sm text-brand-muted">
-                Vercel Cron runs every 30 minutes — each agent wakes when its schedule is due
+                Vercel Cron runs every 30 minutes. Each agent wakes when its schedule is due.
               </p>
             </div>
           </div>
@@ -173,7 +173,7 @@ export function AgentOperationsPanel({
         <Card>
           <CardContent className="divide-y divide-brand-border/20 p-0">
             {recentRuns.length === 0 ? (
-              <p className="p-6 text-center text-sm text-brand-muted">No runs yet — trigger a batch or wait for cron</p>
+              <p className="p-6 text-center text-sm text-brand-muted">No runs yet. Trigger a batch or wait for cron.</p>
             ) : (
               recentRuns.map((run) => (
                 <div key={run.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
@@ -209,7 +209,7 @@ export function AgentOperationsPanel({
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <div className="flex items-center gap-2 font-medium">
             <AlertTriangle className="h-4 w-4" />
-            {stats.failed} agent(s) degraded or failed — check run history for errors
+            {stats.failed} agent(s) degraded or failed. Check run history for errors.
           </div>
         </div>
       )}
@@ -223,7 +223,7 @@ export function AgentOperationsPanel({
             <strong>1.</strong> Set <code>CRON_SECRET</code> in Vercel Production env
           </p>
           <p>
-            <strong>2.</strong> Deploy with <code>vercel.json</code> — cron at <code>*/30 * * * *</code>
+            <strong>2.</strong> Deploy with <code>vercel.json</code>. Cron at <code>*/30 * * * *</code>
           </p>
           <p>
             <strong>3.</strong> Verify database setup at <code>/admin/setup-health</code>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pollF5BotAlerts } from "@/lib/intelligence/f5bot";
+import { fetchF5BotAlerts } from "@/lib/intelligence/f5bot";
 import { isAuthorizedF5BotPoll } from "@/lib/intelligence/f5bot-poll-auth";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await pollF5BotAlerts();
+    const result = await fetchF5BotAlerts();
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     return NextResponse.json(

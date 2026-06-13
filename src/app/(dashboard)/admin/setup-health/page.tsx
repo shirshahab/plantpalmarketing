@@ -35,7 +35,7 @@ const TABLE_GROUPS: Record<string, string[]> = {
     "integration_events",
     "api_usage_logs",
   ],
-  Intelligence: ["f5bot_alerts", "intelligence_opportunities"],
+  Intelligence: ["intelligence_alerts", "intelligence_runs", "f5bot_alerts", "intelligence_opportunities"],
 };
 
 type ProbeClient = {

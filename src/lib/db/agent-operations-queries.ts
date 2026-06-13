@@ -5,6 +5,7 @@ import {
   mapAgentSchedule,
 } from "@/lib/supabase/mappers";
 import { isMissingTableError } from "@/lib/integrations/db-safe";
+import { getAgentOperationsHealth } from "@/lib/agent-operations/health";
 import {
   PHASE24_SCHEDULED_AGENTS,
   type AgentScheduleStats,
@@ -85,10 +86,11 @@ function buildScheduleStats(
 }
 
 export async function getAgentOperationsData() {
-  const [schedules, health, recentRuns] = await Promise.all([
+  const [schedules, health, recentRuns, opsHealth] = await Promise.all([
     getAgentSchedules(),
     getAgentHealthRecords(),
     getAgentRuns(60),
+    getAgentOperationsHealth(),
   ]);
 
   const scheduleStats = buildScheduleStats(schedules, health, recentRuns);
@@ -113,6 +115,7 @@ export async function getAgentOperationsData() {
     health,
     recentRuns,
     scheduleStats,
+    opsHealth,
     stats: {
       running,
       sleeping,

@@ -320,6 +320,57 @@ export async function approveAndPostRedditReply(draftId: string): Promise<Result
   }
 }
 
+/** Draft a Reddit reply from an F5Bot intelligence alert (read-only until OAuth + founder approval). */
+export async function draftRedditReplyFromIntelligence(alertId: string): Promise<Result> {
+  try {
+    const supabase = createServerClient();
+    const { data: alert, error } = await supabase
+      .from("intelligence_alerts")
+      .select("*")
+      .eq("id", alertId)
+      .maybeSingle();
+    if (error || !alert) {
+      return { ok: false, error: error?.message ?? "Alert not found" };
+    }
+
+    const subreddit = String(alert.subreddit ?? "houseplants").replace(/^r\//, "");
+    const question = String(alert.body || alert.title);
+    const draft = [
+      `This usually comes down to watering rhythm and light, not the plant being dramatic (even though it looks dramatic).`,
+      ``,
+      `Check the top two inches of soil before watering again. If it is still damp, wait.`,
+      `Make sure the pot drains freely. Sitting water is the fastest way to yellow leaves.`,
+      ``,
+      `If you share your watering schedule and window direction, I can help narrow it down.`,
+    ].join("\n");
+
+    const voice = runVoiceCheck(draft);
+    if (voice.score < VOICE_PASS_THRESHOLD) {
+      return { ok: false, error: `${VOICE_FAIL_REASON} (${voice.score}/10). Edit manually before approval.` };
+    }
+
+    const { error: insertError } = await supabase.from("reddit_reply_drafts").insert({
+      opportunity_id: null,
+      subreddit,
+      post_id: "",
+      permalink: String(alert.url ?? ""),
+      author: String(alert.author ?? ""),
+      question,
+      draft_reply: draft,
+      status: "pending_approval",
+      risk_score: alert.priority === "high" ? 2 : 4,
+    });
+    if (insertError) {
+      return { ok: false, error: isMissingTableError(insertError) ? MIGRATION_HINT : insertError.message };
+    }
+
+    revalidatePath("/reddit");
+    return { ok: true, message: "Draft created from F5Bot alert. Awaiting founder approval." };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Draft failed" };
+  }
+}
+
 /** Phase 31 Step 7 — track engagement (upvotes, notes) on posted replies. */
 export async function updateRedditEngagement(
   logId: string,

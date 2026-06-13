@@ -2,6 +2,7 @@ import { createServerClient } from "@/lib/supabase";
 import { isMissingTableError } from "@/lib/integrations/db-safe";
 import { isRedditConfigured } from "@/lib/reddit/client";
 import { getRedditSafetyRules, type RedditSafetyRules } from "@/lib/reddit/safety";
+import { getRedditF5BotIntelligence } from "@/lib/intelligence/reddit-intelligence-stats";
 
 export interface RedditAccountRow {
   id: string;
@@ -68,6 +69,16 @@ export interface RedditPageData {
   logs: RedditLogRow[];
   safetyRules: RedditSafetyRules;
   postedToday: number;
+  f5botIntelligence: import("@/lib/intelligence/reddit-intelligence-stats").RedditF5BotIntelligence;
+  f5botCommunityAlerts: Array<{
+    id: string;
+    title: string;
+    body: string;
+    subreddit: string;
+    url: string;
+    priority: string | null;
+    createdAt: string;
+  }>;
 }
 
 export async function getRedditPageData(): Promise<RedditPageData> {
@@ -75,7 +86,8 @@ export async function getRedditPageData(): Promise<RedditPageData> {
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
 
-  const [accountRes, oppsRes, draftsRes, logsRes, todayRes, safetyRules] = await Promise.all([
+  const [accountRes, oppsRes, draftsRes, logsRes, todayRes, safetyRules, f5botIntelligence, f5botAlertsRes] =
+    await Promise.all([
     supabase.from("reddit_accounts").select("*").order("created_at").limit(1).maybeSingle(),
     supabase.from("reddit_opportunities").select("*").order("created_at", { ascending: false }).limit(30),
     supabase.from("reddit_reply_drafts").select("*").order("created_at", { ascending: false }).limit(30),
@@ -86,6 +98,15 @@ export async function getRedditPageData(): Promise<RedditPageData> {
       .eq("status", "success")
       .gte("created_at", dayStart.toISOString()),
     getRedditSafetyRules(),
+    getRedditF5BotIntelligence(),
+    supabase
+      .from("intelligence_alerts")
+      .select("id, title, body, subreddit, url, priority, created_at")
+      .eq("classification", "community_opportunity")
+      .or("source.ilike.%reddit%,subreddit.neq.")
+      .neq("status", "archived")
+      .order("created_at", { ascending: false })
+      .limit(15),
   ]);
 
   const missing = [accountRes.error, oppsRes.error, draftsRes.error, logsRes.error].some(
@@ -159,5 +180,15 @@ export async function getRedditPageData(): Promise<RedditPageData> {
     })),
     safetyRules,
     postedToday: todayRes.error ? 0 : (todayRes.count ?? 0),
+    f5botIntelligence,
+    f5botCommunityAlerts: (f5botAlertsRes.data ?? []).map((row) => ({
+      id: String(row.id),
+      title: String(row.title ?? ""),
+      body: String(row.body ?? ""),
+      subreddit: String(row.subreddit ?? ""),
+      url: String(row.url ?? ""),
+      priority: row.priority ? String(row.priority) : null,
+      createdAt: String(row.created_at),
+    })),
   };
 }

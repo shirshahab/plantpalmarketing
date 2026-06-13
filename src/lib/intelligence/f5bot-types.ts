@@ -36,26 +36,35 @@ export interface NormalizedF5BotAlert {
   rawPayload: Record<string, unknown>;
 }
 
-export type F5BotOpportunityType =
+export type IntelligenceClassification =
   | "community_opportunity"
-  | "competitor_alert"
-  | "reply_draft"
   | "content_idea"
-  | "seo_topic";
+  | "seo_topic"
+  | "competitor_alert"
+  | "creator_opportunity"
+  | "product_feedback"
+  | "ignore";
 
-export interface F5BotClassification {
-  types: F5BotOpportunityType[];
-  priority: "low" | "medium" | "high" | "urgent";
-  primaryAgent: string;
-  suggestedAction: string;
-  isHighIntentQuestion: boolean;
-  isCompetitor: boolean;
-  isPlantCare: boolean;
-  isSeoIntent: boolean;
-  isRecurringTopic: boolean;
-  founderInbox: boolean;
+export type F5BotOpportunityType = IntelligenceClassification;
+
+export interface IntelligenceAlertRow {
+  id: string;
+  source: string;
+  title: string;
+  body: string;
+  url: string;
+  author: string;
+  subreddit: string;
+  createdAt: string;
+  classification: IntelligenceClassification;
+  priority: "low" | "medium" | "high";
+  assignedAgent: string;
+  status: string;
+  externalId: string;
+  receivedAt: string;
 }
 
+/** @deprecated Use IntelligenceAlertRow — kept for legacy opportunity joins */
 export interface F5BotAlertRow {
   id: string;
   externalId: string;
@@ -71,6 +80,10 @@ export interface F5BotAlertRow {
   status: string;
   dataSource: string;
   createdAt: string;
+  classification?: IntelligenceClassification;
+  priority?: string;
+  assignedAgent?: string;
+  subreddit?: string;
 }
 
 export interface IntelligenceOpportunityRow {
@@ -92,7 +105,23 @@ export interface IntelligenceOpportunityRow {
   createdAt: string;
 }
 
-export interface F5BotPollResult {
+export interface F5BotClassification {
+  classification: IntelligenceClassification;
+  priority: "low" | "medium" | "high";
+  assignedAgent: string;
+  suggestedAction: string;
+  founderInbox: boolean;
+}
+
+export interface IntelligenceDashboardStats {
+  newAlerts: number;
+  communityOpportunities: number;
+  contentIdeas: number;
+  competitorAlerts: number;
+  seoOpportunities: number;
+}
+
+export interface F5BotFetchResult {
   fetched: number;
   inserted: number;
   duplicates: number;
@@ -100,6 +129,9 @@ export interface F5BotPollResult {
   failed: number;
   errors: string[];
 }
+
+/** @deprecated alias */
+export type F5BotPollResult = F5BotFetchResult;
 
 export interface F5BotDiagnostics {
   apiTokenPresent: boolean;

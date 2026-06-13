@@ -14,6 +14,8 @@ import { defaultHQWeatherState } from "@/lib/hq/hq-weather";
 import { fetchHQWeather } from "@/lib/hq/hq-weather-service";
 import { mergeWeatherActivity } from "@/lib/hq/weather-activity";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getInternetPulseDashboard } from "@/lib/intelligence/intelligence-engine";
+import type { InternetPulseDashboard } from "@/lib/intelligence/intelligence-engine";
 import type { HQAgentScheduleHealth } from "@/lib/agent-worker/types";
 import type { AgentDecision, AgentMemory, AgentMessage, AgentSlug, AgentTask, CollaborationPriority } from "@/lib/types";
 
@@ -43,6 +45,7 @@ export default async function PlantPalHQPage() {
   let hqDebugSummary: string | null = null;
   let weather = defaultHQWeatherState();
   let agentScheduleHealth: HQAgentScheduleHealth[] = [];
+  let internetPulse: InternetPulseDashboard | null = null;
 
   if (!skipLiveFetch) {
     weather = await fetchHQWeather();
@@ -50,6 +53,7 @@ export default async function PlantPalHQPage() {
   }
 
   if (configured && !skipLiveFetch) {
+    internetPulse = await getInternetPulseDashboard().catch(() => null);
     try {
       const [data, memories, decisions, scheduleHealth] = await Promise.all([
         getHQAgentData(),
@@ -121,6 +125,7 @@ export default async function PlantPalHQPage() {
         weather={weather}
         liveDataAvailable={configured && liveData}
         agentScheduleHealth={agentScheduleHealth}
+        internetPulse={internetPulse}
       />
     </div>
   );

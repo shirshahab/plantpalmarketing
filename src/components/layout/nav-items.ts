@@ -105,6 +105,7 @@ export const navMenu: NavEntry[] = [
       { href: "/collaboration", label: "Collaboration", icon: GitBranch },
       { href: "/agent-brain", label: "Agent Brain", icon: Brain },
       { href: "/admin/setup-health", label: "Setup Health", icon: Server },
+      { href: "/admin/f5bot-test", label: "F5Bot Test", icon: Radar },
       { href: "/admin/video-diagnostics", label: "Video Diagnostics", icon: Video },
     ],
   },

@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { PlantyAvatar } from "@/components/planty/planty-avatar";
 import type { ActivityItem, AgentId, HQAgent } from "@/lib/hq/types";
 
 /** Phase 40 — Game Boy / Stardew-style village. Buildings, status dots, tiny tags. No bubbles. */
@@ -136,7 +137,7 @@ export function HQVillageMap({
                   {agent.name.slice(0, 1)}
                 </span>
               ) : isPlanty ? (
-                <span className="text-2xl" title="Planty mascot">🌿</span>
+                <PlantyAvatar size="sm" className="scale-75" />
               ) : (
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-100 text-sm">🍀</span>
               )}

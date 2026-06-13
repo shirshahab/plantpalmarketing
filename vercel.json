@@ -5,7 +5,7 @@
       "schedule": "*/30 * * * *"
     },
     {
-      "path": "/api/intelligence/f5bot/poll",
+      "path": "/api/intelligence/f5bot/cron",
       "schedule": "*/30 * * * *"
     }
   ],

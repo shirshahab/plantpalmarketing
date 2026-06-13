@@ -7,6 +7,9 @@ import type { WorkflowStage } from "@/lib/workflow/types";
 export interface WorkflowDestination {
   action: string;
   destination: string;
+  destinationLabel: string;
+  destinationUrl: string;
+  workflowUrl: string;
   nextOwner: string;
   nextStep: string;
   stage: WorkflowStage;
@@ -19,6 +22,9 @@ export function destinationForImageApprove(): WorkflowDestination {
   return {
     action: "Approved image",
     destination: "Calendar",
+    destinationLabel: "Calendar",
+    destinationUrl: "/calendar",
+    workflowUrl: "/company-os",
     nextOwner: "Atlas",
     nextStep: "Schedule publish slot",
     stage: "CALENDAR_READY",
@@ -32,16 +38,19 @@ export function destinationForVideoApprove(): WorkflowDestination {
   return destinationForImageApprove();
 }
 
-export function destinationForIdeaApprove(): WorkflowDestination {
+export function destinationForIdeaApprove(itemId: string, workflowId?: string | null): WorkflowDestination {
   return {
     action: "Approved idea",
     destination: "Bloom",
+    destinationLabel: "Bloom Studio",
+    destinationUrl: `/content?itemId=${itemId}`,
+    workflowUrl: workflowId ? `/company-os?workflow=${workflowId}` : `/company-os?workflow=${itemId}`,
     nextOwner: "Bloom",
     nextStep: "Build content package",
     stage: "IN_PRODUCTION",
     founderActionRequired: false,
-    toast: "Approved. Sent to Bloom for content package.",
-    strip: "Sent to Bloom",
+    toast: "Approved. Sent to Bloom Studio.",
+    strip: "Sent to Bloom Studio",
   };
 }
 
@@ -50,6 +59,9 @@ export function destinationForReplyApprove(platform?: string): WorkflowDestinati
   return {
     action: "Approved reply",
     destination: apiReady ? "Publish Ready" : "Reply Queue",
+    destinationLabel: apiReady ? "Publish Ready" : "Reply Queue",
+    destinationUrl: apiReady ? "/sprout" : "/replies",
+    workflowUrl: "/company-os",
     nextOwner: "Sprout",
     nextStep: apiReady ? "Final publish click" : "Copy/paste package ready",
     stage: "CALENDAR_READY",
@@ -65,6 +77,9 @@ export function destinationForReject(agent: string, itemType: string): WorkflowD
   return {
     action: `Sent back ${itemType}`,
     destination: agent,
+    destinationLabel: agent,
+    destinationUrl: "/inbox",
+    workflowUrl: "/company-os",
     nextOwner: agent,
     nextStep: "Revise and resubmit",
     stage: "REVISION_REQUESTED",
@@ -78,6 +93,9 @@ export function destinationForKill(): WorkflowDestination {
   return {
     action: "Killed campaign",
     destination: "Archive",
+    destinationLabel: "Archive",
+    destinationUrl: "/company-os",
+    workflowUrl: "/company-os",
     nextOwner: "",
     nextStep: "Archived",
     stage: "KILLED",
@@ -91,6 +109,9 @@ export function destinationForCalendarSchedule(dateLabel: string): WorkflowDesti
   return {
     action: "Rescheduled",
     destination: "Calendar",
+    destinationLabel: "Calendar",
+    destinationUrl: "/calendar",
+    workflowUrl: "/company-os",
     nextOwner: "Sprout",
     nextStep: "Publish at scheduled time",
     stage: "SCHEDULED",
@@ -128,7 +149,7 @@ export function inboxOutcome(
     },
     intelligence: {
       approve: { label: "Draft reply", detail: "Roots drafts reply → Moss → Sage → Gate → Reply Queue" },
-      reject: { label: "If ignored", detail: "Alert archived — no action taken" },
+      reject: { label: "If ignored", detail: "Alert archived. No action taken." },
     },
   };
   return map[section]?.[decision] ?? { label: decision === "approve" ? "If approved" : "If rejected", detail: "See workflow history" };

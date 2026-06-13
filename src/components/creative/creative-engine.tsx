@@ -30,8 +30,20 @@ function tabForStatus(status: string): ContentTab {
   return "ideas";
 }
 
-export function CreativeEngine({ ideas }: { ideas: CreativeContentIdea[] }) {
-  const [tab, setTab] = useState<ContentTab>("ideas");
+export function CreativeEngine({
+  ideas,
+  highlightItemId,
+}: {
+  ideas: CreativeContentIdea[];
+  highlightItemId?: string;
+}) {
+  const [tab, setTab] = useState<ContentTab>(() => {
+    if (highlightItemId) {
+      const hit = ideas.find((i) => i.id === highlightItemId);
+      if (hit) return tabForStatus(hit.status);
+    }
+    return "ideas";
+  });
   const [filterType, setFilterType] = useState("all");
   const [filterFormat, setFilterFormat] = useState("all");
   const [sortBy, setSortBy] = useState<"viral" | "difficulty" | "newest">("viral");
@@ -117,7 +129,11 @@ export function CreativeEngine({ ideas }: { ideas: CreativeContentIdea[] }) {
       ) : (
         <div className="space-y-4">
           {filtered.map((idea) => (
-            <div key={idea.id}>
+            <div
+              key={idea.id}
+              id={idea.id === highlightItemId ? `idea-${idea.id}` : undefined}
+              className={idea.id === highlightItemId ? "rounded-2xl ring-2 ring-brand-accent ring-offset-2" : undefined}
+            >
               <div className="mb-1 flex items-center gap-2">
                 <LegacyWorkflowBadge status={idea.status} />
                 {idea.status === "approved" && (

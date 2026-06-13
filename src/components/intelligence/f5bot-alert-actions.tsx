@@ -39,7 +39,7 @@ export function F5BotFetchButton() {
         disabled={pending}
         className="rounded-xl bg-brand-primary px-4 py-2 text-sm font-medium text-white hover:bg-brand-primary/90 disabled:opacity-60"
       >
-        {pending ? "Fetching…" : "Fetch Latest F5Bot Alerts"}
+        {pending ? "Fetching…" : "Fetch F5Bot Alerts"}
       </button>
       {message && <span className="text-sm text-brand-muted">{message}</span>}
     </div>
@@ -73,6 +73,12 @@ export function F5BotAlertActions({ alertId, status }: { alertId: string; status
         </ActionBtn>
         <ActionBtn disabled={pending} onClick={() => run(() => sendF5BotAlertToAgentAction(alertId, "sentinel"), "Sent to Sentinel")}>
           Send to Sentinel
+        </ActionBtn>
+        <ActionBtn disabled={pending} onClick={() => run(() => sendF5BotAlertToAgentAction(alertId, "atlas"), "Sent to Atlas")}>
+          Send to Atlas
+        </ActionBtn>
+        <ActionBtn disabled={pending} onClick={() => run(() => sendF5BotAlertToAgentAction(alertId, "oak"), "Sent to Oak")}>
+          Send to Oak
         </ActionBtn>
         <ActionBtn disabled={pending} onClick={() => run(() => createReplyDraftFromAlertAction(alertId), "Reply draft queued")}>
           Create Reply Draft

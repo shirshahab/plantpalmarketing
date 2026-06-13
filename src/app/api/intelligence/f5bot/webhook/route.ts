@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   normalizeF5BotAlert,
   processF5BotAlert,
-  upsertF5BotAlert,
+  upsertIntelligenceAlert,
 } from "@/lib/intelligence/f5bot";
 import { shouldRejectF5BotWebhook } from "@/lib/intelligence/f5bot-auth";
 import { recordF5BotWebhookReceived } from "@/lib/intelligence/f5bot-diagnostics";
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   }
 
   const normalized = normalizeF5BotAlert(raw);
-  const upserted = await upsertF5BotAlert(normalized);
+  const upserted = await upsertIntelligenceAlert(normalized);
 
   if (!upserted) {
     return NextResponse.json({ ok: false, error: "Storage unavailable" }, { status: 503 });

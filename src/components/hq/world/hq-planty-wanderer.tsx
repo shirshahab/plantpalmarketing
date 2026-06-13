@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PLANTY_VOICE_EXAMPLES } from "@/lib/planty/planty-content";
 import { PLANTY_WAYPOINTS, type VillagePoint } from "@/lib/hq/hq-village-layout";
+import { PlantyAvatar } from "@/components/planty/planty-avatar";
 import type { ActivityItem } from "@/lib/hq/types";
 
 function pickLine(activity: ActivityItem[], pendingCount: number, unreadMessages: number): string {
@@ -34,9 +35,7 @@ export function HQPlantyWanderer({
   useEffect(() => {
     const interval = setInterval(() => {
       setPosition((prev) => {
-        const currentIdx = PLANTY_WAYPOINTS.findIndex(
-          (p) => p.x === prev.x && p.y === prev.y
-        );
+        const currentIdx = PLANTY_WAYPOINTS.findIndex((p) => p.x === prev.x && p.y === prev.y);
         const next = (currentIdx + 1) % PLANTY_WAYPOINTS.length;
         return PLANTY_WAYPOINTS[next];
       });
@@ -57,25 +56,21 @@ export function HQPlantyWanderer({
       transition={{ type: "spring", stiffness: 40, damping: 20, duration: 2 }}
       onClick={handleClick}
       whileHover={{ scale: 1.08 }}
+      aria-label="Planty mascot"
     >
       <motion.div
         animate={{ y: [0, -4, 0] }}
         transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         className="flex flex-col items-center"
       >
-        <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-[#74c365] bg-[#dcfce7] text-2xl shadow-md">
-          🌿
-          <span className="absolute -bottom-0.5 rounded-full bg-brand-primary px-1.5 text-[8px] font-bold text-white">
-            Planty
-          </span>
-        </div>
+        <PlantyAvatar size="sm" showLabel />
         <AnimatePresence>
           {dialogue && (
             <motion.div
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="absolute -top-14 left-1/2 z-20 w-44 -translate-x-1/2 rounded-xl border border-[#74c365]/40 bg-white px-2.5 py-1.5 text-center text-[10px] font-medium text-brand-primary shadow-lg"
+              className="absolute -top-16 left-1/2 z-20 w-44 max-w-[70vw] -translate-x-1/2 rounded-xl border border-[#74c365]/40 bg-white px-2.5 py-1.5 text-center text-[10px] font-medium text-brand-primary shadow-lg"
             >
               {dialogue}
             </motion.div>

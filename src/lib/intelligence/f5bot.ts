@@ -7,49 +7,17 @@ import { logIntegrationCall, updateProviderStatus } from "@/lib/integrations/log
 import type { Json } from "@/lib/supabase/database.types";
 import type {
   F5BotClassification,
-  F5BotOpportunityType,
-  F5BotPollResult,
+  F5BotFetchResult,
   F5BotRawAlert,
+  IntelligenceClassification,
   NormalizedF5BotAlert,
 } from "@/lib/intelligence/f5bot-types";
+import { classifyF5BotAlert as classifyAlertCore } from "@/lib/intelligence/classifyF5BotAlert";
 
-const PLANT_CARE_KEYWORDS = [
-  "dying plant",
-  "yellow leaves",
-  "brown leaves",
-  "overwatering",
-  "underwatering",
-  "pests",
-  "fungus",
-  "mold",
-  "tomato leaves",
-  "monstera",
-  "fiddle leaf",
-  "houseplant help",
-];
+export { classifyF5BotAlert } from "@/lib/intelligence/classifyF5BotAlert";
+export type { F5BotAlertClassification, F5BotAlertPriority } from "@/lib/intelligence/classifyF5BotAlert";
 
-const COMPETITOR_KEYWORDS = [
-  "plant app",
-  "plant identifier",
-  "plant diagnosis",
-  "plant care app",
-  "competitor app",
-  "planta",
-  "picturethis",
-  "greg",
-  "plantsnap",
-];
-
-const SEO_PATTERNS = [
-  /\bhow to\b/i,
-  /\bwhy (does|do|is|are)\b/i,
-  /\bbest way\b/i,
-  /\bguide\b/i,
-  /\btips\b/i,
-  /\bwhat causes\b/i,
-];
-
-const QUESTION_PATTERNS = [/\?/, /\bhow\b/i, /\bwhy\b/i, /\bhelp\b/i, /\bwhat should\b/i];
+const COMPETITOR_KEYWORDS = ["planta", "picturethis", "picture this", "greg app", "plantsnap", "plant snap"];
 
 function stripHtml(html: string): string {
   return html
@@ -114,118 +82,89 @@ function textBlob(alert: NormalizedF5BotAlert): string {
   return `${alert.title} ${alert.body} ${alert.matchedKeyword}`.toLowerCase();
 }
 
-function matchesAny(blob: string, keywords: string[]): boolean {
-  return keywords.some((kw) => blob.includes(kw.toLowerCase()));
+function extractSubreddit(url: string): string {
+  const match = url.match(/reddit\.com\/r\/([^/?#]+)/i);
+  return match?.[1] ?? "";
 }
 
-/** Classify an alert into opportunity types and routing hints. */
-export function classifyF5BotAlert(alert: NormalizedF5BotAlert): F5BotClassification {
-  const blob = textBlob(alert);
-  const isPlantCare = matchesAny(blob, PLANT_CARE_KEYWORDS);
-  const isCompetitor = matchesAny(blob, COMPETITOR_KEYWORDS);
-  const isHighIntentQuestion = QUESTION_PATTERNS.some((p) => p.test(blob));
-  const isSeoIntent = SEO_PATTERNS.some((p) => p.test(blob));
-  const isRecurringTopic = isPlantCare || blob.includes("again") || blob.includes("everyone");
-
-  const types: F5BotOpportunityType[] = [];
-  if (isPlantCare) types.push("community_opportunity");
-  if (isCompetitor) types.push("competitor_alert");
-  if (isHighIntentQuestion) types.push("reply_draft");
-  if (isRecurringTopic) types.push("content_idea");
-  if (isSeoIntent) types.push("seo_topic");
-
-  if (types.length === 0) {
-    if (isHighIntentQuestion) types.push("community_opportunity");
-    else types.push("content_idea");
-  }
-
-  let priority: F5BotClassification["priority"] = "medium";
-  if (isCompetitor) priority = "high";
-  if (isPlantCare && isHighIntentQuestion) priority = "high";
-  if (priority === "high" && blob.includes("dying")) priority = "urgent";
-
-  let primaryAgent = "roots";
-  let suggestedAction = "Review community alert";
-  if (isCompetitor) {
-    primaryAgent = "sentinel";
-    suggestedAction = "Analyze competitor / create response content";
-  } else if (isPlantCare) {
-    primaryAgent = "roots";
-    suggestedAction = "Draft helpful reply";
-  } else if (isSeoIntent) {
-    primaryAgent = "bloom";
-    suggestedAction = "Add to SEO Factory topic queue";
-  } else if (types.includes("content_idea")) {
-    primaryAgent = "bloom";
-    suggestedAction = "Turn into content idea";
-  }
-
+/** Map Phase 3 classification → pipeline / inbox shape. */
+export function toF5BotPipelineClassification(alert: NormalizedF5BotAlert): F5BotClassification {
+  const result = classifyAlertCore(alert);
   return {
-    types,
-    priority,
-    primaryAgent,
-    suggestedAction,
-    isHighIntentQuestion,
-    isCompetitor,
-    isPlantCare,
-    isSeoIntent,
-    isRecurringTopic,
-    founderInbox: priority === "high" || priority === "urgent",
+    classification: result.classification,
+    priority: result.priority,
+    assignedAgent: result.assignedAgent ?? "",
+    suggestedAction: result.reason,
+    founderInbox: result.priority === "high",
   };
 }
 
 function mapAlertRow(row: Record<string, unknown>): NormalizedF5BotAlert {
+  const url = String(row.url ?? row.source_url ?? "");
   return {
-    externalId: String(row.external_id),
+    externalId: String(row.external_id ?? ""),
     source: String(row.source ?? ""),
-    sourceUrl: String(row.source_url ?? ""),
+    sourceUrl: url,
     title: String(row.title ?? ""),
     body: String(row.body ?? ""),
     author: String(row.author ?? ""),
     matchedKeyword: String(row.matched_keyword ?? ""),
     keywordGroup: String(row.keyword_group ?? ""),
-    publishedAt: row.published_at ? String(row.published_at) : null,
+    publishedAt: row.created_at ? String(row.created_at) : row.published_at ? String(row.published_at) : null,
     rawPayload: (row.raw_payload as Record<string, unknown>) ?? {},
   };
 }
 
-/** Upsert alert by external_id. Returns row id and whether it was newly inserted. */
-export async function upsertF5BotAlert(
+/** Upsert alert by source URL (primary dedupe key). */
+export async function upsertIntelligenceAlert(
   alert: NormalizedF5BotAlert
 ): Promise<{ id: string; inserted: boolean } | null> {
   try {
     const supabase = createServerClient();
-    const { data: existing } = await supabase
-      .from("f5bot_alerts")
-      .select("id, status")
-      .eq("external_id", alert.externalId)
-      .maybeSingle();
+    const classified = classifyAlertCore(alert);
+    const dedupeUrl = alert.sourceUrl.trim();
+    const subreddit = extractSubreddit(dedupeUrl);
 
-    if (existing) {
-      return { id: String(existing.id), inserted: false };
+    if (dedupeUrl) {
+      const { data: existing } = await supabase
+        .from("intelligence_alerts")
+        .select("id, status")
+        .eq("url", dedupeUrl)
+        .maybeSingle();
+      if (existing) return { id: String(existing.id), inserted: false };
+    } else if (alert.externalId) {
+      const { data: existing } = await supabase
+        .from("intelligence_alerts")
+        .select("id, status")
+        .eq("external_id", alert.externalId)
+        .maybeSingle();
+      if (existing) return { id: String(existing.id), inserted: false };
     }
 
+    const status = classified.classification === "ignore" ? "ignored" : "new";
     const { data, error } = await supabase
-      .from("f5bot_alerts")
+      .from("intelligence_alerts")
       .insert({
-        external_id: alert.externalId,
         source: alert.source,
-        source_url: alert.sourceUrl,
         title: alert.title,
         body: alert.body,
+        url: dedupeUrl,
         author: alert.author,
-        matched_keyword: alert.matchedKeyword,
-        keyword_group: alert.keywordGroup,
-        published_at: alert.publishedAt,
+        subreddit,
+        created_at: alert.publishedAt ?? new Date().toISOString(),
+        classification: classified.classification,
+        priority: classified.priority,
+        assigned_agent: classified.assignedAgent ?? "",
+        status,
+        external_id: alert.externalId,
         raw_payload: alert.rawPayload as Json,
-        status: "new",
-        data_source: "f5bot",
       })
       .select("id")
       .single();
 
     if (error) {
       if (isMissingTableError(error)) return null;
+      if (error.code === "23505") return null;
       throw new Error(error.message);
     }
     return { id: String(data.id), inserted: true };
@@ -234,47 +173,48 @@ export async function upsertF5BotAlert(
   }
 }
 
+/** @deprecated Use upsertIntelligenceAlert */
+export async function upsertF5BotAlert(
+  alert: NormalizedF5BotAlert
+): Promise<{ id: string; inserted: boolean } | null> {
+  return upsertIntelligenceAlert(alert);
+}
+
 async function createOpportunityFromAlert(
   alertId: string,
   alert: NormalizedF5BotAlert,
-  classification: F5BotClassification,
-  opportunityType: F5BotOpportunityType
+  classification: F5BotClassification
 ): Promise<string | null> {
   const supabase = createServerClient();
-  const agentForType: Record<F5BotOpportunityType, string> = {
-    community_opportunity: "roots",
-    competitor_alert: "sentinel",
-    reply_draft: "roots",
-    content_idea: "bloom",
-    seo_topic: "bloom",
-  };
-  const actionForType: Record<F5BotOpportunityType, string> = {
+  const actionForType: Record<IntelligenceClassification, string> = {
     community_opportunity: "Draft helpful reply",
-    competitor_alert: "Analyze competitor / create response content",
-    reply_draft: "Draft reply for founder approval",
-    content_idea: "Develop content from recurring topic",
-    seo_topic: "Add SEO topic to factory queue",
+    competitor_alert: "Analyze competitor mention",
+    content_idea: "Develop content from signal",
+    seo_topic: "Add to SEO / growth research queue",
+    creator_opportunity: "Evaluate creator partnership",
+    product_feedback: "Review product feedback",
+    ignore: "Skip low-signal alert",
   };
 
   const { data, error } = await supabase
     .from("intelligence_opportunities")
     .insert({
       source_type: "f5bot",
-      source_table: "f5bot_alerts",
+      source_table: "intelligence_alerts",
       source_id: alertId,
       platform: alert.source,
       title: alert.title.slice(0, 240) || alert.matchedKeyword || "F5Bot alert",
       summary: alert.body.slice(0, 500),
-      opportunity_type: opportunityType,
+      opportunity_type: classification.classification,
       priority: classification.priority,
-      recommended_agent: agentForType[opportunityType],
-      suggested_action: actionForType[opportunityType],
+      recommended_agent: classification.assignedAgent,
+      suggested_action: actionForType[classification.classification],
       source_url: alert.sourceUrl,
       status: "new",
       metadata: {
         matched_keyword: alert.matchedKeyword,
         author: alert.author,
-        keyword_group: alert.keywordGroup,
+        subreddit: extractSubreddit(alert.sourceUrl),
       } as Json,
     })
     .select("id")
@@ -390,7 +330,41 @@ async function routeCompetitorAlert(alert: NormalizedF5BotAlert, alertId: string
   });
 }
 
-async function routeReplyDraft(alert: NormalizedF5BotAlert, alertId: string, opportunityId: string): Promise<void> {
+async function routeCreatorOpportunity(alert: NormalizedF5BotAlert, alertId: string): Promise<void> {
+  await recordHandoff({
+    fromAgent: "scout",
+    toAgent: "oak",
+    workflowName: "F5Bot → Oak",
+    triggerType: "f5bot_creator",
+    triggerId: alertId,
+    taskType: "partnership_outreach",
+    taskDescription: `Creator opportunity: ${alert.title.slice(0, 100)}`,
+    priority: "high",
+    messageTitle: "Creator opportunity from F5Bot",
+    messageBody: alert.body.slice(0, 400),
+    activityDetail: `F5Bot creator signal routed to Oak`,
+    metadata: { source_url: alert.sourceUrl },
+  });
+}
+
+async function routeProductFeedback(alert: NormalizedF5BotAlert, alertId: string): Promise<void> {
+  await recordHandoff({
+    fromAgent: "scout",
+    toAgent: "echo",
+    workflowName: "F5Bot → Echo",
+    triggerType: "f5bot_feedback",
+    triggerId: alertId,
+    taskType: "customer_insight",
+    taskDescription: `Product feedback: ${alert.title.slice(0, 100)}`,
+    priority: "medium",
+    messageTitle: "Product feedback from community",
+    messageBody: alert.body.slice(0, 400),
+    activityDetail: `F5Bot product feedback routed to Echo`,
+    metadata: { source_url: alert.sourceUrl },
+  });
+}
+
+async function routeReplyDraft(alert: NormalizedF5BotAlert, alertId: string): Promise<void> {
   const supabase = createServerClient();
   const subredditMatch = alert.sourceUrl.match(/reddit\.com\/r\/([^/]+)/i);
 
@@ -440,7 +414,7 @@ async function routeReplyDraft(alert: NormalizedF5BotAlert, alertId: string, opp
       toAgent: step.to,
       workflowName: `${step.from} → ${step.to}`,
       triggerType: "f5bot_reply",
-      triggerId: opportunityId,
+      triggerId: alertId,
       taskType: step.task as "community_response",
       taskDescription: step.desc,
       priority: "high",
@@ -514,17 +488,17 @@ async function routeSeoTopic(alert: NormalizedF5BotAlert, alertId: string): Prom
   );
 
   await recordHandoff({
-    fromAgent: "bloom",
+    fromAgent: "scout",
     toAgent: "atlas",
-    workflowName: "SEO Factory",
+    workflowName: "F5Bot → Atlas",
     triggerType: "f5bot_seo",
     triggerId: alertId,
     taskType: "growth_recommendation",
-    taskDescription: `SEO topic from F5Bot: ${topic.slice(0, 80)}`,
+    taskDescription: `SEO / growth topic from F5Bot: ${topic.slice(0, 80)}`,
     priority: "medium",
-    messageTitle: "SEO topic from community question",
+    messageTitle: "SEO / growth signal from F5Bot",
     messageBody: alert.body.slice(0, 300),
-    activityDetail: `F5Bot SEO topic queued for SEO Factory`,
+    activityDetail: `F5Bot topic queued for Atlas`,
     metadata: { source_url: alert.sourceUrl },
   });
 }
@@ -534,7 +508,7 @@ export async function processF5BotAlert(alertId: string): Promise<{ ok: boolean;
   try {
     const supabase = createServerClient();
     const { data: row, error } = await supabase
-      .from("f5bot_alerts")
+      .from("intelligence_alerts")
       .select("*")
       .eq("id", alertId)
       .maybeSingle();
@@ -543,51 +517,72 @@ export async function processF5BotAlert(alertId: string): Promise<{ ok: boolean;
       return { ok: false, error: error?.message ?? "Alert not found" };
     }
 
-    if (row.status === "processed" || row.status === "ignored") {
+    if (row.status === "processed" || row.status === "ignored" || row.status === "routed") {
       return { ok: true };
     }
 
     const alert = mapAlertRow(row as Record<string, unknown>);
-    const classification = classifyF5BotAlert(alert);
+    const classification =
+      row.classification && row.assigned_agent
+        ? {
+            classification: row.classification as IntelligenceClassification,
+            priority: row.priority as F5BotClassification["priority"],
+            assignedAgent: String(row.assigned_agent),
+            suggestedAction: classifyAlertCore(alert).reason,
+            founderInbox: row.priority === "high",
+          }
+        : toF5BotPipelineClassification(alert);
 
-    for (const oppType of classification.types) {
-      const oppId = await createOpportunityFromAlert(alertId, alert, classification, oppType);
-      if (!oppId) continue;
+    if (classification.classification === "ignore") {
+      await supabase.from("intelligence_alerts").update({ status: "ignored" }).eq("id", alertId);
+      return { ok: true };
+    }
 
-      if (oppType === "community_opportunity") await routeCommunityOpportunity(alert, alertId);
-      if (oppType === "competitor_alert") await routeCompetitorAlert(alert, alertId);
-      if (oppType === "reply_draft") await routeReplyDraft(alert, alertId, oppId);
-      if (oppType === "content_idea") await routeContentIdea(alert, alertId);
-      if (oppType === "seo_topic") await routeSeoTopic(alert, alertId);
+    const oppId = await createOpportunityFromAlert(alertId, alert, classification);
+    if (!oppId) {
+      return { ok: false, error: "Could not create opportunity" };
+    }
+
+    switch (classification.classification) {
+      case "community_opportunity":
+        await routeCommunityOpportunity(alert, alertId);
+        if (classification.priority === "high") await routeReplyDraft(alert, alertId);
+        break;
+      case "competitor_alert":
+        await routeCompetitorAlert(alert, alertId);
+        break;
+      case "content_idea":
+        await routeContentIdea(alert, alertId);
+        break;
+      case "seo_topic":
+        await routeSeoTopic(alert, alertId);
+        break;
+      case "creator_opportunity":
+        await routeCreatorOpportunity(alert, alertId);
+        break;
+      case "product_feedback":
+        await routeProductFeedback(alert, alertId);
+        break;
+      default:
+        break;
     }
 
     if (classification.founderInbox) {
       await createNotification({
-        type: "f5bot_alert",
-        title: `${alert.source}: ${alert.matchedKeyword || alert.title.slice(0, 60)}`,
+        type: classification.classification === "competitor_alert" ? "competitor_alert" : "f5bot_alert",
+        title: `${alert.source}: ${alert.title.slice(0, 60)}`,
         message: alert.body.slice(0, 200),
         targetRoute: `/intelligence?alert=${alertId}`,
-        targetTable: "f5bot_alerts",
+        targetTable: "intelligence_alerts",
         targetId: alertId,
-        priority: classification.priority === "urgent" ? "urgent" : "high",
-        metadata: { source_url: alert.sourceUrl, matched_keyword: alert.matchedKeyword },
-      });
-    }
-
-    if (classification.priority === "high" || classification.priority === "urgent") {
-      await createNotification({
-        type: classification.isCompetitor ? "competitor_alert" : "f5bot_alert",
-        title: classification.isCompetitor ? "Competitor mention detected" : "High-priority F5Bot alert",
-        message: alert.title.slice(0, 200),
-        targetRoute: `/intelligence?alert=${alertId}`,
-        priority: classification.priority,
-        metadata: { source_url: alert.sourceUrl },
+        priority: "high",
+        metadata: { source_url: alert.sourceUrl, classification: classification.classification },
       });
     }
 
     await supabase
-      .from("f5bot_alerts")
-      .update({ status: "processed" })
+      .from("intelligence_alerts")
+      .update({ status: "routed", assigned_agent: classification.assignedAgent })
       .eq("id", alertId);
 
     await updateProviderStatus("f5bot", "connected", {
@@ -663,9 +658,9 @@ export async function fetchF5BotRssFeed(): Promise<F5BotRawAlert[]> {
   return items;
 }
 
-/** Poll feed, upsert alerts, process new ones. */
-export async function pollF5BotAlerts(): Promise<F5BotPollResult> {
-  const result: F5BotPollResult = {
+/** Fetch F5Bot JSON feed, store alerts, route new ones. Primary intelligence ingest. */
+export async function fetchF5BotAlerts(): Promise<F5BotFetchResult> {
+  const result: F5BotFetchResult = {
     fetched: 0,
     inserted: 0,
     duplicates: 0,
@@ -678,19 +673,13 @@ export async function pollF5BotAlerts(): Promise<F5BotPollResult> {
   try {
     rawItems = await fetchF5BotJsonFeed();
   } catch (jsonErr) {
-    try {
-      rawItems = await fetchF5BotRssFeed();
-    } catch (rssErr) {
-      const msg =
-        jsonErr instanceof Error ? jsonErr.message : "JSON feed failed";
-      const rssMsg = rssErr instanceof Error ? rssErr.message : "RSS failed";
-      result.errors.push(`${msg}; RSS fallback: ${rssMsg}`);
-      await updateProviderStatus("f5bot", "error", {
-        configured: false,
-        errorMessage: result.errors[0],
-      });
-      return result;
-    }
+    const msg = jsonErr instanceof Error ? jsonErr.message : "JSON feed failed";
+    result.errors.push(msg);
+    await updateProviderStatus("f5bot", "error", {
+      configured: envPresent("F5BOT_JSON_FEED_URL"),
+      errorMessage: msg,
+    });
+    return result;
   }
 
   result.fetched = rawItems.length;
@@ -698,7 +687,11 @@ export async function pollF5BotAlerts(): Promise<F5BotPollResult> {
   for (const raw of rawItems) {
     try {
       const normalized = normalizeF5BotAlert(raw);
-      const upserted = await upsertF5BotAlert(normalized);
+      if (!normalized.sourceUrl && !normalized.title) {
+        result.failed += 1;
+        continue;
+      }
+      const upserted = await upsertIntelligenceAlert(normalized);
       if (!upserted) {
         result.failed += 1;
         continue;
@@ -722,7 +715,7 @@ export async function pollF5BotAlerts(): Promise<F5BotPollResult> {
 
   await logIntegrationCall({
     provider: "f5bot",
-    action: "f5bot_poll",
+    action: "f5bot_fetch",
     status: result.errors.length > 0 ? "error" : "success",
     responseSummary: `fetched=${result.fetched} inserted=${result.inserted} processed=${result.processed}`,
     errorMessage: result.errors[0],
@@ -732,6 +725,7 @@ export async function pollF5BotAlerts(): Promise<F5BotPollResult> {
     configured: true,
     success: result.errors.length === 0,
     metadata: {
+      last_fetch_at: new Date().toISOString(),
       last_poll_at: new Date().toISOString(),
       fetched: result.fetched,
       inserted: result.inserted,
@@ -740,6 +734,11 @@ export async function pollF5BotAlerts(): Promise<F5BotPollResult> {
   });
 
   return result;
+}
+
+/** @deprecated Use fetchF5BotAlerts */
+export async function pollF5BotAlerts(): Promise<F5BotFetchResult> {
+  return fetchF5BotAlerts();
 }
 
 export function getF5BotWebhookUrl(): string {
