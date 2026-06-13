@@ -1,5 +1,6 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/integrations/db-safe";
+import { getCreativeRoutingHealth } from "@/lib/pipeline/creative-routing-health";
 
 export type PipelineHealth = "healthy" | "stalled" | "broken";
 
@@ -71,6 +72,7 @@ export async function getSystemPipelineHealth(): Promise<SystemPipelineStatus[]>
     intelWaiting,
     trendCount,
     f5Run,
+    creativeRouting,
   ] = await Promise.all([
     countTable("creative_content_ideas", [{ column: "status", op: "eq", value: "pending" }]),
     countTable("content_pipeline", [
@@ -84,6 +86,7 @@ export async function getSystemPipelineHealth(): Promise<SystemPipelineStatus[]>
     countTable("intelligence_alerts", [{ column: "status", op: "eq", value: "new" }]),
     countTable("intelligence_alerts", [{ column: "status", op: "neq", value: "archived" }]),
     lastRun("intelligence_runs"),
+    getCreativeRoutingHealth(),
   ]);
 
   return [
@@ -166,6 +169,16 @@ export async function getSystemPipelineHealth(): Promise<SystemPipelineStatus[]>
       lastSuccess: null,
       lastFailure: null,
       failureReason: null,
+    },
+    {
+      id: "creative-routing",
+      label: "Creative Routing",
+      flow: "Intelligence → Bloom → Video/Image (no raw signals in creative queues)",
+      status: creativeRouting.status === "healthy" ? "healthy" : "broken",
+      waiting: creativeRouting.rawVideoCount + creativeRouting.rawImageCount,
+      lastSuccess: creativeRouting.status === "healthy" ? new Date().toISOString() : null,
+      lastFailure: creativeRouting.status === "broken" ? new Date().toISOString() : null,
+      failureReason: creativeRouting.status === "broken" ? creativeRouting.message : null,
     },
   ];
 }

@@ -2,6 +2,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isF5BotConfigured } from "@/lib/integrations/config";
 import { runProviderHealthCheck } from "@/lib/integrations/health";
+import { getCreativeRoutingHealth } from "@/lib/pipeline/creative-routing-health";
 import type { HealthCheckResult } from "@/lib/integrations/types";
 
 export type TrafficLight = "green" | "yellow" | "red";
@@ -63,7 +64,7 @@ export async function getIntegrationTrafficLights(): Promise<IntegrationTrafficL
   const supabaseOk = isSupabaseConfigured();
   const f5Ok = isF5BotConfigured();
 
-  const [openai, serp, weather, cron, approvalQ, bloomQ, videoQ, imageQ, seoQ] = await Promise.all([
+  const [openai, serp, weather, cron, approvalQ, bloomQ, videoQ, imageQ, seoQ, creativeRouting] = await Promise.all([
     runProviderHealthCheck("openai").catch(() => null),
     runProviderHealthCheck("serpapi").catch(() => null),
     runProviderHealthCheck("openweather").catch(() => null),
@@ -73,6 +74,7 @@ export async function getIntegrationTrafficLights(): Promise<IntegrationTrafficL
     queueLight("video_generation_queue", "pending", 25),
     queueLight("image_prompts", "pending", 60),
     queueLight("seo_blog_posts", "draft", 15),
+    getCreativeRoutingHealth(),
   ]);
 
   return [
@@ -141,6 +143,12 @@ export async function getIntegrationTrafficLights(): Promise<IntegrationTrafficL
       label: "SEO Factory",
       status: seoQ.light,
       message: seoQ.message,
+    },
+    {
+      id: "creative-routing",
+      label: "Creative Routing",
+      status: creativeRouting.status === "healthy" ? "green" : "red",
+      message: creativeRouting.message,
     },
   ];
 }

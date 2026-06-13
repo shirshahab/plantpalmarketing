@@ -217,6 +217,8 @@ export function mapImagePrompt(row: Database["public"]["Tables"]["image_prompts"
     prompt: row.prompt,
     style: row.style,
     status: row.status as Status,
+    sourceTable: row.source_table ?? "",
+    metadata: (row.metadata && typeof row.metadata === "object" ? row.metadata : {}) as Record<string, unknown>,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

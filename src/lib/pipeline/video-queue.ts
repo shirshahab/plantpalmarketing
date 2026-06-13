@@ -1,6 +1,18 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/integrations/db-safe";
 import type { Json } from "@/lib/supabase/database.types";
+import {
+  createCleanContentConcept,
+  type CleanContentSource,
+} from "@/lib/content/createCleanContentConcept";
+import { enqueueVideoFromCleanConcept } from "@/lib/pipeline/creative-enqueue";
+import {
+  isPollutedCreativeTitle,
+  isVisibleCreativeQueueItem,
+  creativeSourceLabel,
+  type CreativeQueueMetadata,
+} from "@/lib/content/creative-routing-guard";
+import { CREATIVE_REJECTION_MESSAGE } from "@/lib/content/creative-rejection-log";
 
 export interface VideoQueueItem {
   id: string;
@@ -12,10 +24,21 @@ export interface VideoQueueItem {
   priority: number;
   sourceTable: string;
   sourceId: string | null;
+  sourceLabel: string;
+  metadata: CreativeQueueMetadata;
   createdAt: string;
 }
 
+function parseMetadata(raw: unknown): CreativeQueueMetadata {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as CreativeQueueMetadata;
+  }
+  return {};
+}
+
 function mapRow(row: Record<string, unknown>): VideoQueueItem {
+  const metadata = parseMetadata(row.metadata);
+  const sourceTable = String(row.source_table ?? "");
   return {
     id: String(row.id),
     title: String(row.title ?? ""),
@@ -24,184 +47,221 @@ function mapRow(row: Record<string, unknown>): VideoQueueItem {
     platform: String(row.platform ?? "tiktok"),
     status: String(row.status ?? "pending"),
     priority: Number(row.priority ?? 50),
-    sourceTable: String(row.source_table ?? ""),
+    sourceTable,
     sourceId: row.source_id ? String(row.source_id) : null,
+    sourceLabel: creativeSourceLabel(sourceTable, metadata),
+    metadata,
     createdAt: String(row.created_at),
   };
 }
 
-export async function getVideoQueueItems(limit = 30, status?: string | string[]): Promise<VideoQueueItem[]> {
+/** Central insert — rejects raw intelligence/F5Bot/Reddit without Bloom transformation. */
+export async function enqueueVideoConcept(
+  concept: ReturnType<typeof createCleanContentConcept>
+): Promise<{ ok: boolean; id?: string; error?: string }> {
+  if (!concept) {
+    return { ok: false, error: CREATIVE_REJECTION_MESSAGE };
+  }
+  return enqueueVideoFromCleanConcept(concept);
+}
+
+export async function getVideoQueueItems(
+  limit = 50,
+  opts?: { includeHidden?: boolean; status?: string | string[] }
+): Promise<VideoQueueItem[]> {
   try {
     const supabase = createServerClient();
     let query = supabase.from("video_generation_queue").select("*");
-    if (status) {
-      query = Array.isArray(status) ? query.in("status", status) : query.eq("status", status);
+
+    if (opts?.status) {
+      query = Array.isArray(opts.status)
+        ? query.in("status", opts.status)
+        : query.eq("status", opts.status);
     } else {
       query = query.in("status", ["pending", "script_generated", "in_production", "review", "approved", "scheduled"]);
     }
+
     const { data, error } = await query
       .order("priority", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .limit(limit * 2);
+
     if (error) {
       if (isMissingTableError(error)) return [];
       return [];
     }
-    return (data ?? []).map((r) => mapRow(r as Record<string, unknown>));
+
+    const items = (data ?? []).map((r) => mapRow(r as Record<string, unknown>));
+
+    if (opts?.includeHidden) return items.slice(0, limit);
+
+    return items
+      .filter((item) => isVisibleCreativeQueueItem("video", item.status, item.sourceTable, item.title, item.metadata))
+      .slice(0, limit);
   } catch {
     return [];
   }
 }
 
-interface ConceptSeed {
-  title: string;
-  concept: string;
-  hook: string;
-  platform: string;
-  priority: number;
-  sourceTable: string;
-  sourceId?: string;
+export async function getVideoQueueItemById(id: string): Promise<VideoQueueItem | null> {
+  try {
+    const supabase = createServerClient();
+    const { data, error } = await supabase
+      .from("video_generation_queue")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return mapRow(data as Record<string, unknown>);
+  } catch {
+    return null;
+  }
 }
 
-async function collectConceptSeeds(limit: number): Promise<ConceptSeed[]> {
+async function collectApprovedVideoSources(limit: number): Promise<CleanContentSource[]> {
   const supabase = createServerClient();
-  const seeds: ConceptSeed[] = [];
+  const sources: CleanContentSource[] = [];
 
-  const [bloom, trends, reddit, seo, ideas] = await Promise.all([
+  const [pipeline, seoPosts, seoKeywords, founderIdeas, redditDrafted] = await Promise.all([
     supabase
       .from("content_pipeline")
-      .select("id, title, body")
+      .select("id, title, body, metadata")
       .eq("destination", "bloom")
       .eq("status", "approved")
       .order("updated_at", { ascending: false })
       .limit(limit),
     supabase
-      .from("intelligence_alerts")
-      .select("id, title, body, priority")
-      .eq("status", "new")
-      .order("created_at", { ascending: false })
-      .limit(limit),
-    supabase
-      .from("reddit_opportunities")
-      .select("id, title, question")
-      .in("status", ["found", "drafted"])
+      .from("seo_blog_posts")
+      .select("id, headline, keyword, intro")
+      .in("status", ["draft", "gate_review", "pending_review"])
       .order("created_at", { ascending: false })
       .limit(limit),
     supabase
       .from("seo_blog_keywords")
       .select("id, keyword")
-      .in("status", ["new", "queued", "drafted"])
+      .in("status", ["queued", "drafted"])
       .order("priority_score", { ascending: false })
       .limit(limit),
     supabase
       .from("creative_content_ideas")
-      .select("id, title, hook")
+      .select("id, title, hook, body")
       .eq("status", "approved")
       .order("updated_at", { ascending: false })
       .limit(limit),
+    supabase
+      .from("reddit_opportunities")
+      .select("id, title, question, permalink, status")
+      .in("status", ["drafted", "answered"])
+      .order("created_at", { ascending: false })
+      .limit(limit),
   ]);
 
-  for (const row of bloom.data ?? []) {
-    seeds.push({
-      title: String(row.title),
-      concept: String(row.body ?? row.title).slice(0, 400),
-      hook: String(row.title).slice(0, 120),
-      platform: "tiktok",
-      priority: 80,
+  for (const row of pipeline.data ?? []) {
+    sources.push({
+      sourceType: "bloom",
       sourceTable: "content_pipeline",
       sourceId: String(row.id),
+      rawTitle: String(row.title),
+      rawBody: String(row.body ?? row.title),
+      plantRelevanceScore: 90,
+      priority: 82,
     });
   }
-  for (const row of trends.data ?? []) {
-    seeds.push({
-      title: String(row.title).slice(0, 100),
-      concept: String(row.body ?? row.title).slice(0, 400),
-      hook: `Trending: ${String(row.title).slice(0, 80)}`,
-      platform: "reels",
-      priority: row.priority === "high" ? 75 : 60,
-      sourceTable: "intelligence_alerts",
-      sourceId: String(row.id),
-    });
-  }
-  for (const row of reddit.data ?? []) {
-    seeds.push({
-      title: String(row.title).slice(0, 100),
-      concept: String(row.question ?? row.title).slice(0, 400),
-      hook: `Answer this plant question: ${String(row.title).slice(0, 70)}`,
-      platform: "tiktok",
-      priority: 70,
-      sourceTable: "reddit_opportunities",
-      sourceId: String(row.id),
-    });
-  }
-  for (const row of seo.data ?? []) {
-    seeds.push({
-      title: `SEO: ${row.keyword}`,
-      concept: `Educational short answering "${row.keyword}" for PlantPal audience.`,
-      hook: `Stop guessing about ${row.keyword}`,
-      platform: "youtube_shorts",
-      priority: 65,
-      sourceTable: "seo_blog_keywords",
-      sourceId: String(row.id),
-    });
-  }
-  for (const row of ideas.data ?? []) {
-    seeds.push({
-      title: String(row.title),
-      concept: String(row.hook ?? row.title),
-      hook: String(row.hook ?? row.title).slice(0, 120),
-      platform: "tiktok",
-      priority: 85,
+
+  for (const row of founderIdeas.data ?? []) {
+    sources.push({
+      sourceType: "founder_idea",
       sourceTable: "creative_content_ideas",
       sourceId: String(row.id),
+      rawTitle: String(row.title),
+      rawBody: String(row.body ?? row.hook ?? row.title),
+      plantRelevanceScore: 88,
+      priority: 85,
+    });
+  }
+
+  for (const row of seoPosts.data ?? []) {
+    sources.push({
+      sourceType: "seo",
+      sourceTable: "seo_blog_posts",
+      sourceId: String(row.id),
+      rawTitle: String(row.headline),
+      rawBody: String(row.intro ?? row.headline),
+      keyword: String(row.keyword),
+      plantRelevanceScore: 85,
+      priority: 68,
+    });
+  }
+
+  for (const row of seoKeywords.data ?? []) {
+    sources.push({
+      sourceType: "seo",
+      sourceTable: "seo_blog_keywords",
+      sourceId: String(row.id),
+      rawTitle: String(row.keyword),
+      rawBody: `Educational short about ${row.keyword}`,
+      keyword: String(row.keyword),
+      plantRelevanceScore: 82,
+      priority: 65,
+    });
+  }
+
+  for (const row of redditDrafted.data ?? []) {
+    sources.push({
+      sourceType: "reddit_opportunity",
+      sourceTable: "reddit_opportunities",
+      sourceId: String(row.id),
+      rawTitle: String(row.title),
+      rawBody: String(row.question ?? row.title),
+      originalUrl: row.permalink?.startsWith("http")
+        ? String(row.permalink)
+        : row.permalink
+          ? `https://reddit.com${row.permalink}`
+          : undefined,
+      plantRelevanceScore: 85,
+      priority: 72,
     });
   }
 
   const seen = new Set<string>();
-  return seeds
-    .filter((s) => {
-      const key = `${s.sourceTable}:${s.sourceId ?? s.title}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, limit);
+  return sources.filter((s) => {
+    const key = `${s.sourceTable}:${s.sourceId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, limit);
 }
 
-/** Pull concepts from approved Bloom items, trends, Reddit, SEO, and founder ideas. */
+/** Pull only approved, transformed video concepts — never raw intelligence_alerts. */
 export async function populateVideoQueue(count: number): Promise<{ inserted: number; error?: string }> {
   const batchSize = Math.min(25, Math.max(1, count));
   try {
-    const supabase = createServerClient();
-    const seeds = await collectConceptSeeds(batchSize);
-    if (seeds.length === 0) {
-      return { inserted: 0, error: "No source content found. Approve ideas, run F5Bot, or add SEO keywords first." };
+    const sources = await collectApprovedVideoSources(batchSize);
+    if (sources.length === 0) {
+      return {
+        inserted: 0,
+        error: "No approved video-ready ideas found. Send items from Bloom, Trends, SEO, or Reddit first.",
+      };
     }
 
-    const rows = seeds.map((s) => ({
-      title: s.title,
-      concept: s.concept,
-      hook: s.hook,
-      platform: s.platform,
-      status: "pending",
-      priority: s.priority,
-      source_table: s.sourceTable,
-      source_id: s.sourceId ?? null,
-      metadata: { autoQueued: true } as Json,
-    }));
-
-    const { data, error } = await supabase.from("video_generation_queue").insert(rows).select("id");
-    if (error) {
-      if (isMissingTableError(error)) return { inserted: 0, error: "video_generation_queue missing. Run migration 064." };
-      return { inserted: 0, error: error.message };
+    let inserted = 0;
+    for (const source of sources) {
+      const concept = createCleanContentConcept(source, "video");
+      const result = await enqueueVideoFromCleanConcept(concept, {
+        sourceTable: source.sourceTable,
+        sourceId: source.sourceId,
+        title: source.rawTitle,
+      });
+      if (result.ok) inserted += 1;
     }
-    return { inserted: data?.length ?? 0 };
+
+    return { inserted };
   } catch (e) {
     return { inserted: 0, error: e instanceof Error ? e.message : "Queue failed" };
   }
 }
 
-/** Create video_scripts from queue items so Video Studio has content to work with. */
+/** Create video_scripts only from video-ready queue items. */
 export async function materializeVideoScriptsFromQueue(limit = 10): Promise<{ created: number; error?: string }> {
   try {
     const supabase = createServerClient();
@@ -210,15 +270,24 @@ export async function materializeVideoScriptsFromQueue(limit = 10): Promise<{ cr
       .select("*")
       .eq("status", "pending")
       .order("priority", { ascending: false })
-      .limit(limit);
+      .limit(limit * 3);
+
     if (error) {
       if (isMissingTableError(error)) return { created: 0, error: "video_generation_queue missing." };
       return { created: 0, error: error.message };
     }
-    if (!queue?.length) return { created: 0, error: "Queue is empty. Run Generate 10 Videos first." };
+
+    const ready = (queue ?? [])
+      .map((r) => mapRow(r as Record<string, unknown>))
+      .filter((item) => isVisibleCreativeQueueItem("video", item.status, item.sourceTable, item.title, item.metadata))
+      .slice(0, limit);
+
+    if (!ready.length) {
+      return { created: 0, error: "No video-ready concepts in queue." };
+    }
 
     let created = 0;
-    for (const item of queue) {
+    for (const item of ready) {
       const hook = String(item.hook ?? item.title);
       const concept = String(item.concept ?? "");
       const scenes = [
@@ -255,34 +324,90 @@ export async function materializeVideoScriptsFromQueue(limit = 10): Promise<{ cr
   }
 }
 
-const MIN_VIDEO_QUEUE = 20;
-
 export async function countPendingVideoQueue(): Promise<number> {
+  const items = await getVideoQueueItems(100, { status: "pending" });
+  return items.length;
+}
+
+/** Mark polluted raw-intelligence rows as rejected (does not delete). */
+export async function cleanupBadVideoQueueItems(): Promise<{ rejected: number; error?: string }> {
   try {
     const supabase = createServerClient();
-    const { count, error } = await supabase
+    const { data, error } = await supabase
       .from("video_generation_queue")
-      .select("*", { count: "exact", head: true })
-      .in("status", ["pending", "script_generated", "in_production"]);
+      .select("*")
+      .neq("status", "rejected")
+      .limit(500);
+
     if (error) {
-      if (isMissingTableError(error)) return 0;
-      return 0;
+      if (isMissingTableError(error)) return { rejected: 0, error: "video_generation_queue missing." };
+      return { rejected: 0, error: error.message };
     }
-    return count ?? 0;
-  } catch {
-    return 0;
+
+    const RAW = new Set(["intelligence_alerts", "f5bot_alerts", "reddit_comments", "reddit_posts"]);
+    let rejected = 0;
+
+    for (const row of data ?? []) {
+      const r = row as Record<string, unknown>;
+      const title = String(r.title ?? "");
+      const sourceTable = String(r.source_table ?? "").toLowerCase();
+      const metadata = parseMetadata(r.metadata);
+
+      const isBad =
+        isPollutedCreativeTitle(title) ||
+        RAW.has(sourceTable) ||
+        sourceTable === "trend_cluster" ||
+        (sourceTable === "intelligence_alerts" && !metadata.video_ready && !metadata.approved_for_creative);
+
+      if (!isBad) continue;
+
+      const nextMeta: CreativeQueueMetadata = {
+        ...metadata,
+        rejected_reason: "Raw intelligence item entered video queue without transformation",
+      };
+
+      const { error: updateError } = await supabase
+        .from("video_generation_queue")
+        .update({
+          status: "rejected",
+          metadata: nextMeta as Json,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", String(r.id));
+
+      if (!updateError) rejected += 1;
+    }
+
+    return { rejected };
+  } catch (e) {
+    return { rejected: 0, error: e instanceof Error ? e.message : "Cleanup failed" };
   }
 }
 
-/** Auto-refill video queue when below minimum pending count. */
-export async function ensureMinimumVideoQueue(min = MIN_VIDEO_QUEUE): Promise<{ refilled: number }> {
-  const pending = await countPendingVideoQueue();
-  if (pending >= min) return { refilled: 0 };
-  const need = min - pending;
-  const batch = Math.min(25, Math.max(10, need));
-  const result = await populateVideoQueue(batch);
-  if (result.inserted > 0) {
-    await materializeVideoScriptsFromQueue(Math.min(result.inserted, 10));
-  }
-  return { refilled: result.inserted };
+/** Enqueue a trend cluster as an approved trend concept (transformed). */
+export async function enqueueTrendClusterVideoConcept(input: {
+  clusterId: string;
+  label: string;
+  body: string;
+  plantRelevanceScore?: number;
+}): Promise<{ ok: boolean; error?: string }> {
+  const concept = createCleanContentConcept(
+    {
+      sourceType: "trend",
+      sourceTable: "approved_trend_concepts",
+      sourceId: input.clusterId,
+      rawTitle: input.label,
+      rawBody: input.body,
+      trendLabel: input.label,
+      plantRelevanceScore: input.plantRelevanceScore ?? 85,
+      priority: 78,
+    },
+    "video"
+  );
+  const result = await enqueueVideoFromCleanConcept(concept, {
+    sourceTable: "approved_trend_concepts",
+    sourceId: input.clusterId,
+    title: input.label,
+  });
+  return result.ok ? { ok: true } : { ok: false, error: result.error };
 }

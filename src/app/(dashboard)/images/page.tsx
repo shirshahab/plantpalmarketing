@@ -7,7 +7,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ConfigBanner } from "@/components/ui/config-banner";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { ImageStudioTabs } from "@/components/images/image-studio-tabs";
-import { getImageStudioCounters, ensureMinimumImageQueue } from "@/lib/actions/image-batch-actions";
+import { getImageStudioCounters } from "@/lib/actions/image-batch-actions";
+import { isVisibleImagePromptRow } from "@/lib/pipeline/creative-routing-health";
 import { DeleteButton } from "@/components/shared/delete-button";
 import { ApprovalActions } from "@/components/shared/approval-actions";
 import { ImageAssetPanel } from "@/components/assets/image-asset-panel";
@@ -36,14 +37,22 @@ export default async function ImagePromptsPage({
 
   const { data, error, configured } = await fetchPageData(getImagePrompts);
   const assetsByPrompt = configured ? await getAssetsByPrompt().catch(() => new Map()) : new Map();
-  if (configured) await ensureMinimumImageQueue(50).catch(() => ({ refilled: 0 }));
   const counters = configured ? await getImageStudioCounters().catch(() => ({
     pendingReview: 0, approvedToday: 0, rejectedToday: 0, scheduled: 0, published: 0,
   })) : { pendingReview: 0, approvedToday: 0, rejectedToday: 0, scheduled: 0, published: 0 };
 
   const filtered = (data ?? []).filter((p) => {
     if (activeTab === "scheduled") return p.status === "approved";
-    return p.status === activeTab;
+    if (p.status !== activeTab) return false;
+    if (activeTab === "pending") {
+      return isVisibleImagePromptRow({
+        title: p.title,
+        status: p.status,
+        sourceTable: p.sourceTable,
+        metadata: p.metadata as Record<string, unknown> | undefined,
+      });
+    }
+    return true;
   });
 
   if (!configured) {
@@ -52,7 +61,10 @@ export default async function ImagePromptsPage({
 
   return (
     <div>
-      <PageHeader title="Image Asset Studio" description="Creative Department — prompts in production and assets awaiting your review. Approved work moves to Calendar." />
+      <PageHeader
+        title="Image Asset Studio"
+        description="Image concepts from approved Bloom ideas. Raw internet signals stay in Intelligence until Bloom transforms them."
+      />
       <ImageStudioTabs counters={counters} activeTab={activeTab} />
       {error && <ErrorBanner message={error} />}
 
@@ -63,7 +75,7 @@ export default async function ImagePromptsPage({
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon={ImageIcon} title={`No ${activeTab} prompts`} description="Use batch generation above to fill the queue." />
+        <EmptyState icon={ImageIcon} title={`No ${activeTab} image concepts`} description="Send approved ideas from Bloom, SEO, or Trends. Raw F5Bot/Reddit never enters Image Studio directly." />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {filtered.map((prompt) => {

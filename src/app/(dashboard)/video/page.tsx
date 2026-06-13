@@ -14,7 +14,7 @@ import { fetchPageData } from "@/lib/db/fetch-page-data";
 import { getVideoScripts } from "@/lib/db/queries";
 import { getVideosByScript } from "@/lib/db/asset-queries";
 import { getVideoProviderStatus } from "@/lib/video/video-provider";
-import { getVideoQueueItems, ensureMinimumVideoQueue } from "@/lib/pipeline/video-queue";
+import { getVideoQueueItems } from "@/lib/pipeline/video-queue";
 import { VideoQueuePanel } from "@/components/video/video-queue-panel";
 import { formatDate } from "@/lib/utils";
 
@@ -26,8 +26,9 @@ export default async function VideoScriptsPage({
   const { video: highlightVideoId } = await searchParams;
   const { data, error, configured } = await fetchPageData(getVideoScripts);
   const videosByScript = configured ? await getVideosByScript().catch(() => new Map()) : new Map();
-  if (configured) await ensureMinimumVideoQueue(20).catch(() => ({ refilled: 0 }));
   const queueItems = configured ? await getVideoQueueItems(50).catch(() => []) : [];
+  const showCleanup =
+    process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_SHOW_DEMO_DATA === "true";
   const providerStatus = getVideoProviderStatus();
 
   if (!configured) {
@@ -36,7 +37,10 @@ export default async function VideoScriptsPage({
 
   return (
     <div>
-      <PageHeader title="Video Studio" description="Creative Department — scripts in production and videos awaiting your review. Approved work moves to Calendar." />
+      <PageHeader
+        title="Video Studio"
+        description="Video concepts from approved Bloom ideas. Raw internet signals stay in Intelligence until Bloom transforms them."
+      />
       <div
         className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${
           providerStatus.canGenerate
@@ -53,7 +57,7 @@ export default async function VideoScriptsPage({
       </div>
       {error && <ErrorBanner message={error} />}
 
-      {configured && <VideoQueuePanel items={queueItems} />}
+      {configured && <VideoQueuePanel items={queueItems} showCleanup={showCleanup} />}
 
       {!data || data.length === 0 ? (
         <EmptyState icon={Clapperboard} title="No video scripts" description="Seed data or add scripts via Supabase." />

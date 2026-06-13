@@ -146,31 +146,27 @@ async function generateMemesFromAngles(angles: ReturnType<typeof createPlantAngl
 }
 
 async function generateImageIdeasFromTrends(trendTitles: string[]): Promise<number> {
-  const supabase = createServerClient();
   let created = 0;
 
   for (const title of trendTitles.slice(0, 3)) {
-    const prompt = `Educational PlantPal graphic about "${title}". Warm greens, readable typography, no clutter.`;
-    const { error } = await supabase.from("image_prompts").insert({
-      title: title.slice(0, 80),
-      category: "social_graphic",
-      prompt,
-      style: "Daily engine",
-      status: "pending",
+    const angle = createPlantAngleFromTrend({
+      title,
+      source: "daily_engine",
+      summary: title,
     });
-    if (!error) {
-      created += 1;
-      await enqueueApprovalItem({
-        type: "image_asset",
-        title: `Image: ${title.slice(0, 60)}`,
-        summary: prompt,
-        payload: { trend: title },
-        sourceTrace: { source: "daily_engine", trend: title },
-        assignedAgent: "bloom",
-        destination: "/images",
-        draft: prompt,
-      });
-    }
+    if (!angle.shouldUse) continue;
+
+    const approvalId = await enqueueApprovalItem({
+      type: "image_asset",
+      title: `Bloom image: ${title.slice(0, 60)}`,
+      summary: angle.plantAngle.slice(0, 200),
+      payload: { trend: title, route: "bloom_first" },
+      sourceTrace: { source: "daily_engine", trend: title, bloomGate: true },
+      assignedAgent: "bloom",
+      destination: "/bloom",
+      draft: angle.plantAngle,
+    });
+    if (approvalId) created += 1;
   }
 
   return created;

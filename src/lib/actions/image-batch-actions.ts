@@ -4,160 +4,223 @@ import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/integrations/db-safe";
 import type { ActionResult } from "@/lib/actions/shared";
-import type { ImagePromptCategory } from "@/lib/types";
+import {
+  createCleanContentConcept,
+  type CleanContentSource,
+} from "@/lib/content/createCleanContentConcept";
+import { enqueueImageFromCleanConcept } from "@/lib/pipeline/creative-enqueue";
+import { CREATIVE_REJECTION_MESSAGE } from "@/lib/content/creative-rejection-log";
+import {
+  isPollutedCreativeTitle,
+  isVisibleCreativeQueueItem,
+  type CreativeQueueMetadata,
+} from "@/lib/content/creative-routing-guard";
 
-import { shouldShowDemoData } from "@/lib/demo/shouldShowDemoData";
-
-const DEFAULT_KEYWORDS = shouldShowDemoData()
-  ? [
-      "monstera yellow leaves",
-      "pothos propagation",
-      "overwatering signs",
-      "grow light setup",
-      "root rot rescue",
-      "humidity for ferns",
-      "succulent watering",
-      "spring repotting",
-      "spider mites treatment",
-      "compost for houseplants",
-    ]
-  : [];
-
-interface PromptSeed {
-  title: string;
-  prompt: string;
-  category: ImagePromptCategory;
-  style: string;
-}
-
-async function seedsFromTrends(limit: number): Promise<PromptSeed[]> {
+async function collectApprovedImageSources(limit: number): Promise<CleanContentSource[]> {
   const supabase = createServerClient();
-  const { data } = await supabase
-    .from("intelligence_alerts")
-    .select("title, body")
-    .neq("status", "archived")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  return (data ?? []).map((row) => ({
-    title: String(row.title).slice(0, 80),
-    prompt: `Educational plant care graphic about "${String(row.title)}". Clean PlantPal brand style, warm greens, friendly typography, no clutter.`,
-    category: "educational" as ImagePromptCategory,
-    style: "PlantPal editorial",
-  }));
-}
+  const sources: CleanContentSource[] = [];
 
-async function seedsFromSeo(limit: number): Promise<PromptSeed[]> {
-  const supabase = createServerClient();
-  const { data } = await supabase
-    .from("seo_blog_keywords")
-    .select("keyword")
-    .in("status", ["new", "queued", "drafted"])
-    .order("priority_score", { ascending: false })
-    .limit(limit);
-  return (data ?? []).map((row) => ({
-    title: `SEO visual: ${row.keyword}`,
-    prompt: `Instagram carousel slide explaining "${row.keyword}" for beginner plant parents. PlantPal colors, icon-led layout.`,
-    category: "social_graphic" as ImagePromptCategory,
-    style: "SEO carousel",
-  }));
-}
+  const [pipeline, seoKeywords, seoPosts, founderIdeas] = await Promise.all([
+    supabase
+      .from("content_pipeline")
+      .select("id, title, body")
+      .eq("destination", "bloom")
+      .in("status", ["approved", "in_production"])
+      .order("updated_at", { ascending: false })
+      .limit(limit),
+    supabase
+      .from("seo_blog_keywords")
+      .select("id, keyword")
+      .in("status", ["queued", "drafted"])
+      .order("priority_score", { ascending: false })
+      .limit(limit),
+    supabase
+      .from("seo_blog_posts")
+      .select("id, headline, keyword, intro")
+      .in("status", ["draft", "gate_review", "pending_review"])
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    supabase
+      .from("creative_content_ideas")
+      .select("id, title, hook, body")
+      .eq("status", "approved")
+      .order("updated_at", { ascending: false })
+      .limit(limit),
+  ]);
 
-async function seedsFromBloom(limit: number): Promise<PromptSeed[]> {
-  const supabase = createServerClient();
-  const { data } = await supabase
-    .from("content_pipeline")
-    .select("title, body")
-    .eq("destination", "bloom")
-    .in("status", ["approved", "in_production"])
-    .order("updated_at", { ascending: false })
-    .limit(limit);
-  return (data ?? []).map((row) => {
-    const r = row as Record<string, unknown>;
-    return {
-      title: String(r.title).slice(0, 80),
-      prompt: `Social asset for Bloom content: ${String(r.body ?? r.title).slice(0, 200)}. Planty mascot optional, premium plant brand aesthetic.`,
-      category: "social_graphic" as ImagePromptCategory,
-      style: "Bloom production",
-    };
-  });
-}
-
-async function seedsFromF5Bot(limit: number): Promise<PromptSeed[]> {
-  const supabase = createServerClient();
-  const { data } = await supabase
-    .from("intelligence_alerts")
-    .select("title, subreddit")
-    .eq("status", "new")
-    .not("subreddit", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  return (data ?? []).map((row) => ({
-    title: `Community: ${String(row.title).slice(0, 60)}`,
-    prompt: `Reply-card graphic for r/${row.subreddit} question: "${row.title}". Helpful tone, PlantPal branding.`,
-    category: "social_graphic" as ImagePromptCategory,
-    style: "Community response",
-  }));
-}
-
-function fallbackSeeds(count: number): PromptSeed[] {
-  return DEFAULT_KEYWORDS.slice(0, count).map((kw) => ({
-    title: kw,
-    prompt: `Plant care educational graphic: ${kw}. Minimal, warm, PlantPal brand palette.`,
-    category: "educational" as ImagePromptCategory,
-    style: "Seasonal default",
-  }));
-}
-
-async function insertPrompts(seeds: PromptSeed[]): Promise<{ inserted: number; error?: string }> {
-  if (seeds.length === 0) return { inserted: 0, error: "No source content found" };
-  try {
-    const supabase = createServerClient();
-    const rows = seeds.map((s) => ({
-      title: s.title,
-      category: s.category,
-      prompt: s.prompt,
-      style: s.style,
-      status: "pending",
-    }));
-    const { data, error } = await supabase.from("image_prompts").insert(rows).select("id");
-    if (error) {
-      if (isMissingTableError(error)) return { inserted: 0, error: "image_prompts table missing" };
-      return { inserted: 0, error: error.message };
-    }
-    return { inserted: data?.length ?? 0 };
-  } catch (e) {
-    return { inserted: 0, error: e instanceof Error ? e.message : "Insert failed" };
+  for (const row of pipeline.data ?? []) {
+    sources.push({
+      sourceType: "bloom",
+      sourceTable: "content_pipeline",
+      sourceId: String(row.id),
+      rawTitle: String(row.title),
+      rawBody: String(row.body ?? row.title),
+      plantRelevanceScore: 90,
+      imageCategory: "social_graphic",
+    });
   }
+
+  for (const row of seoKeywords.data ?? []) {
+    sources.push({
+      sourceType: "seo",
+      sourceTable: "seo_blog_keywords",
+      sourceId: String(row.id),
+      rawTitle: String(row.keyword),
+      rawBody: `Visual explaining ${row.keyword}`,
+      keyword: String(row.keyword),
+      plantRelevanceScore: 85,
+      imageCategory: "educational",
+    });
+  }
+
+  for (const row of seoPosts.data ?? []) {
+    sources.push({
+      sourceType: "seo",
+      sourceTable: "seo_blog_posts",
+      sourceId: String(row.id),
+      rawTitle: String(row.headline),
+      rawBody: String(row.intro ?? row.headline),
+      keyword: String(row.keyword),
+      plantRelevanceScore: 85,
+      imageCategory: "educational",
+    });
+  }
+
+  for (const row of founderIdeas.data ?? []) {
+    sources.push({
+      sourceType: "founder_idea",
+      sourceTable: "creative_content_ideas",
+      sourceId: String(row.id),
+      rawTitle: String(row.title),
+      rawBody: String(row.body ?? row.hook ?? row.title),
+      plantRelevanceScore: 88,
+      imageCategory: "social_graphic",
+    });
+  }
+
+  const seen = new Set<string>();
+  return sources.filter((s) => {
+    const key = `${s.sourceTable}:${s.sourceId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, limit);
+}
+
+async function insertCleanImageBatch(count: number): Promise<{ inserted: number; error?: string }> {
+  const sources = await collectApprovedImageSources(count);
+  if (sources.length === 0) {
+    return {
+      inserted: 0,
+      error: "No approved image-ready ideas found. Send items from Bloom, SEO, or Trends first.",
+    };
+  }
+
+  let inserted = 0;
+  for (const source of sources) {
+    const concept = createCleanContentConcept(source, "image");
+    const result = await enqueueImageFromCleanConcept(concept, {
+      sourceTable: source.sourceTable,
+      sourceId: source.sourceId,
+      title: source.rawTitle,
+    });
+    if (result.ok) inserted += 1;
+  }
+
+  return { inserted };
 }
 
 export async function generateImageAssetsBatchAction(count: number): Promise<ActionResult> {
-  const seeds = [...(await seedsFromF5Bot(count)), ...fallbackSeeds(count)].slice(0, count);
-  if (seeds.length === 0) {
-    return { ok: false, error: "No live content sources. Run Daily Engine or F5Bot ingest first." };
-  }
-  const result = await insertPrompts(seeds);
+  const result = await insertCleanImageBatch(count);
   revalidatePath("/images");
   revalidatePath("/system-health");
-  if (result.inserted === 0) return { ok: false, error: result.error ?? "Nothing generated" };
-  return { ok: true, message: `Generated ${result.inserted} image prompts` };
+  if (result.inserted === 0) {
+    return { ok: false, error: result.error ?? CREATIVE_REJECTION_MESSAGE };
+  }
+  return { ok: true, message: `Generated ${result.inserted} clean image concepts` };
 }
 
 export async function generateImageFromTrendsAction(): Promise<ActionResult> {
-  const seeds = await seedsFromTrends(10);
-  const result = await insertPrompts(seeds.length ? seeds : fallbackSeeds(5));
-  revalidatePath("/images");
-  return result.inserted
-    ? { ok: true, message: `Generated ${result.inserted} prompts from trends` }
-    : { ok: false, error: result.error ?? "Failed" };
+  return {
+    ok: false,
+    error: "Trend images must go through Bloom first. Approve a trend cluster, then generate from Bloom.",
+  };
 }
 
 export async function generateImageFromSeoAction(): Promise<ActionResult> {
-  const seeds = await seedsFromSeo(10);
-  const result = await insertPrompts(seeds.length ? seeds : fallbackSeeds(5));
+  const supabase = createServerClient();
+  const { data } = await supabase
+    .from("seo_blog_keywords")
+    .select("id, keyword")
+    .in("status", ["queued", "drafted"])
+    .order("priority_score", { ascending: false })
+    .limit(10);
+
+  let inserted = 0;
+  for (const row of data ?? []) {
+    const concept = createCleanContentConcept(
+      {
+        sourceType: "seo",
+        sourceTable: "seo_blog_keywords",
+        sourceId: String(row.id),
+        rawTitle: String(row.keyword),
+        rawBody: `SEO visual for ${row.keyword}`,
+        keyword: String(row.keyword),
+        plantRelevanceScore: 85,
+        imageCategory: "educational",
+      },
+      "image"
+    );
+    const result = await enqueueImageFromCleanConcept(concept, {
+      sourceTable: "seo_blog_keywords",
+      sourceId: String(row.id),
+      title: String(row.keyword),
+    });
+    if (result.ok) inserted += 1;
+  }
+
   revalidatePath("/images");
-  return result.inserted
-    ? { ok: true, message: `Generated ${result.inserted} prompts from SEO keywords` }
-    : { ok: false, error: result.error ?? "Failed" };
+  return inserted
+    ? { ok: true, message: `Generated ${inserted} SEO image concepts` }
+    : { ok: false, error: "No SEO keywords ready. Queue keywords in SEO Factory first." };
+}
+
+export async function generateImageFromBloomAction(): Promise<ActionResult> {
+  const supabase = createServerClient();
+  const { data } = await supabase
+    .from("content_pipeline")
+    .select("id, title, body")
+    .eq("destination", "bloom")
+    .in("status", ["approved", "in_production"])
+    .order("updated_at", { ascending: false })
+    .limit(10);
+
+  let inserted = 0;
+  for (const row of data ?? []) {
+    const concept = createCleanContentConcept(
+      {
+        sourceType: "bloom",
+        sourceTable: "content_pipeline",
+        sourceId: String(row.id),
+        rawTitle: String(row.title),
+        rawBody: String(row.body ?? row.title),
+        plantRelevanceScore: 90,
+        imageCategory: "social_graphic",
+      },
+      "image"
+    );
+    const result = await enqueueImageFromCleanConcept(concept, {
+      sourceTable: "content_pipeline",
+      sourceId: String(row.id),
+      title: String(row.title),
+    });
+    if (result.ok) inserted += 1;
+  }
+
+  revalidatePath("/images");
+  return inserted
+    ? { ok: true, message: `Generated ${inserted} Bloom image concepts` }
+    : { ok: false, error: "No Bloom packages approved. Approve ideas in Bloom pipeline first." };
 }
 
 export async function getImageStudioCounters(): Promise<{
@@ -172,16 +235,28 @@ export async function getImageStudioCounters(): Promise<{
   today.setHours(0, 0, 0, 0);
   const since = today.toISOString();
 
-  const [pending, approved, rejected, scheduled, published] = await Promise.all([
-    supabase.from("image_prompts").select("*", { count: "exact", head: true }).eq("status", "pending"),
+  const [pendingRows, approved, rejected, scheduled, published] = await Promise.all([
+    supabase.from("image_prompts").select("title, status, source_table, metadata").eq("status", "pending").limit(500),
     supabase.from("image_prompts").select("*", { count: "exact", head: true }).eq("status", "approved").gte("updated_at", since),
     supabase.from("image_prompts").select("*", { count: "exact", head: true }).eq("status", "rejected").gte("updated_at", since),
     supabase.from("content_calendar").select("*", { count: "exact", head: true }).eq("status", "scheduled"),
     supabase.from("content_calendar").select("*", { count: "exact", head: true }).eq("status", "published"),
   ]);
 
+  const visiblePending = (pendingRows.data ?? []).filter((row) => {
+    const r = row as Record<string, unknown>;
+    const meta = (r.metadata ?? {}) as CreativeQueueMetadata;
+    return isVisibleCreativeQueueItem(
+      "image",
+      String(r.status ?? "pending"),
+      String(r.source_table ?? ""),
+      String(r.title ?? ""),
+      meta
+    );
+  }).length;
+
   return {
-    pendingReview: pending.count ?? 0,
+    pendingReview: visiblePending,
     approvedToday: approved.count ?? 0,
     rejectedToday: rejected.count ?? 0,
     scheduled: scheduled.count ?? 0,
@@ -189,30 +264,48 @@ export async function getImageStudioCounters(): Promise<{
   };
 }
 
-const MIN_IMAGE_QUEUE = 50;
+export async function cleanupBadImagePrompts(): Promise<{ rejected: number; error?: string }> {
+  try {
+    const supabase = createServerClient();
+    const { data, error } = await supabase
+      .from("image_prompts")
+      .select("*")
+      .neq("status", "rejected")
+      .limit(500);
 
-export async function countPendingImagePrompts(): Promise<number> {
-  const supabase = createServerClient();
-  const { count } = await supabase
-    .from("image_prompts")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "pending");
-  return count ?? 0;
-}
+    if (error) {
+      if (isMissingTableError(error)) return { rejected: 0, error: "image_prompts missing." };
+      return { rejected: 0, error: error.message };
+    }
 
-export async function ensureMinimumImageQueue(min = MIN_IMAGE_QUEUE): Promise<{ refilled: number }> {
-  const pending = await countPendingImagePrompts();
-  if (pending >= min) return { refilled: 0 };
-  const need = Math.min(25, min - pending);
-  const result = await generateImageAssetsBatchAction(need);
-  return { refilled: result.ok ? need : 0 };
-}
+    let rejected = 0;
+    for (const row of data ?? []) {
+      const r = row as Record<string, unknown>;
+      const title = String(r.title ?? "");
+      const meta = (r.metadata ?? {}) as CreativeQueueMetadata;
+      const table = String(r.source_table ?? "").toLowerCase();
 
-export async function generateImageFromBloomAction(): Promise<ActionResult> {
-  const seeds = await seedsFromBloom(10);
-  const result = await insertPrompts(seeds.length ? seeds : fallbackSeeds(5));
-  revalidatePath("/images");
-  return result.inserted
-    ? { ok: true, message: `Generated ${result.inserted} prompts from Bloom pipeline` }
-    : { ok: false, error: result.error ?? "Failed" };
+      const isBad =
+        isPollutedCreativeTitle(title) ||
+        table === "intelligence_alerts" ||
+        (!meta.image_ready && !meta.approved_for_creative && (table === "" || isPollutedCreativeTitle(title)));
+
+      if (!isBad) continue;
+
+      const { error: updateError } = await supabase
+        .from("image_prompts")
+        .update({
+          status: "rejected",
+          metadata: { ...meta, rejected_reason: CREATIVE_REJECTION_MESSAGE },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", String(r.id));
+
+      if (!updateError) rejected += 1;
+    }
+
+    return { rejected };
+  } catch (e) {
+    return { rejected: 0, error: e instanceof Error ? e.message : "Cleanup failed" };
+  }
 }

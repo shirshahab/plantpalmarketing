@@ -154,6 +154,9 @@ export interface Database {
           prompt: string;
           style: string;
           status: string;
+          source_table: string;
+          source_id: string | null;
+          metadata: Json;
           created_at: string;
           updated_at: string;
         },
@@ -164,6 +167,9 @@ export interface Database {
           prompt?: string;
           style?: string;
           status?: string;
+          source_table?: string;
+          source_id?: string | null;
+          metadata?: Json;
           created_at?: string;
           updated_at?: string;
         },
@@ -174,6 +180,9 @@ export interface Database {
           prompt?: string;
           style?: string;
           status?: string;
+          source_table?: string;
+          source_id?: string | null;
+          metadata?: Json;
           created_at?: string;
           updated_at?: string;
         }

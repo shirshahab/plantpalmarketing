@@ -178,6 +178,8 @@ export interface ImagePrompt {
   prompt: string;
   style: string;
   status: Status;
+  sourceTable?: string;
+  metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt?: string;
 }

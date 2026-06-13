@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
 import { getTrendClusterById } from "@/lib/intelligence/trend-cluster-detail";
+import { enqueueTrendClusterVideoConcept } from "@/lib/pipeline/video-queue";
+import { createCleanContentConcept } from "@/lib/content/createCleanContentConcept";
+import { enqueueImageFromCleanConcept } from "@/lib/pipeline/creative-enqueue";
 import type { ActionResult } from "@/lib/actions/shared";
 
 export async function archiveTrendClusterAlertsAction(alertIds: string[]): Promise<ActionResult> {
@@ -67,16 +70,14 @@ export async function sendTrendClusterToVideoAction(clusterId: string, alertIds:
   if (!cluster) return { ok: false, error: "Cluster not found" };
   try {
     const supabase = createServerClient();
-    await supabase.from("video_generation_queue").insert({
-      title: cluster.label.slice(0, 100),
-      concept: cluster.alerts.map((a) => a.title).join(". ").slice(0, 400),
-      hook: `Trending: ${cluster.label}`,
-      platform: "tiktok",
-      status: "pending",
-      priority: 78,
-      source_table: "trend_cluster",
-      source_id: clusterId,
+    const result = await enqueueTrendClusterVideoConcept({
+      clusterId,
+      label: cluster.label,
+      body: cluster.alerts.map((a) => a.title).join(". ").slice(0, 400),
+      plantRelevanceScore: 85,
     });
+    if (!result.ok) return { ok: false, error: result.error ?? "Could not create video concept" };
+
     if (alertIds.length > 0) {
       await supabase.from("intelligence_alerts").update({ assigned_agent: "bloom", classification: "video_concept" }).in("id", alertIds);
     }
@@ -92,13 +93,26 @@ export async function sendTrendClusterToImageAction(clusterId: string, alertIds:
   if (!cluster) return { ok: false, error: "Cluster not found" };
   try {
     const supabase = createServerClient();
-    await supabase.from("image_prompts").insert({
-      title: `Trend: ${cluster.label}`.slice(0, 80),
-      category: "social_graphic",
-      prompt: `PlantPal social graphic about trending topic "${cluster.label}". Clean greens, educational, on-brand.`,
-      style: "Trend cluster",
-      status: "pending",
+    const concept = createCleanContentConcept(
+      {
+        sourceType: "trend",
+        sourceTable: "approved_trend_concepts",
+        sourceId: clusterId,
+        rawTitle: cluster.label,
+        rawBody: cluster.alerts.map((a) => a.title).join(". ").slice(0, 400),
+        trendLabel: cluster.label,
+        plantRelevanceScore: 85,
+        imageCategory: "social_graphic",
+      },
+      "image"
+    );
+    const result = await enqueueImageFromCleanConcept(concept, {
+      sourceTable: "approved_trend_concepts",
+      sourceId: clusterId,
+      title: cluster.label,
     });
+    if (!result.ok) return { ok: false, error: result.error ?? "Send to Bloom first" };
+
     if (alertIds.length > 0) {
       await supabase.from("intelligence_alerts").update({ assigned_agent: "bloom", classification: "image_prompt" }).in("id", alertIds);
     }

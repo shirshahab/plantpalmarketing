@@ -63,7 +63,7 @@ export function ImageStudioTabs({
           <div>
             <h3 className="font-heading font-semibold text-brand-primary">Batch generation</h3>
             <p className="mt-0.5 text-xs text-brand-muted">
-              Minimum 50 pending prompts maintained. Approved/rejected hidden from default view.
+              Image concepts from approved Bloom ideas. No raw F5Bot or Reddit titles.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
