@@ -10,7 +10,9 @@ import { recordHandoff } from "@/lib/collaboration/handoff";
 import { createCompanyOutput, recordCompanyDecision } from "@/lib/company-os/company-os";
 import type { Json } from "@/lib/supabase/database.types";
 
-type Result = { ok: true; message?: string } | { ok: false; error: string };
+type Result =
+  | { ok: true; message?: string; rowsCreated?: number; lastRunAt?: string }
+  | { ok: false; error: string };
 
 const MIGRATION_HINT =
   "System setup is still finishing. This section will populate once the backend is ready.";
@@ -480,7 +482,11 @@ export async function runSeoFactoryBatch(count: number): Promise<Result> {
     }
 
     if (!keywords || keywords.length === 0) {
-      return { ok: false, error: "Could not seed keywords. Check seo_blog_keywords table." };
+      return { ok: false, error: "No keywords available. Add keywords or check seo_blog_keywords table." };
+    }
+
+    if (!process.env.OPENAI_API_KEY?.trim()) {
+      return { ok: false, error: "Missing OPENAI_API_KEY — cannot draft blog posts." };
     }
 
     let drafted = 0;
@@ -495,12 +501,30 @@ export async function runSeoFactoryBatch(count: number): Promise<Result> {
       }
     }
 
+    const lastRunAt = new Date().toISOString();
+    await supabase.from("agent_activity_log").insert({
+      agent_id: "bloom",
+      action: "seo_factory_batch",
+      detail: `SEO Factory: ${drafted} drafted, ${failed} failed`,
+      metadata: { drafted, failed, batch_size: batchSize, notes: notes.slice(0, 5) },
+    });
+
     revalidatePath("/seo");
     revalidatePath("/blog-pipeline");
     revalidatePath("/approvals");
+
+    if (drafted === 0) {
+      return {
+        ok: false,
+        error: failed > 0 ? notes.join("; ") : "Draft 5 created zero rows — check OpenAI and database.",
+      };
+    }
+
     return {
       ok: true,
-      message: `Factory run complete — ${drafted} drafted${failed > 0 ? `, ${failed} failed (${notes[0]})` : ""}. See Recent Drafts below and /blog-pipeline.`,
+      rowsCreated: drafted,
+      lastRunAt,
+      message: `Created ${drafted} draft${drafted === 1 ? "" : "s"}${failed > 0 ? ` (${failed} failed: ${notes[0]})` : ""}. See Recent Drafts and Blog Pipeline.`,
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Factory run failed" };

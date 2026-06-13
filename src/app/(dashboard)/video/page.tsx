@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ConfigBanner } from "@/components/ui/config-banner";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { DeleteButton } from "@/components/shared/delete-button";
+import { Button } from "@/components/ui/button";
 import { ApprovalActions } from "@/components/shared/approval-actions";
 import { VideoPackagePanel } from "@/components/assets/video-package-panel";
 import { fetchPageData } from "@/lib/db/fetch-page-data";
@@ -27,8 +28,7 @@ export default async function VideoScriptsPage({
   const { data, error, configured } = await fetchPageData(getVideoScripts);
   const videosByScript = configured ? await getVideosByScript().catch(() => new Map()) : new Map();
   const queueItems = configured ? await getVideoQueueItems(50).catch(() => []) : [];
-  const showCleanup =
-    process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_SHOW_DEMO_DATA === "true";
+
   const providerStatus = getVideoProviderStatus();
 
   if (!configured) {
@@ -57,10 +57,16 @@ export default async function VideoScriptsPage({
       </div>
       {error && <ErrorBanner message={error} />}
 
-      {configured && <VideoQueuePanel items={queueItems} showCleanup={showCleanup} />}
+      {configured && <VideoQueuePanel items={queueItems} />}
 
       {!data || data.length === 0 ? (
-        <EmptyState icon={Clapperboard} title="No video scripts" description="Seed data or add scripts via Supabase." />
+        <div>
+          <EmptyState icon={Clapperboard} title="No video scripts" description="No approved Bloom video concepts yet. Send items through Founder Inbox → Bloom first." />
+          <div className="flex flex-wrap justify-center gap-2 pb-8">
+            <Link href="/inbox"><Button size="sm" variant="secondary">Open Founder Inbox</Button></Link>
+            <Link href="/bloom"><Button size="sm" variant="secondary">Open Bloom</Button></Link>
+          </div>
+        </div>
       ) : (
         <div className="space-y-6">
           {data.map((script) => {

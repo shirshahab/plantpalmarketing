@@ -6,7 +6,6 @@ import { HQVillageTerrain } from "@/components/hq/world/hq-village-terrain";
 import { HQVillageBuilding } from "@/components/hq/world/hq-village-building";
 import { HQVillageAgent, HQVillageMoss } from "@/components/hq/world/hq-village-agent";
 import { HQWorkEnvelope } from "@/components/hq/world/hq-work-envelope";
-import { HQPlantyWanderer } from "@/components/hq/world/hq-planty-wanderer";
 import { HQBuildingPanel } from "@/components/hq/world/hq-building-panel";
 import { HQBuildingInterior } from "@/components/hq/world/hq-building-interior";
 import { useVillageEnvelopes } from "@/components/hq/world/use-village-envelopes";
@@ -205,11 +204,6 @@ export function HQVillageWorld({
             <HQWorkEnvelope key={env.id} id={env.id} from={env.from} to={env.to} />
           ))}
 
-          <HQPlantyWanderer
-            activity={activity}
-            pendingApprovals={totalPending}
-            unreadMessages={collaborationStats?.unreadMessages ?? 0}
-          />
         </div>
 
         {/* Zoom controls */}

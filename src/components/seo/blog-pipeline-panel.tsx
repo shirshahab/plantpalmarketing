@@ -1,8 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FileText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DailyEngineButton } from "@/components/hq/daily-engine-button";
 import {
   approveBlogPost,
   markBlogPublished,
@@ -10,6 +14,7 @@ import {
   rejectBlogPost,
   requestBlogRevision,
   rewriteBlogDraft,
+  runSeoFactoryBatch,
 } from "@/lib/actions/seo-blog";
 import type { SeoBlogPost } from "@/lib/db/seo-queries";
 
@@ -249,19 +254,39 @@ function PostCard({ post, cmsConfigured }: { post: SeoBlogPost; cmsConfigured: b
 }
 
 export function BlogPipelinePanel({ posts, cmsConfigured }: Props) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [message, setMessage] = useState<string | null>(null);
+
   const groups: { title: string; items: SeoBlogPost[] }[] = [
-    { title: "Needs attention", items: posts.filter((p) => ["voice_check_failed", "needs_revision"].includes(p.status)) },
-    { title: "Awaiting approval", items: posts.filter((p) => p.status === "gate_review") },
-    { title: "Ready to publish", items: posts.filter((p) => ["approved", "ready_to_publish"].includes(p.status)) },
+    { title: "Drafts", items: posts.filter((p) => ["draft", "pending_review"].includes(p.status)) },
+    { title: "Voice Check", items: posts.filter((p) => ["voice_check_failed", "needs_revision"].includes(p.status)) },
+    { title: "Awaiting Founder Approval", items: posts.filter((p) => p.status === "gate_review") },
+    { title: "Ready to Publish", items: posts.filter((p) => ["approved", "ready_to_publish"].includes(p.status)) },
     { title: "Published", items: posts.filter((p) => p.status === "published") },
-    { title: "Rejected", items: posts.filter((p) => p.status === "rejected") },
   ];
+
+  function generateDrafts() {
+    startTransition(async () => {
+      const result = await runSeoFactoryBatch(5);
+      setMessage(result.ok ? (result.message ?? "Drafts created") : result.error);
+      if (result.ok) router.refresh();
+    });
+  }
 
   if (posts.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-8 text-center text-sm text-brand-muted">
-          No drafts yet. Go to the SEO page and hit “Write draft” on a keyword.
+      <Card className="border-dashed">
+        <CardContent className="py-10 text-center">
+          <FileText className="mx-auto h-10 w-10 text-brand-muted" />
+          <p className="mt-3 font-medium text-brand-primary">No blog drafts yet</p>
+          <p className="mt-1 text-sm text-brand-muted">Generate drafts from SEO Factory. They appear here immediately.</p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <Button size="sm" disabled={pending} onClick={generateDrafts}>Generate 5 Drafts</Button>
+            <Link href="/seo"><Button size="sm" variant="secondary">Open SEO Factory</Button></Link>
+            <DailyEngineButton />
+          </div>
+          {message && <p className="mt-3 text-sm text-brand-primary">{message}</p>}
         </CardContent>
       </Card>
     );
@@ -269,18 +294,26 @@ export function BlogPipelinePanel({ posts, cmsConfigured }: Props) {
 
   return (
     <div className="space-y-8">
-      {groups
-        .filter((g) => g.items.length > 0)
-        .map((group) => (
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="secondary" disabled={pending} onClick={generateDrafts}>Generate 5 Drafts</Button>
+        <Link href="/seo"><Button size="sm" variant="secondary">Open SEO Factory</Button></Link>
+        <DailyEngineButton />
+      </div>
+      {message && <p className="text-sm text-brand-primary">{message}</p>}
+      {groups.map((group) => (
           <div key={group.title}>
             <h3 className="mb-3 font-heading text-sm font-semibold uppercase tracking-wide text-brand-muted">
               {group.title} ({group.items.length})
             </h3>
+            {group.items.length === 0 ? (
+              <p className="text-sm text-brand-muted">None in this stage.</p>
+            ) : (
             <div className="space-y-4">
               {group.items.map((post) => (
                 <PostCard key={post.id} post={post} cmsConfigured={cmsConfigured} />
               ))}
             </div>
+            )}
           </div>
         ))}
     </div>

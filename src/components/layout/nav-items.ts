@@ -65,7 +65,7 @@ export const navMenu: NavEntry[] = [
       { href: "/seo", label: "SEO", icon: Search },
       { href: "/reddit", label: "Reddit", icon: MessageSquare },
       { href: "/content", label: "Studio", icon: Sparkles },
-      { href: "/agents/pipeline", label: "Pipeline", icon: Workflow },
+      { href: "/agents/pipeline", label: "Content Router", icon: Workflow },
       { href: "/images", label: "Image Studio", icon: Image },
       { href: "/video", label: "Video Studio", icon: Video },
       { href: "/blog-pipeline", label: "Blog Pipeline", icon: FileText },

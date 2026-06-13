@@ -129,13 +129,15 @@ export default async function FounderInboxPage() {
         <strong>{totalPending} items</strong> need founder action.
       </div>
 
-      {totalPending === 0 ? (
+      {totalPending === 0 && liveIntelligence.length === 0 ? (
         <EmptyState
           icon={Inbox}
           title="Inbox clear"
-          description="Nothing waiting on you right now."
+          description="Nothing waiting on you right now. Run F5Bot ingest or Daily Engine for new opportunities."
         />
-      ) : (
+      ) : null}
+
+      {(liveIntelligence.length > 0 || totalPending > 0) && (
         <>
           <section className="mb-10">
             <div className="mb-4 flex items-start gap-3">

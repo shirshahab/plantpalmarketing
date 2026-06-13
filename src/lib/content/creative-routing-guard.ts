@@ -44,9 +44,17 @@ export interface CreativeQueueMetadata {
   [key: string]: unknown;
 }
 
+export const BLOCKED_CREATIVE_SOURCE_TABLES = new Set([
+  "intelligence_alerts",
+  "f5bot_alerts",
+  "reddit_comments",
+  "reddit_posts",
+]);
+
 export const POLLUTED_CREATIVE_TITLE_PATTERNS = [
   /reddit comments/i,
   /reddit posts/i,
+  /f5bot/i,
   /would you rather/i,
   /\bsoccer\b/i,
   /\bnfl\b/i,
@@ -79,11 +87,20 @@ export function isCreativeReadyMetadata(
   queue: "video" | "image"
 ): boolean {
   if (!metadata) return false;
-  if (metadata.approved_for_creative === true) return true;
+  if (metadata.approved_for_creative !== true) return false;
   if (queue === "video") {
     return metadata.video_ready === true || metadata.approved_for_video === true;
   }
   return metadata.image_ready === true || metadata.approved_for_image === true;
+}
+
+/** Studio default view — both approval flags required. */
+export function isStrictStudioReady(
+  metadata: CreativeQueueMetadata | null | undefined,
+  queue: "video" | "image"
+): boolean {
+  if (!metadata || metadata.approved_for_creative !== true) return false;
+  return queue === "video" ? metadata.video_ready === true : metadata.image_ready === true;
 }
 
 export function canEnqueueToCreativeQueue(
@@ -95,18 +112,18 @@ export function canEnqueueToCreativeQueue(
   const allowed = queue === "video" ? VIDEO_CREATIVE_SOURCES : IMAGE_CREATIVE_SOURCES;
 
   if (RAW_CREATIVE_BLOCKED_SOURCES.has(table)) {
-    return isCreativeReadyMetadata(metadata, queue);
+    return isStrictStudioReady(metadata, queue);
   }
 
   if (table === "reddit_opportunities") {
-    return isCreativeReadyMetadata(metadata, queue);
+    return isStrictStudioReady(metadata, queue);
   }
 
   if (allowed.has(table)) {
-    return metadata?.approved_for_creative === true || isCreativeReadyMetadata(metadata, queue);
+    return isStrictStudioReady(metadata, queue);
   }
 
-  return isCreativeReadyMetadata(metadata, queue);
+  return isStrictStudioReady(metadata, queue);
 }
 
 export function isVisibleCreativeQueueItem(
@@ -125,10 +142,29 @@ export function isVisibleCreativeQueueItem(
   }
 
   if (status === "pending") {
-    return isCreativeReadyMetadata(metadata, queue) || metadata?.approved_for_creative === true;
+    return isStrictStudioReady(metadata, queue);
   }
 
   return isCreativeReadyMetadata(metadata, queue) || !RAW_CREATIVE_BLOCKED_SOURCES.has(table);
+}
+
+export const CREATIVE_CLEANUP_REJECTION =
+  "Raw signal entered creative queue without Bloom transformation";
+
+/** Detect rows that should be rejected during HQ cleanup. */
+export function isBadCreativeQueueRow(
+  queue: "video" | "image",
+  title: string,
+  sourceTable: string,
+  metadata: CreativeQueueMetadata | null | undefined
+): boolean {
+  const table = sourceTable.toLowerCase();
+  if (isPollutedCreativeTitle(title)) return true;
+  if (BLOCKED_CREATIVE_SOURCE_TABLES.has(table)) return true;
+  if (metadata?.approved_for_creative !== true) return true;
+  if (queue === "video" && metadata?.video_ready !== true) return true;
+  if (queue === "image" && metadata?.image_ready !== true) return true;
+  return false;
 }
 
 export function creativeSourceLabel(

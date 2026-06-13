@@ -25,7 +25,6 @@ const TABS: { id: QueueTab; label: string; statuses: string[] }[] = [
 
 export function VideoQueuePanel({
   items,
-  showCleanup = false,
 }: {
   items: VideoQueueItem[];
   showCleanup?: boolean;
@@ -68,11 +67,9 @@ export function VideoQueuePanel({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {showCleanup && (
-            <Button size="sm" variant="secondary" disabled={pending} onClick={handleCleanup}>
-              Clean Bad Queue Items
-            </Button>
-          )}
+          <Button size="sm" variant="secondary" disabled={pending} onClick={handleCleanup}>
+            Clean Bad Video Queue
+          </Button>
           <Button disabled={pending} onClick={() => handleGenerate(10)}>
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clapperboard className="h-4 w-4" />}
             Generate 10 Videos

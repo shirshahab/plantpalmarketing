@@ -35,6 +35,7 @@ export default async function SeoPage() {
           clusters={data.clusters}
           rankRows={data.rankRows}
           stats={data.stats}
+          lastFactoryRun={data.lastFactoryRun}
         />
       )}
     </div>

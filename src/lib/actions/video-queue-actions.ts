@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cleanupBadVideoQueueItems, populateVideoQueue, materializeVideoScriptsFromQueue } from "@/lib/pipeline/video-queue";
+import { populateVideoQueue, materializeVideoScriptsFromQueue } from "@/lib/pipeline/video-queue";
 import type { ActionResult } from "@/lib/actions/shared";
 
 export async function generateVideoQueueBatchAction(count = 10): Promise<ActionResult> {
@@ -21,13 +21,10 @@ export async function generateVideoQueueBatchAction(count = 10): Promise<ActionR
 }
 
 export async function cleanupBadVideoQueueItemsAction(): Promise<ActionResult> {
-  const isDev = process.env.NODE_ENV === "development";
-  if (!isDev && process.env.NEXT_PUBLIC_SHOW_DEMO_DATA !== "true") {
-    return { ok: false, error: "Cleanup only available in development or admin mode." };
-  }
-
-  const result = await cleanupBadVideoQueueItems();
+  const { rejectBadVideoRows } = await import("@/lib/pipeline/hq-cleanup");
+  const result = await rejectBadVideoRows();
   revalidatePath("/video");
+  revalidatePath("/system-health");
 
   if (result.error) return { ok: false, error: result.error };
   return { ok: true, message: `Marked ${result.rejected} polluted items as rejected.` };

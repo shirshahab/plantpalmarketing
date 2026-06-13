@@ -14,6 +14,10 @@ export interface SavedIntelligenceAlert {
   createdAt: string;
   classificationReason: string | null;
   body: string;
+  detectedKeywords: string[];
+  relevanceScore: number;
+  relevanceReason: string;
+  recommendedAction: string;
 }
 
 export interface SavedAlertFilters {
@@ -24,19 +28,32 @@ export interface SavedAlertFilters {
 }
 
 function mapRow(row: Record<string, unknown>): SavedIntelligenceAlert {
+  const classification = row.classification ? String(row.classification) : null;
+  const keywords = Array.isArray(row.detected_keywords)
+    ? (row.detected_keywords as string[])
+    : [];
+  const score = Number(row.relevance_score ?? 0);
+  let recommendedAction = "Send to Bloom for concept transformation";
+  if (classification === "seo_topic") recommendedAction = "Send to SEO";
+  if (classification === "community_opportunity") recommendedAction = "Draft Reply or Send to Bloom";
+
   return {
     id: String(row.id),
     title: String(row.title ?? ""),
     source: String(row.source ?? ""),
     subreddit: String(row.subreddit ?? ""),
     url: String(row.url ?? ""),
-    classification: row.classification ? String(row.classification) : null,
+    classification,
     priority: row.priority ? String(row.priority) : null,
     assignedAgent: row.assigned_agent ? String(row.assigned_agent) : null,
     status: String(row.status ?? "new"),
     createdAt: String(row.created_at),
     classificationReason: row.classification_reason ? String(row.classification_reason) : null,
     body: String(row.body ?? ""),
+    detectedKeywords: keywords,
+    relevanceScore: score,
+    relevanceReason: String(row.relevance_reason ?? row.classification_reason ?? ""),
+    recommendedAction,
   };
 }
 

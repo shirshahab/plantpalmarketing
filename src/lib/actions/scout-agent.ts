@@ -14,6 +14,13 @@ export type ScoutRunActionResult =
       approvalQueueCount: number;
       duplicatesSkipped?: number;
       leadsAdded?: number;
+      diagnostics?: {
+        serpApiKeySet: boolean;
+        queriesRan: number;
+        resultsReturned: number;
+        duplicatesSkipped: number;
+        failureReason?: string;
+      };
     }
   | { ok: false; error: string };
 
@@ -21,6 +28,19 @@ export async function runScoutDiscovery(): Promise<ScoutRunActionResult> {
   try {
     const result = await runScoutAgent();
     await revalidateDashboard();
+    if (result.leadsAdded === 0 && result.diagnostics.failureReason) {
+      return {
+        ok: true,
+        ...result,
+        diagnostics: {
+          serpApiKeySet: result.diagnostics.serpApiKeySet,
+          queriesRan: result.diagnostics.queriesRan,
+          resultsReturned: result.diagnostics.resultsReturned,
+          duplicatesSkipped: result.diagnostics.duplicatesSkipped,
+          failureReason: result.diagnostics.failureReason,
+        },
+      };
+    }
     return { ok: true, ...result };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Scout agent failed" };

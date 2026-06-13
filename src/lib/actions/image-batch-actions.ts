@@ -11,7 +11,8 @@ import {
 import { enqueueImageFromCleanConcept } from "@/lib/pipeline/creative-enqueue";
 import { CREATIVE_REJECTION_MESSAGE } from "@/lib/content/creative-rejection-log";
 import {
-  isPollutedCreativeTitle,
+  CREATIVE_CLEANUP_REJECTION,
+  isBadCreativeQueueRow,
   isVisibleCreativeQueueItem,
   type CreativeQueueMetadata,
 } from "@/lib/content/creative-routing-guard";
@@ -285,10 +286,12 @@ export async function cleanupBadImagePrompts(): Promise<{ rejected: number; erro
       const meta = (r.metadata ?? {}) as CreativeQueueMetadata;
       const table = String(r.source_table ?? "").toLowerCase();
 
-      const isBad =
-        isPollutedCreativeTitle(title) ||
-        table === "intelligence_alerts" ||
-        (!meta.image_ready && !meta.approved_for_creative && (table === "" || isPollutedCreativeTitle(title)));
+      const isBad = isBadCreativeQueueRow(
+        "image",
+        title,
+        table,
+        meta
+      );
 
       if (!isBad) continue;
 
@@ -296,7 +299,7 @@ export async function cleanupBadImagePrompts(): Promise<{ rejected: number; erro
         .from("image_prompts")
         .update({
           status: "rejected",
-          metadata: { ...meta, rejected_reason: CREATIVE_REJECTION_MESSAGE },
+          metadata: { ...meta, rejected_reason: CREATIVE_CLEANUP_REJECTION },
           updated_at: new Date().toISOString(),
         })
         .eq("id", String(r.id));
@@ -308,4 +311,12 @@ export async function cleanupBadImagePrompts(): Promise<{ rejected: number; erro
   } catch (e) {
     return { rejected: 0, error: e instanceof Error ? e.message : "Cleanup failed" };
   }
+}
+
+export async function cleanupBadImagePromptsAction(): Promise<ActionResult> {
+  const result = await cleanupBadImagePrompts();
+  revalidatePath("/images");
+  revalidatePath("/system-health");
+  if (result.error) return { ok: false, error: result.error };
+  return { ok: true, message: `Marked ${result.rejected} bad image prompts as rejected.` };
 }

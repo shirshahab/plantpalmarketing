@@ -23,6 +23,7 @@ interface Props {
     published: number;
     backlinks: number;
   };
+  lastFactoryRun?: { at: string | null; rowsCreated: number; error: string | null };
 }
 
 const KEYWORD_STATUS_STYLE: Record<string, string> = {
@@ -67,7 +68,7 @@ function TopicForm({ onMessage }: { onMessage: (m: string) => void }) {
   );
 }
 
-export function SeoKeywordPanel({ keywords, posts, logs, topics = [], clusters = [], rankRows = [], stats }: Props) {
+export function SeoKeywordPanel({ keywords, posts, logs, topics = [], clusters = [], rankRows = [], stats, lastFactoryRun }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -112,9 +113,16 @@ export function SeoKeywordPanel({ keywords, posts, logs, topics = [], clusters =
     setMessage(`SEO Factory running — drafting up to ${count} posts. This takes a while...`);
     startTransition(async () => {
       const result = await runSeoFactoryBatch(count);
-      setMessage(result.ok ? (result.message ?? "Factory done") : result.error);
+      if (result.ok) {
+        setMessage(
+          result.message ??
+            `Created ${(result as { rowsCreated?: number }).rowsCreated ?? count} drafts. Counters updated below.`
+        );
+        router.refresh();
+      } else {
+        setMessage(result.error);
+      }
       setBusyId(null);
-      if (result.ok) router.refresh();
     });
   }
 
@@ -160,6 +168,12 @@ export function SeoKeywordPanel({ keywords, posts, logs, topics = [], clusters =
               <p className="mt-0.5 text-xs text-brand-muted">
                 Batch-draft from the keyword queue. Target: 5-10 voice-checked drafts a day. Gate still approves everything.
               </p>
+              {lastFactoryRun?.at && (
+                <p className="mt-1 text-xs text-brand-muted">
+                  Last run: {new Date(lastFactoryRun.at).toLocaleString()} · Rows created: {lastFactoryRun.rowsCreated}
+                  {lastFactoryRun.error ? ` · Error: ${lastFactoryRun.error}` : ""}
+                </p>
+              )}
             </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={() => handleFactory(5)} disabled={pending}>

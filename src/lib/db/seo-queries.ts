@@ -297,14 +297,45 @@ export async function getSeoExportPageData() {
   };
 }
 
+export async function getLastSeoFactoryRun(): Promise<{
+  at: string | null;
+  rowsCreated: number;
+  error: string | null;
+}> {
+  try {
+    const supabase = createServerClient();
+    const { data } = await supabase
+      .from("agent_activity_log")
+      .select("*")
+      .eq("action", "seo_factory_batch")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!data) return { at: null, rowsCreated: 0, error: null };
+    const row = data as Record<string, unknown>;
+    const meta = (row.metadata && typeof row.metadata === "object" ? row.metadata : {}) as Record<string, unknown>;
+    const drafted = Number(meta.drafted ?? 0);
+    const detail = String(row.detail ?? "");
+    const failed = detail.includes("failed") && drafted === 0;
+    return {
+      at: String(row.created_at ?? ""),
+      rowsCreated: drafted,
+      error: failed ? detail : null,
+    };
+  } catch {
+    return { at: null, rowsCreated: 0, error: null };
+  }
+}
+
 export async function getSeoPageData() {
-  const [keywords, posts, logs, topics, clusters, rankRows] = await Promise.all([
+  const [keywords, posts, logs, topics, clusters, rankRows, lastFactoryRun] = await Promise.all([
     getSeoKeywords(),
     getSeoBlogPosts(),
     getSeoPublishLogs(),
     getSeoTopics(),
     getSeoClusters(),
     getSeoRankTracking(),
+    getLastSeoFactoryRun(),
   ]);
   const published = posts.filter((p) => p.status === "published");
   return {
@@ -323,5 +354,6 @@ export async function getSeoPageData() {
       backlinks: published.reduce((sum, p) => sum + p.backlinks.length, 0),
     },
     cmsConfigured: Boolean(process.env.BLOG_CMS_WEBHOOK_URL?.trim()),
+    lastFactoryRun,
   };
 }

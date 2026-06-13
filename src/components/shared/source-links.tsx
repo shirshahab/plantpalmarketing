@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Copy, ExternalLink, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { shouldShowDemoData } from "@/lib/demo/shouldShowDemoData";
 import { formatDate } from "@/lib/utils";
 
 /**
@@ -46,7 +47,7 @@ export function SourceLinks({
   compact?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
-  const isDemo = (!sourceUrl && dataSource !== "f5bot") || dataSource === "demo" || dataSource === "seed";
+  const isDemo = shouldShowDemoData() && (dataSource === "demo" || dataSource === "seed");
   const engagementEntries = Object.entries(engagement ?? {}).filter(
     ([, value]) => typeof value === "number" && value > 0
   );

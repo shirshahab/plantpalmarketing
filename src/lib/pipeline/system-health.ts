@@ -1,6 +1,9 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/integrations/db-safe";
 import { getCreativeRoutingHealth } from "@/lib/pipeline/creative-routing-health";
+import { auditDemoContent } from "@/lib/pipeline/demo-audit";
+import { getContentRouterData } from "@/lib/pipeline/content-router-queries";
+import { getLastSeoFactoryRun } from "@/lib/db/seo-queries";
 
 export type PipelineHealth = "healthy" | "stalled" | "broken";
 
@@ -61,6 +64,44 @@ function healthFrom(waiting: number, tableMissing: boolean, lastStatus: string |
   return "healthy";
 }
 
+async function lastAgentRun(agentId: string): Promise<{ at: string | null; status: string | null; error: string | null }> {
+  try {
+    const supabase = createServerClient();
+    const { data } = await supabase
+      .from("agent_runs")
+      .select("*")
+      .eq("agent_id", agentId)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!data) return { at: null, status: null, error: null };
+    const row = data as Record<string, unknown>;
+    return {
+      at: String(row.completed_at ?? row.started_at ?? ""),
+      status: String(row.status ?? ""),
+      error: String(row.error_message ?? ""),
+    };
+  } catch {
+    return { at: null, status: null, error: null };
+  }
+}
+
+async function countInboxMissingSourceUrl(): Promise<number> {
+  try {
+    const supabase = createServerClient();
+    const { count, error } = await supabase
+      .from("intelligence_alerts")
+      .select("*", { count: "exact", head: true })
+      .eq("priority", "high")
+      .neq("status", "archived")
+      .or("url.is.null,url.eq.");
+    if (error) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function getSystemPipelineHealth(): Promise<SystemPipelineStatus[]> {
   const [
     ideasWaiting,
@@ -73,6 +114,12 @@ export async function getSystemPipelineHealth(): Promise<SystemPipelineStatus[]>
     trendCount,
     f5Run,
     creativeRouting,
+    demoAudit,
+    contentRouter,
+    inboxMissingUrl,
+    lastScoutRun,
+    blogPostCount,
+    lastSeoFactory,
   ] = await Promise.all([
     countTable("creative_content_ideas", [{ column: "status", op: "eq", value: "pending" }]),
     countTable("content_pipeline", [
@@ -87,6 +134,12 @@ export async function getSystemPipelineHealth(): Promise<SystemPipelineStatus[]>
     countTable("intelligence_alerts", [{ column: "status", op: "neq", value: "archived" }]),
     lastRun("intelligence_runs"),
     getCreativeRoutingHealth(),
+    auditDemoContent(),
+    getContentRouterData(),
+    countInboxMissingSourceUrl(),
+    lastAgentRun("scout"),
+    countTable("seo_blog_posts", [{ column: "status", op: "in", value: ["draft", "gate_review", "pending_review"] }]),
+    getLastSeoFactoryRun(),
   ]);
 
   return [
@@ -180,5 +233,70 @@ export async function getSystemPipelineHealth(): Promise<SystemPipelineStatus[]>
       lastFailure: creativeRouting.status === "broken" ? new Date().toISOString() : null,
       failureReason: creativeRouting.status === "broken" ? creativeRouting.message : null,
     },
+    {
+      id: "demo-audit",
+      label: "Demo Content Audit",
+      flow: "Production must not show DEMO/MOCK/SAMPLE rows",
+      status: demoAudit.total === 0 ? "healthy" : "broken",
+      waiting: demoAudit.total,
+      lastSuccess: demoAudit.total === 0 ? new Date().toISOString() : null,
+      lastFailure: demoAudit.total > 0 ? new Date().toISOString() : null,
+      failureReason: demoAudit.total > 0 ? demoAudit.message : null,
+    },
+    {
+      id: "seo-pipeline",
+      label: "SEO Pipeline",
+      flow: "Draft 5 must create seo_blog_posts rows",
+      status:
+        lastSeoFactory.error || (lastSeoFactory.at && lastSeoFactory.rowsCreated === 0)
+          ? "broken"
+          : blogPostCount === 0
+            ? "stalled"
+            : "healthy",
+      waiting: blogPostCount,
+      lastSuccess: lastSeoFactory.at && lastSeoFactory.rowsCreated > 0 ? lastSeoFactory.at : null,
+      lastFailure: lastSeoFactory.error ? lastSeoFactory.at : null,
+      failureReason: lastSeoFactory.error ?? (blogPostCount === 0 ? "No blog drafts in pipeline yet" : null),
+    },
+    {
+      id: "content-router",
+      label: "Content Pipeline",
+      flow: "Bloom-approved concepts staged for creative routing",
+      status: contentRouter.totalWaiting === 0 && bloomWaiting > 0 ? "stalled" : "healthy",
+      waiting: contentRouter.totalWaiting,
+      lastSuccess: contentRouter.totalWaiting > 0 ? new Date().toISOString() : null,
+      lastFailure: null,
+      failureReason:
+        contentRouter.totalWaiting === 0 && bloomWaiting > 0
+          ? "Approved items exist but Content Router is empty"
+          : contentRouter.totalWaiting === 0
+            ? "No approved Bloom concepts staged"
+            : null,
+    },
+    {
+      id: "founder-inbox-links",
+      label: "Founder Inbox Source Links",
+      flow: "External intelligence items must include source URLs",
+      status: inboxMissingUrl > 0 ? "stalled" : "healthy",
+      waiting: inboxMissingUrl,
+      lastSuccess: inboxMissingUrl === 0 ? new Date().toISOString() : null,
+      lastFailure: null,
+      failureReason: inboxMissingUrl > 0 ? `${inboxMissingUrl} high-priority alerts missing source_url` : null,
+    },
+    {
+      id: "scout-discovery",
+      label: "Scout Discovery",
+      flow: "Creator search via SerpAPI with logged diagnostics",
+      status: lastScoutRun.status === "failed" ? "broken" : "healthy",
+      waiting: 0,
+      lastSuccess: lastScoutRun.status === "success" ? lastScoutRun.at : null,
+      lastFailure: lastScoutRun.status === "failed" ? lastScoutRun.at : null,
+      failureReason: lastScoutRun.error || null,
+    },
   ];
+}
+
+export async function getDemoAuditCount(): Promise<number> {
+  const audit = await auditDemoContent();
+  return audit.total;
 }

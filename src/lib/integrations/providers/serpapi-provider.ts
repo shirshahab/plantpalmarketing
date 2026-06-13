@@ -70,9 +70,45 @@ export async function discoverGardeningTrends(agentId?: string): Promise<string[
   return results.map((r) => r.title).filter(Boolean);
 }
 
-export async function discoverCreatorsViaSearch(agentId?: string): Promise<SerpSearchResult[]> {
+export async function discoverCreatorsViaSearch(agentId?: string, query?: string): Promise<SerpSearchResult[]> {
   if (!isSerpApiConfigured()) return [];
-  return searchGoogle("site:x.com plant parent influencer gardening", agentId);
+  return searchGoogle(query ?? "site:x.com plant parent influencer gardening", agentId);
+}
+
+export const SCOUT_CREATOR_QUERIES = [
+  "plant creators instagram",
+  "houseplant influencers",
+  "gardening YouTube channels",
+  "plant care TikTok creators",
+  "plant Instagram creators",
+  "nursery influencers gardening",
+  "plant bloggers",
+  "plant podcasts gardening",
+];
+
+export async function discoverCreatorsMultiQuery(agentId = "scout"): Promise<{
+  results: SerpSearchResult[];
+  queriesRun: number;
+  serpApiConfigured: boolean;
+}> {
+  if (!isSerpApiConfigured()) {
+    return { results: [], queriesRun: 0, serpApiConfigured: false };
+  }
+
+  const seen = new Set<string>();
+  const results: SerpSearchResult[] = [];
+
+  for (const query of SCOUT_CREATOR_QUERIES) {
+    const hits = await searchGoogle(query, agentId).catch(() => []);
+    for (const hit of hits) {
+      const key = hit.link.toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      results.push({ ...hit, snippet: hit.snippet || query });
+    }
+  }
+
+  return { results, queriesRun: SCOUT_CREATOR_QUERIES.length, serpApiConfigured: true };
 }
 
 export async function discoverCompetitorNews(competitor: string, agentId?: string): Promise<SerpSearchResult[]> {

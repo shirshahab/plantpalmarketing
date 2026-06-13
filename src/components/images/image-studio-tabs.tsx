@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import {
   generateImageFromBloomAction,
   generateImageFromSeoAction,
   generateImageFromTrendsAction,
+  cleanupBadImagePromptsAction,
 } from "@/lib/actions/image-batch-actions";
 
 type ImageTab = "pending" | "approved" | "rejected" | "scheduled";
@@ -35,6 +36,7 @@ export function ImageStudioTabs({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
+  const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
 
   function setTab(tab: ImageTab) {
     const params = new URLSearchParams(searchParams.toString());
@@ -83,8 +85,24 @@ export function ImageStudioTabs({
             <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(generateImageFromSeoAction)}>
               From SEO
             </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={pending}
+              onClick={() => {
+                setCleanupMessage(null);
+                startTransition(async () => {
+                  const result = await cleanupBadImagePromptsAction();
+                  setCleanupMessage(result.ok ? (result.message ?? "Cleaned") : result.error ?? "Failed");
+                  router.refresh();
+                });
+              }}
+            >
+              Clean Bad Image Prompts
+            </Button>
           </div>
         </div>
+        {cleanupMessage && <p className="mt-2 text-xs text-brand-primary">{cleanupMessage}</p>}
       </div>
 
       <div className="flex flex-wrap gap-2 border-b border-brand-border pb-3">

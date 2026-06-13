@@ -33,6 +33,7 @@ export function CreatorCRMPanel({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [ranToday, setRanToday] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<string>(initialPriority ?? "all");
 
   const leads =
@@ -43,10 +44,17 @@ export function CreatorCRMPanel({
   function handleRunScout() {
     startTransition(async () => {
       const res = await runScoutDiscovery();
+      setRanToday(true);
       if (res.ok) {
-        setMessage(
-          `Scout discovery complete. Creators found: ${res.creatorsFound}. Duplicates skipped: ${res.duplicatesSkipped ?? 0}. Leads added: ${res.leadsAdded ?? res.creatorsFound}. High priority: ${res.highPriority}.`
-        );
+        const diag = res.diagnostics;
+        const base = `Creators found: ${res.creatorsFound}. Leads added: ${res.leadsAdded ?? res.creatorsFound}. Duplicates skipped: ${res.duplicatesSkipped ?? 0}.`;
+        if (diag?.failureReason && (res.leadsAdded ?? 0) === 0) {
+          setMessage(`${base} ${diag.failureReason}`);
+        } else if (diag && !diag.serpApiKeySet) {
+          setMessage("Scout cannot run: SERPAPI_KEY not configured.");
+        } else {
+          setMessage(`${base} High priority: ${res.highPriority}.`);
+        }
         router.refresh();
       } else {
         setMessage(res.error);
@@ -73,7 +81,7 @@ export function CreatorCRMPanel({
           </Button>
         </div>
         {message && <p className="mt-3 break-words text-sm text-brand-primary">{message}</p>}
-        {stats.scoutRunToday === false && (
+        {stats.scoutRunToday === false && !ranToday && (
           <p className="mt-2 text-xs text-amber-700">Scout has not run today.</p>
         )}
       </div>
@@ -120,9 +128,12 @@ export function CreatorCRMPanel({
       </div>
 
       {leads.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-brand-border py-12 text-center text-sm text-brand-muted">
-          No leads yet. Click Run Scout Discovery to find creators.
-        </p>
+        <div className="rounded-2xl border border-dashed border-brand-border py-12 text-center">
+          <p className="text-sm text-brand-muted">
+            No creator leads yet. Run Scout to search plant creators on YouTube, TikTok, Instagram, and blogs.
+          </p>
+          <p className="mt-2 text-xs text-brand-muted">Requires SERPAPI_KEY. Results appear here or show a clear diagnostic.</p>
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-brand-border bg-white shadow-sm">
           <table className="w-full min-w-[1000px] text-left text-sm">

@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { ImageIcon } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Button } from "@/components/ui/button";
 import { ConfigBanner } from "@/components/ui/config-banner";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { ImageStudioTabs } from "@/components/images/image-studio-tabs";
@@ -75,7 +77,14 @@ export default async function ImagePromptsPage({
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon={ImageIcon} title={`No ${activeTab} image concepts`} description="Send approved ideas from Bloom, SEO, or Trends. Raw F5Bot/Reddit never enters Image Studio directly." />
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-brand-border bg-brand-bg/50 px-6 py-16 text-center">
+          <EmptyState icon={ImageIcon} title={`No ${activeTab} image concepts`} description="No approved Bloom concepts yet. Approve an item from Founder Inbox or run Daily Engine." />
+          <div className="-mt-8 flex flex-wrap justify-center gap-2 pb-8">
+            <Link href="/inbox"><Button size="sm" variant="secondary">Open Founder Inbox</Button></Link>
+            <Link href="/bloom"><Button size="sm" variant="secondary">Open Bloom</Button></Link>
+            <Link href="/"><Button size="sm" variant="secondary">HQ / Daily Engine</Button></Link>
+          </div>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {filtered.map((prompt) => {
