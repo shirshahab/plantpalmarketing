@@ -22,6 +22,8 @@ import {
 import { HQWorldControls } from "@/components/hq/living/hq-world-controls";
 import { useWorldTime } from "@/components/hq/living/use-world-time";
 import { useHQWeather } from "@/components/hq/living/use-hq-weather";
+import { HQNeedsAttentionPopover } from "@/components/hq/world/hq-needs-attention-popover";
+import type { FounderAttentionItem } from "@/lib/workflow/types";
 import type { ActivityItem, AgentId, HQAgent } from "@/lib/hq/types";
 import type { HQWeatherState } from "@/lib/hq/hq-weather";
 import type { WorkflowChoreography } from "@/lib/hq/activity-to-choreography";
@@ -49,6 +51,7 @@ export function HQVillageWorld({
   onDailyReportGenerated,
   collaborationStats,
   agentScheduleHealth = [],
+  founderAttentionItems = [],
 }: {
   agents: HQAgent[];
   activity: ActivityItem[];
@@ -63,6 +66,7 @@ export function HQVillageWorld({
   onDailyReportGenerated?: () => void;
   collaborationStats?: { unreadMessages: number; activeTasks: number };
   agentScheduleHealth?: HQAgentScheduleHealth[];
+  founderAttentionItems?: FounderAttentionItem[];
 }) {
   const viewport = useWorldViewport();
   const worldTime = useWorldTime();
@@ -91,10 +95,7 @@ export function HQVillageWorld({
     return map;
   }, [activity]);
 
-  const totalPending = useMemo(
-    () => activity.filter((a) => a.status === "pending").length,
-    [activity]
-  );
+  const totalPending = founderAttentionItems.length;
 
   const selectedBuilding = selectedBuildingId ? getBuilding(selectedBuildingId) : null;
   const panelAgent = selectedBuilding?.agentId
@@ -120,11 +121,7 @@ export function HQVillageWorld({
               {collaborationStats.unreadMessages} msgs
             </span>
           )}
-          {totalPending > 0 && (
-            <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-amber-950">
-              {totalPending} need you
-            </span>
-          )}
+          {totalPending > 0 && <HQNeedsAttentionPopover items={founderAttentionItems} />}
           {onDailyReportGenerated && (
             <DailyReportGenerateButton onGenerated={onDailyReportGenerated} />
           )}

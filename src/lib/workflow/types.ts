@@ -118,6 +118,18 @@ export type InboxSection =
   | "videos"
   | "replies"
   | "calendar"
+  | "intelligence"
+  | "seo"
+  | "creators";
+
+export type InboxTab =
+  | "all"
+  | "replies"
+  | "ideas"
+  | "videos"
+  | "images"
+  | "seo"
+  | "creators"
   | "intelligence";
 
 export interface InboxItem {
@@ -137,6 +149,26 @@ export interface InboxItem {
   whyAct?: string;
   ifApproved?: string;
   ifRejected?: string;
+  sourceUrl?: string;
+  sourceBody?: string;
+  sourcePlatform?: string;
+  subreddit?: string;
+  recommendedAction?: string;
+  matchedKeywords?: string[];
+  priority?: string;
+  classification?: string;
+  nextAction?: string;
+}
+
+export interface FounderAttentionItem {
+  id: string;
+  title: string;
+  type: string;
+  priority: string;
+  owner: string;
+  nextAction: string;
+  href: string;
+  section: InboxSection;
 }
 
 /** Asset/video statuses that belong in Creative Department (production + review). */

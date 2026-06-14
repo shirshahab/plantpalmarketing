@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { WorkflowStageBadge } from "@/components/workflow/workflow-stage-badge";
 import { SourceLinks } from "@/components/shared/source-links";
+import { DraftReplyModal, type DraftReplyTarget } from "@/components/inbox/draft-reply-modal";
 import { formatDate } from "@/lib/utils";
+import { suggestPlantPalReply } from "@/lib/inbox/suggest-reply";
 import {
   archiveIntelligenceAlertAction,
   rejectIntelligenceAlertAction,
@@ -45,6 +47,7 @@ export function LiveIntelligenceSection({ alerts }: { alerts: SavedIntelligenceA
 function LiveIntelligenceCard({ alert }: { alert: SavedIntelligenceAlert }) {
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<{ message: string; destination?: string } | null>(null);
+  const [draftTarget, setDraftTarget] = useState<DraftReplyTarget | null>(null);
 
   function run(action: () => Promise<{ ok: boolean; error?: string; message?: string; destination?: string }>) {
     startTransition(async () => {
@@ -120,13 +123,29 @@ function LiveIntelligenceCard({ alert }: { alert: SavedIntelligenceAlert }) {
             </span>
           )}
           {isCommunity && alert.url && (
-            <Link
-              href={`/intelligence/reddit?alert=${alert.id}`}
+            <button
+              type="button"
+              onClick={() =>
+                setDraftTarget({
+                  sourceType: "intelligence_alerts",
+                  sourceId: alert.id,
+                  sourceUrl: alert.url,
+                  sourceTitle: alert.title,
+                  sourceBody: alert.body,
+                  platform: alert.source || "reddit",
+                  subreddit: alert.subreddit || undefined,
+                  suggestedReply: suggestPlantPalReply({
+                    title: alert.title,
+                    body: alert.body,
+                    subreddit: alert.subreddit,
+                  }),
+                })
+              }
               className="inline-flex items-center gap-1 rounded-lg border border-brand-border px-2 py-1 text-[11px] font-medium text-brand-primary hover:bg-brand-bg"
             >
               <MessageSquare className="h-3 w-3" />
               Draft Reply
-            </Link>
+            </button>
           )}
           {isSeo ? (
             <Link
@@ -179,6 +198,8 @@ function LiveIntelligenceCard({ alert }: { alert: SavedIntelligenceAlert }) {
             )}
           </div>
         )}
+
+        <DraftReplyModal target={draftTarget} onClose={() => setDraftTarget(null)} />
       </CardContent>
     </Card>
   );

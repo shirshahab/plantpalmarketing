@@ -4,6 +4,7 @@ import { getCreativeRoutingHealth } from "@/lib/pipeline/creative-routing-health
 import { auditDemoContent } from "@/lib/pipeline/demo-audit";
 import { getContentRouterData } from "@/lib/pipeline/content-router-queries";
 import { getLastSeoFactoryRun } from "@/lib/db/seo-queries";
+import { getActionLinkAudit } from "@/lib/pipeline/action-link-audit";
 
 export type PipelineHealth = "healthy" | "stalled" | "broken";
 
@@ -120,6 +121,7 @@ export async function getSystemPipelineHealth(): Promise<SystemPipelineStatus[]>
     lastScoutRun,
     blogPostCount,
     lastSeoFactory,
+    actionLinkAudit,
   ] = await Promise.all([
     countTable("creative_content_ideas", [{ column: "status", op: "eq", value: "pending" }]),
     countTable("content_pipeline", [
@@ -140,6 +142,7 @@ export async function getSystemPipelineHealth(): Promise<SystemPipelineStatus[]>
     lastAgentRun("scout"),
     countTable("seo_blog_posts", [{ column: "status", op: "in", value: ["draft", "gate_review", "pending_review"] }]),
     getLastSeoFactoryRun(),
+    getActionLinkAudit(),
   ]);
 
   return [
@@ -293,6 +296,7 @@ export async function getSystemPipelineHealth(): Promise<SystemPipelineStatus[]>
       lastFailure: lastScoutRun.status === "failed" ? lastScoutRun.at : null,
       failureReason: lastScoutRun.error || null,
     },
+    actionLinkAudit,
   ];
 }
 

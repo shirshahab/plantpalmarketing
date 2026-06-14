@@ -151,6 +151,14 @@ export function inboxOutcome(
       approve: { label: "Draft reply", detail: "Roots drafts reply → Moss → Sage → Gate → Reply Queue" },
       reject: { label: "If ignored", detail: "Alert archived. No action taken." },
     },
+    seo: {
+      approve: { label: "If approved", detail: "Moves to publish pipeline" },
+      reject: { label: "If rejected", detail: "Back to Bloom for revision" },
+    },
+    creators: {
+      approve: { label: "If approved", detail: "Oak prepares partnership outreach — founder approval still required" },
+      reject: { label: "If rejected", detail: "Lead archived" },
+    },
   };
   return map[section]?.[decision] ?? { label: decision === "approve" ? "If approved" : "If rejected", detail: "See workflow history" };
 }

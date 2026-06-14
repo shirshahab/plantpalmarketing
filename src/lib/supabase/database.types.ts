@@ -288,6 +288,11 @@ export interface Database {
           original_post: string;
           draft: string;
           status: string;
+          source_type: string;
+          source_id: string | null;
+          suggested_reply: string;
+          edited_reply: string;
+          subreddit: string;
           created_at: string;
           updated_at: string;
         } & SourceColumns,
@@ -297,6 +302,11 @@ export interface Database {
           original_post?: string;
           draft?: string;
           status?: string;
+          source_type?: string;
+          source_id?: string | null;
+          suggested_reply?: string;
+          edited_reply?: string;
+          subreddit?: string;
           created_at?: string;
           updated_at?: string;
         } & SourceColumns,
@@ -306,6 +316,11 @@ export interface Database {
           original_post?: string;
           draft?: string;
           status?: string;
+          source_type?: string;
+          source_id?: string | null;
+          suggested_reply?: string;
+          edited_reply?: string;
+          subreddit?: string;
           created_at?: string;
           updated_at?: string;
         } & SourceColumns

@@ -20,6 +20,7 @@ import type { ActivityItem, AgentId, HQAgent } from "@/lib/hq/types";
 import type { HQWeatherState } from "@/lib/hq/hq-weather";
 import { buildWeatherWorkflows, mergeWeatherActivity } from "@/lib/hq/weather-activity";
 import type { HQAgentScheduleHealth } from "@/lib/agent-worker/types";
+import type { FounderAttentionItem } from "@/lib/workflow/types";
 import type {
   AgentDecision,
   AgentMemory,
@@ -47,6 +48,7 @@ export function PlantPalHQ({
   liveDataAvailable = true,
   agentScheduleHealth = [],
   internetPulse = null,
+  founderAttentionItems = [],
 }: {
   initialAgents: HQAgent[];
   initialActivity: ActivityItem[];
@@ -60,6 +62,7 @@ export function PlantPalHQ({
   liveDataAvailable?: boolean;
   agentScheduleHealth?: HQAgentScheduleHealth[];
   internetPulse?: InternetPulseDashboard | null;
+  founderAttentionItems?: FounderAttentionItem[];
 }) {
   const router = useRouter();
   const [agents] = useState<HQAgent[]>(initialAgents);
@@ -266,6 +269,7 @@ export function PlantPalHQ({
             onDailyReportGenerated={handleDailyReportGenerated}
             collaborationStats={collaborationStats}
             agentScheduleHealth={agentScheduleHealth}
+            founderAttentionItems={founderAttentionItems}
           />
         </div>
       ) : (
